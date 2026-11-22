@@ -149,19 +149,25 @@ def read_package(blob):
         with zipfile.ZipFile(io.BytesIO(blob)) as z:
             man = json.loads(z.read("manifest.json").decode("utf-8"))
             app = z.read("app.bin")
+            cabs = z.read("cabs.bin") if "cabs.bin" in z.namelist() else None
     except Exception:
         raise ValueError("fichier .tbbr illisible")
     if man.get("format") != 1 or hashlib.sha256(app).hexdigest() != man.get("sha256") or len(app) != man.get("size"):
         raise ValueError("paquet corrompu (SHA-256 ou taille)")
+    if cabs is not None and hashlib.sha256(cabs).hexdigest() != man.get("cabs_sha256"):
+        raise ValueError("cabs d'usine corrompus (SHA-256)")
     m = _re.search(rb"TBBR fw\d+ \d+\.\d+", app)
     if not m or m.group().decode() != man.get("fw"):
         raise ValueError("ce n'est pas un firmware TBBR")
     if len(app) > 0x5BEE0:
         raise ValueError("firmware trop gros pour la zone application")
-    return man["fw"], app
+    return man["fw"], app, cabs
 
 
-def build_image(backup_dir, app=None):
+CABS_BIN = resource("cabs.bin")                                       # cabs d'usine (IR) inclus dans l'installateur
+
+
+def build_image(backup_dir, app=None, cabs=None):
     backup = Path(backup_dir) / BACKUP_FILE
     data = backup.read_bytes()
     if len(data) != FLASH_SIZE:
@@ -172,6 +178,10 @@ def build_image(backup_dir, app=None):
     app += b"\0" * (-len(app) % 32)
     print("Construction de l'image à partir de la sauvegarde…")
     img, end = mkfw.build(data, app)
+    cabs = cabs or (CABS_BIN.read_bytes() if CABS_BIN.exists() else None)
+    if cabs:
+        img = mkfw.place_cabs(img, cabs)
+        print("Cabs d'usine (IR) inclus.")
     print(f"Application TBBR : {len(app)} o, zone utile jusqu'à {APP_BASE + end:#x}.")
     tmp = Path(tempfile.gettempdir()) / "tbbr_fw_flash_1MiB.bin"
     tmp.write_bytes(img)
@@ -982,10 +992,10 @@ class WebApp:
         if self.busy:
             return {"error": self.tr("Opération en cours.", "Operation in progress.")}
         try:
-            fw, app = read_package(blob)
+            fw, app, cabs = read_package(blob)
         except ValueError as e:
             return {"error": self.tr("Paquet refusé : ", "Package rejected: ") + str(e)}
-        self.pkg = {"fw": fw, "name": Path(name or "firmware.tbbr").name, "app": app}
+        self.pkg = {"fw": fw, "name": Path(name or "firmware.tbbr").name, "app": app, "cabs": cabs}
         self.add_log(f"\nPaquet chargé : {self.pkg['name']} ({fw}, {len(app)} o, sha256 {hashlib.sha256(app).hexdigest()[:16]})\n")
         return {"ok": True, "fw": fw}
 
@@ -1058,7 +1068,7 @@ class WebApp:
 
         def task():
             self.phase("uboot"); enter_uboot()
-            self.phase("build"); img, _ = build_image(bk, pkg["app"] if pkg else None)
+            self.phase("build"); img, _ = build_image(bk, pkg["app"] if pkg else None, pkg.get("cabs") if pkg else None)
             enter_uboot()
             self.phase("write", 0); bb_tool.flash_app(str(img), str(bk / BACKUP_FILE), keep_storage=True)
             self.phase("reboot"); bb_tool.reboot()
@@ -1365,7 +1375,7 @@ def cli_self_test(backup_dir=None):
     p("Installateur TBBR " + APP_VERSION)
     p("firmware inclus : " + str(embedded_fw()))
     for name, path in (("wl82loader.bin", Path(bb_tool.LOADER)), ("reboot.bin", Path(bb_tool.REBOOT)), ("app.bin", APP_BIN),
-                       ("ui/index.html", UI_DIR / "index.html"), ("ui/fonts/Inter-700.ttf", UI_DIR / "fonts" / "Inter-700.ttf")):
+                       ("cabs.bin", CABS_BIN), ("ui/index.html", UI_DIR / "index.html"), ("ui/fonts/Inter-700.ttf", UI_DIR / "fonts" / "Inter-700.ttf")):
         p(f"{name}: {'OK' if path.exists() else 'ABSENT'} {path} {path.stat().st_size if path.exists() else 0} o")
         if not path.exists():
             return 1

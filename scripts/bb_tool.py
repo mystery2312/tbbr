@@ -209,9 +209,11 @@ class Loader:   # UBOOT1.00 + LoaderV2, sous-ensemble LECTURE (plus mem_write/ju
 # Restauration complète : [0x4000, 0x100000), pour remettre aussi VM / BTIF / USR d'origine.
 # Jamais le SPL [0, 0x4000).
 FLASH_W_LO, FLASH_W_HI = 0x4000, 0xA7000
+CAB_LO, CAB_HI = 0xF3000, 0xFF000          # cabs d'usine (IR) du firmware TBBR : seule zone autorisée au-delà de 0xA7000
 def _flash_guard(addr, n, full=False):
     hi = FLASH_SIZE if full else FLASH_W_HI
-    if addr < FLASH_W_LO or addr + n > hi:
+    if CAB_LO <= addr and addr + n <= CAB_HI: pass
+    elif addr < FLASH_W_LO or addr + n > hi:
         raise SystemExit(f"REFUS : écriture/effacement hors zone autorisée ({addr:#x}+{n:#x})")
     if n == 0x1000 and addr % 0x1000:
         raise SystemExit(f"REFUS : effacement non aligné sur 4 Ko ({addr:#x})")
@@ -404,7 +406,11 @@ def flash_app(img_path, ref_path, keep_storage=True, full=False):
         cur = rd(FLASH_W_LO, hi - FLASH_W_LO)
         todo = [s for s in range(FLASH_W_LO, hi, 0x1000)
                 if cur[s - FLASH_W_LO:s - FLASH_W_LO + 0x1000] != img[s:s + 0x1000]]
-        if keep_storage and not full: print(f"zone de stockage [{STORE_LO:#x}, {FLASH_W_HI:#x}) conservée (--tout pour l'écrire aussi)")
+        cabs = not full and mkfw.has_cabs(img)                    # l'image porte les cabs d'usine : zone [0xF3000, 0xFF000) aussi
+        if cabs:
+            curc = rd(CAB_LO, CAB_HI - CAB_LO)
+            todo += [s for s in range(CAB_LO, CAB_HI, 0x1000) if curc[s - CAB_LO:s - CAB_LO + 0x1000] != img[s:s + 0x1000]]
+        if keep_storage and not full: print(f"zone de stockage [{STORE_LO:#x}, {FLASH_W_HI:#x}) conservée (--tout pour l'écrire aussi)" + (" ; cabs d'usine mis à jour" if cabs else ""))
         if full: print(f"restauration complète [{FLASH_W_LO:#x}, {hi:#x}) ; SPL [0, {FLASH_W_LO:#x}) intact")
         print(f"zone lue en {time.time() - t0:.0f} s ; secteurs à écrire : {[hex(s) for s in todo]}")
         for s in todo:
@@ -420,6 +426,7 @@ def flash_app(img_path, ref_path, keep_storage=True, full=False):
                 raise SystemExit(f"ÉCHEC au secteur {s:#x} : NE PAS éteindre la pédale, relancer flashapp (avec la sauvegarde pour restaurer)")
         final = rd(FLASH_W_LO, hi - FLASH_W_LO)
         if final != img[FLASH_W_LO:hi]: raise SystemExit("vérification finale : DIFFÉRENCE (ne pas éteindre)")
+        if cabs and rd(CAB_LO, CAB_HI - CAB_LO) != img[CAB_LO:CAB_HI]: raise SystemExit("vérification finale des cabs : DIFFÉRENCE (ne pas éteindre)")
         print(f"ÉCRITURE TERMINÉE ET VÉRIFIÉE (zone {'complète' if full else 'application'} = image, sha256 {hashlib.sha256(final).hexdigest()[:16]})")
     finally:
         dev.close()

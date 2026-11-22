@@ -17,6 +17,7 @@ try {
     node (Join-Path $here 'gen_factory_presets.js'); if ($LASTEXITCODE) { throw "gen_factory_presets" }
     python -I (Join-Path $here 'gen_tables.py'); if ($LASTEXITCODE) { throw "gen_tables" }
     python -I (Join-Path $root 'blackbox\interface\assets\gen_assets.py') (Join-Path $here 'assets.h'); if ($LASTEXITCODE) { throw "gen_assets" }
+    python -I (Join-Path $here 'gen_cabs.py') (Join-Path $here 'cabs.bin'); if ($LASTEXITCODE) { throw "gen_cabs" }   # cabs d'usine (IR)
     $srcs = 'main', 'usb_midi', 'usb_glue', 'storage', 'engine', 'proto', 'gfx', 'ui', 'core1', 'a2l', 'amx', 'clock'
     python -I (Join-Path $here 'patch_markers.py') sdk\vm_sfc.ll sdk\vm_sfc_mark.ll; if ($LASTEXITCODE) { throw "patch_markers" }
     $sdk = 'usb', 'usb_setup', 'usb_phy', 'vm_sfc_mark'                  # pilote flash avec marqueurs de diagnostic (RB[18])
@@ -53,6 +54,6 @@ try {
         [IO.File]::WriteAllBytes("$here\app.bin", [byte[]]($a + $d))     # .data chargée juste après .text (LMA = _data_lma)
     }
     "app.bin : $((Get-Item app.bin).Length) octets"
-    if ($bk) { python -I (Join-Path $root 'blackbox\scripts\mkfw.py') $bk app.bin fw_flash_1MiB.bin }
+    if ($bk) { python -I (Join-Path $root 'blackbox\scripts\mkfw.py') $bk app.bin fw_flash_1MiB.bin cabs.bin }
     else { 'pas de sauvegarde de référence : image flash complète non construite (app.bin suffit pour l''installateur)' }
 } finally { Pop-Location }

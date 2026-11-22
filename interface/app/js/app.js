@@ -212,7 +212,8 @@ function compactPreset(i = S.cur) {
     })),
   };
 }
-const syncPreset = () => { if (dspLoad() > 100) return false; send(CMD.PRESET_SET, compactPreset()); return true; };
+const DSP_LOAD_MAX = 115;                                           /* chargement d'un preset existant (construction : 100 %, voir fits) */
+const syncPreset = () => { if (dspLoad() > DSP_LOAD_MAX) return false; send(CMD.PRESET_SET, compactPreset()); return true; };
 
 function makeTransport(kind) {
   const g = S.globals;
@@ -498,10 +499,10 @@ function selectPreset(i) {
     if (row) row.scrollIntoView({ block: 'nearest' });
     return;
   }
-  const over = dspLoad() > 100;
+  const over = dspLoad() > DSP_LOAD_MAX;
   if (!over) send(CMD.PRESET_SELECT, [S.cur]);                      /* trop lourd : la pédale reste sur son preset courant */
   const ok = syncPreset();                                          /* la pédale joue exactement ce que montre l'app (même non sauvé) */
-  if (connected() && !ok) toast('Preset trop lourd : ' + dspLoad() + ' % DSP (maximum 100). Retire un bloc pour que la pédale puisse le jouer.', 'err');
+  if (connected() && !ok) toast('Preset trop lourd : ' + dspLoad() + ' % DSP (maximum ' + DSP_LOAD_MAX + '). Retire un bloc pour que la pédale puisse le jouer.', 'err');
   renderAll();
   const row = $(`.prow[data-i="${S.cur}"]`);
   if (row) row.scrollIntoView({ block: 'nearest' });
@@ -2199,7 +2200,7 @@ async function copyAllPresets() {
   const prog = progressModal('Copie des presets dans la pédale');
   let ok = 0; const skipped = [];
   for (let i = 0; i < PRESETS && !prog.cancelled && connected(); i++) {
-    const p = S.presets[i], tooHeavy = dspLoad(p) > 100 || namCount(p) > 1 || (namCount(p) && namCpu2() > 100);
+    const p = S.presets[i], tooHeavy = dspLoad(p) > DSP_LOAD_MAX || namCount(p) > 1 || (namCount(p) && namCpu2() > 100);
     if (p.name === 'Init') { continue; }                            /* emplacements vides : ne pas les écrire (pas de doublons Init au footswitch) */
     if (tooHeavy) { skipped.push(presetLabel(i)); continue; }
     send(CMD.PRESET_SET, compactPreset(i));
@@ -2243,7 +2244,8 @@ function renderDevice() {
         ? [h('button', { class: 'btn primary', onclick: () => checkForUpdates(true).then(() => { if (!document.querySelector('.upd-banner')) toast('Ta pédale et l’app sont à jour.', 'ok'); }) }, icon('down'), 'Rechercher une mise à jour'),
            h('button', { class: 'btn', onclick: () => disconnect().then(() => window.tbbrDesktop.openInstaller()) }, icon('bolt'), 'Ouvrir l’installateur')]
         : h('a', { class: 'btn primary', href: `https://github.com/${TBBR_REPO}/releases/latest`, target: '_blank', rel: 'noopener' },
-            icon('down'), 'Télécharger l’installateur PC')));
+            icon('down'), 'Télécharger l’installateur PC')),
+    h('p', { class: 'dim', style: { fontSize: '11.5px' } }, 'Baffles d’usine : IR Jester Dyne Productions (CC0) · IR: Darwin’s Cat, darwinscat.com (CC BY 4.0, tronquées et normalisées).'));
 
   /* Sauvegardes */
   const backupCard = h('div', { class: 'card' }, h('h3', {}, icon('save'), 'Sauvegarde & restauration'),
@@ -2251,7 +2253,8 @@ function renderDevice() {
     h('div', { class: 'row' },
       h('button', { class: 'btn', onclick: backupAll }, icon('down'), 'Sauvegarde complète'),
       h('button', { class: 'btn', onclick: restoreBackup }, icon('up'), 'Restaurer')),
-    h('div', { class: 'row' }, h('button', { class: 'btn danger', onclick: factoryReset }, icon('reset'), 'Réinitialisation usine')),
+    h('div', { class: 'row' }, h('button', { class: 'btn', onclick: reloadFactoryPresets, disabled: !connected() }, icon('reset'), 'Recharger les presets d’usine'),
+      h('button', { class: 'btn danger', onclick: factoryReset }, icon('reset'), 'Réinitialisation usine')),
     h('h3', {}, icon('send'), 'Presets dans la pédale'),
     h('p', { class: 'muted' }, 'Sans l’app, les footswitchs ne font défiler que les presets copiés dans la pédale' +
       (info && typeof info.saved === 'string' ? ' (' + [...info.saved].filter(c => c === '1').length + ' / ' + info.saved.length + ' actuellement).' : '.')),
@@ -2359,6 +2362,15 @@ async function restoreBackup() {
   } catch { toast('Fichier de sauvegarde invalide', 'err'); }
 }
 
+/* recharge la banque d'usine dans la pédale : remplace les presets qui portent le nom d'un preset d'usine (ou 1er emplacement vide) */
+async function reloadFactoryPresets() {
+  if (!connected()) return toast('Connecte la pédale', 'err');
+  if (!await confirmBox('Recharger les presets d’usine ?', 'Les 20 presets d’usine de cette version (avec leurs nouveaux baffles) remplacent les presets de la pédale qui portent le même nom. Tes autres presets ne sont pas touchés.', 'Recharger')) return;
+  send(CMD.FACTORY_RESET, [1]);
+  if (!await waitAck(CMD.FACTORY_RESET, 20000)) return toast('La pédale n’a pas répondu', 'err');
+  toast('Presets d’usine rechargés', 'ok');
+  pedalSync();
+}
 async function factoryReset() {
   if (!await confirmBox('Réinitialisation usine ?', 'Tous les presets, réglages globaux, IR utilisateur et captures NAM seront effacés, dans l’app et sur la pédale si elle est connectée. Fais une sauvegarde avant.', 'Tout effacer')) return;
   send(CMD.FACTORY_RESET, [0x5A]);

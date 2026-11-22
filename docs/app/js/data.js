@@ -84,59 +84,59 @@ const SYNC = ['Off', '1/4', '1/8.', '1/8', '1/8T', '1/16'];
 const REV = (decay, extra = []) => [k('decay', 'Decay', decay, 0.1, 20, 0.1, 's'), ms('pre', 'Pre-delay', 20, 0, 250), pct('mix', 'Mix', 30), k('tone', 'Tone', 5), hz('lc', 'Low Cut', 100, 20, 800), ...extra];
 
 const MODELS = [
-  { id: 'gate',  cat: 'dyn', name: 'Noise Gate',  dsp: 7, params: [k('thr', 'Seuil', -60, -96, 0, 1, 'dB'), ms('rel', 'Release', 80, 5, 500), k('depth', 'Profondeur', -80, -96, 0, 1, 'dB')] },
+  { id: 'gate',  cat: 'dyn', name: 'Noise Gate',  dsp: 8, params: [k('thr', 'Seuil', -60, -96, 0, 1, 'dB'), ms('rel', 'Release', 80, 5, 500), k('depth', 'Profondeur', -80, -96, 0, 1, 'dB')] },
   { id: 'comp',  cat: 'dyn', name: 'Studio Comp', dsp: 17, params: [k('thr', 'Seuil', -20, -60, 0, 1, 'dB'), k('ratio', 'Ratio', 4, 1, 20, 0.1, ':1'), k('att', 'Attaque', 10, 0.1, 100, 0.1, 'ms'), ms('rel', 'Release', 120, 10, 1000), pct('mix', 'Mix', 100), db('lvl', 'Niveau')] },
   { id: 'squash',cat: 'dyn', name: 'Squash Comp', dsp: 17, params: [k('sus', 'Sustain', 6), k('att', 'Attack', 4), pct('mix', 'Blend', 70), k('lvl', 'Level', 5)] },
-  { id: 'boost', cat: 'dyn', name: 'Clean Boost', dsp: 4, params: [k('gain', 'Gain', 6, 0, 20, 0.1, 'dB'), k('tone', 'Tone', 5)] },
+  { id: 'boost', cat: 'dyn', name: 'Clean Boost', dsp: 5, params: [k('gain', 'Gain', 6, 0, 20, 0.1, 'dB'), k('tone', 'Tone', 5)] },
 
   { id: 'green', cat: 'drive', name: 'Green Scream 9', desc: 'Inspirée de l’Ibanez TS9 Tube Screamer', dsp: 15, params: [k('drv', 'Drive', 4), k('tone', 'Tone', 5), k('lvl', 'Level', 6)] },
-  { id: 'od1',   cat: 'drive', name: 'Yellow Drive One', desc: 'Inspirée de la Boss OD-1', dsp: 15, params: [k('drv', 'Over Drive', 5), k('lvl', 'Level', 6)] },
+  { id: 'od1',   cat: 'drive', name: 'Yellow Drive One', desc: 'Inspirée de la Boss OD-1', dsp: 16, params: [k('drv', 'Over Drive', 5), k('lvl', 'Level', 6)] },
   { id: 'sd1',   cat: 'drive', name: 'Yellow Super Drive', desc: 'Inspirée de la Boss SD-1', dsp: 15, params: [k('drv', 'Drive', 5), k('tone', 'Tone', 5), k('lvl', 'Level', 6)] },
   { id: 'bd2',   cat: 'drive', name: 'Blue Drive 2', desc: 'Inspirée de la Boss BD-2 Blues Driver', dsp: 18, params: [k('gain', 'Gain', 5), k('tone', 'Tone', 5), k('lvl', 'Level', 6)] },
   { id: 'gold',  cat: 'drive', name: 'Gold Horse', desc: 'Inspirée de la Klon Centaur', dsp: 15, params: [k('gain', 'Gain', 3), k('treb', 'Treble', 5), k('out', 'Output', 6)] },
-  { id: 'grit',  cat: 'drive', name: 'Rodent Dist', desc: 'Inspirée de la ProCo RAT', dsp: 15, params: [k('dist', 'Distortion', 6), k('filt', 'Filter', 4), k('vol', 'Volume', 5)] },
+  { id: 'grit',  cat: 'drive', name: 'Rodent Dist', desc: 'Inspirée de la ProCo RAT', dsp: 16, params: [k('dist', 'Distortion', 6), k('filt', 'Filter', 4), k('vol', 'Volume', 5)] },
   { id: 'muff',  cat: 'drive', name: 'Pi Fuzz', desc: 'Inspirée de l’Electro-Harmonix Big Muff Pi', dsp: 17, params: [k('sus', 'Sustain', 6), k('tone', 'Tone', 5), k('vol', 'Volume', 6)] },
-  { id: 'fuzz',  cat: 'drive', name: 'Round Fuzz', dsp: 14, params: [k('fuzz', 'Fuzz', 7), k('vol', 'Volume', 5), tog('germ', 'Germanium', true)] },
-  { id: 'metal', cat: 'drive', name: 'Metal Core', dsp: 13, params: [k('dist', 'Dist', 7), k('low', 'Low', 5), k('mid', 'Mid', 4), hz('mfq', 'Mid Freq', 800, 200, 5000, 10), k('high', 'High', 6), k('lvl', 'Level', 5)] },
+  { id: 'fuzz',  cat: 'drive', name: 'Round Fuzz', dsp: 15, params: [k('fuzz', 'Fuzz', 7), k('vol', 'Volume', 5), tog('germ', 'Germanium', true)] },
+  { id: 'metal', cat: 'drive', name: 'Metal Core', dsp: 16, params: [k('dist', 'Dist', 7), k('low', 'Low', 5), k('mid', 'Mid', 4), hz('mfq', 'Mid Freq', 800, 200, 5000, 10), k('high', 'High', 6), k('lvl', 'Level', 5)] },
 
   { id: 'usclean', cat: 'amp', name: 'US Double Clean', desc: 'Inspiré du Fender Twin Reverb', dsp: 29, params: AMP([tog('bright', 'Bright', true)]) },
-  { id: 'chime',   cat: 'amp', name: 'Class A 30 TB', desc: 'Inspiré du Vox AC30 Top Boost', dsp: 33, params: [k('gain', 'Volume', 5), k('bass', 'Bass', 5), k('mid', 'Mid', 5), k('treb', 'Treble', 5), k('pres', 'Cut', 3), k('mast', 'Master', 5), sel('ch', 'Canal', ['Normal', 'Top Boost'], 1)] },
+  { id: 'chime',   cat: 'amp', name: 'Class A 30 TB', desc: 'Inspiré du Vox AC30 Top Boost', dsp: 34, params: [k('gain', 'Volume', 5), k('bass', 'Bass', 5), k('mid', 'Mid', 5), k('treb', 'Treble', 5), k('pres', 'Cut', 3), k('mast', 'Master', 5), sel('ch', 'Canal', ['Normal', 'Top Boost'], 1)] },
   { id: 'brit',    cat: 'amp', name: 'Brit 800 Lead', desc: 'Inspiré du Marshall JCM800 2203', dsp: 34, params: AMP() },
-  { id: 'plexi',   cat: 'amp', name: 'Plexi 68', desc: 'Inspiré du Marshall Super Lead 1959', dsp: 28, params: AMP([sel('jump', 'Canaux', ['Normal', 'Bright', 'Jumped'], 2)]) },
+  { id: 'plexi',   cat: 'amp', name: 'Plexi 68', desc: 'Inspiré du Marshall Super Lead 1959', dsp: 29, params: AMP([sel('jump', 'Canaux', ['Normal', 'Bright', 'Jumped'], 2)]) },
   { id: 'rect',    cat: 'amp', name: 'Cali Rectified', desc: 'Inspiré du Mesa/Boogie Dual Rectifier', dsp: 38, params: AMP([sel('mode', 'Mode', ['Raw', 'Vintage', 'Modern'], 2), sel('rect', 'Redresseur', ['Tube', 'Diode'], 1)]) },
   { id: 'lead51',  cat: 'amp', name: 'Lead 5-1-50', desc: 'Inspiré du Peavey 5150 (canal Lead)', dsp: 37, params: AMP([k('res', 'Resonance', 5)]) },
-  { id: 'nam',     cat: 'amp', name: 'NAM Loader',      dsp: 40, params: [{ id: 'slot', name: 'Capture', type: 'nam', def: 0 }, db('in', 'Entrée'), db('out', 'Sortie', 0, -24, 12), db('bass', 'Bass'), db('mid', 'Mid'), db('treb', 'Treble'), tog('norm', 'Normaliser', true)] },
-  { id: 'bassamp', cat: 'amp', name: 'Bass SVx',        dsp: 14, params: [k('gain', 'Gain', 4), k('bass', 'Bass', 6), k('lmid', 'Lo-Mid', 5), k('hmid', 'Hi-Mid', 5), k('treb', 'Treble', 5), k('mast', 'Master', 5), tog('ultra', 'Ultra Lo', false)] },
+  { id: 'nam',     cat: 'amp', name: 'NAM Loader',      dsp: 39, params: [{ id: 'slot', name: 'Capture', type: 'nam', def: 0 }, db('in', 'Entrée'), db('out', 'Sortie', 0, -24, 12), db('bass', 'Bass'), db('mid', 'Mid'), db('treb', 'Treble'), tog('norm', 'Normaliser', true)] },
+  { id: 'bassamp', cat: 'amp', name: 'Bass SVx',        dsp: 15, params: [k('gain', 'Gain', 4), k('bass', 'Bass', 6), k('lmid', 'Lo-Mid', 5), k('hmid', 'Hi-Mid', 5), k('treb', 'Treble', 5), k('mast', 'Master', 5), tog('ultra', 'Ultra Lo', false)] },
 
   { id: 'ir',     cat: 'cab', name: 'IR Loader', dsp: 26, params: [{ id: 'slot', name: 'IR', type: 'ir', def: 0 }, hz('lc', 'Low Cut', 80, 20, 500), hz('hc', 'High Cut', 8000, 2000, 20000, 10), pct('mix', 'Mix', 100), db('lvl', 'Niveau')] },
-  { id: 'cab412', cat: 'cab', name: '4x12 V30',  dsp: 11,  params: [sel('mic', 'Micro', ['Dyn 57', 'Ribbon 121', 'Cond 414']), k('pos', 'Position', 3, 0, 10), k('dist', 'Distance', 2, 0, 10), hz('lc', 'Low Cut', 80, 20, 500), hz('hc', 'High Cut', 9000, 2000, 20000, 10)] },
-  { id: 'cab212', cat: 'cab', name: '2x12 Blue', dsp: 11,  params: [sel('mic', 'Micro', ['Dyn 57', 'Ribbon 121', 'Cond 414'], 1), k('pos', 'Position', 4, 0, 10), k('dist', 'Distance', 2, 0, 10), hz('lc', 'Low Cut', 80, 20, 500), hz('hc', 'High Cut', 9000, 2000, 20000, 10)] },
+  { id: 'cab412', cat: 'cab', name: '4x12 V30',  dsp: 21,  params: [sel('mic', 'Baffle', ['V30 SM57 A', 'V30 SM57 B', 'V30 Dyn 75', 'V30 + G12F', '4x12 fermé']), k('pos', 'Position', 3, 0, 10), k('dist', 'Distance', 2, 0, 10), hz('lc', 'Low Cut', 80, 20, 500), hz('hc', 'High Cut', 9000, 2000, 20000, 10)] },
+  { id: 'cab212', cat: 'cab', name: 'Combo',     dsp: 22,  params: [sel('mic', 'Baffle', ['2x12 ouvert', '2x12 fermé', '2x12 mi-ouvert', '1x12 ouvert', '1x12 fermé', '4x10 ouvert'], 0), k('pos', 'Position', 4, 0, 10), k('dist', 'Distance', 2, 0, 10), hz('lc', 'Low Cut', 80, 20, 500), hz('hc', 'High Cut', 9000, 2000, 20000, 10)] },
 
   { id: 'peq', cat: 'eq', name: 'Parametric EQ', dsp: 7, params: [db('lf', 'Low'), db('lmf', 'Lo-Mid'), hz('lmq', 'Lo-Mid Hz', 400, 100, 2000, 10), db('hmf', 'Hi-Mid'), hz('hmq', 'Hi-Mid Hz', 2500, 1000, 8000, 10), db('hf', 'High'), db('lvl', 'Niveau')] },
   { id: 'geq', cat: 'eq', name: 'Graphic EQ 7',  dsp: 10, params: [db('b1', '100'), db('b2', '200'), db('b3', '400'), db('b4', '800'), db('b5', '1.6k'), db('b6', '3.2k'), db('b7', '6.4k'), db('lvl', 'Niveau')] },
 
-  { id: 'chorus',  cat: 'mod', name: 'Chorus',   dsp: 6, params: [hz('rate', 'Rate', 0.8, 0.05, 10, 0.05), pct('depth', 'Depth', 50), pct('mix', 'Mix', 50), k('tone', 'Tone', 5)] },
+  { id: 'chorus',  cat: 'mod', name: 'Chorus',   dsp: 7, params: [hz('rate', 'Rate', 0.8, 0.05, 10, 0.05), pct('depth', 'Depth', 50), pct('mix', 'Mix', 50), k('tone', 'Tone', 5)] },
   { id: 'flanger', cat: 'mod', name: 'Flanger',  dsp: 6, params: [hz('rate', 'Rate', 0.3, 0.05, 10, 0.05), pct('depth', 'Depth', 60), k('fb', 'Feedback', 50, -100, 100, 1, '%'), pct('mix', 'Mix', 50)] },
-  { id: 'phaser',  cat: 'mod', name: 'Phaser',   dsp: 7, params: [hz('rate', 'Rate', 0.5, 0.05, 10, 0.05), pct('depth', 'Depth', 70), pct('fb', 'Feedback', 30), sel('st', 'Étages', ['4', '8', '12'])] },
-  { id: 'trem',    cat: 'mod', name: 'Tremolo',  dsp: 4, params: [hz('rate', 'Rate', 4, 0.1, 15, 0.1), pct('depth', 'Depth', 60), sel('shape', 'Forme', ['Sine', 'Tri', 'Square']), sel('sync', 'Sync', SYNC)] },
-  { id: 'vibe',    cat: 'mod', name: 'Uni-Vibe', dsp: 6, params: [k('speed', 'Speed', 4), k('int', 'Intensity', 6), sel('mode', 'Mode', ['Chorus', 'Vibrato'])] },
+  { id: 'phaser',  cat: 'mod', name: 'Phaser',   dsp: 8, params: [hz('rate', 'Rate', 0.5, 0.05, 10, 0.05), pct('depth', 'Depth', 70), pct('fb', 'Feedback', 30), sel('st', 'Étages', ['4', '8', '12'])] },
+  { id: 'trem',    cat: 'mod', name: 'Tremolo',  dsp: 5, params: [hz('rate', 'Rate', 4, 0.1, 15, 0.1), pct('depth', 'Depth', 60), sel('shape', 'Forme', ['Sine', 'Tri', 'Square']), sel('sync', 'Sync', SYNC)] },
+  { id: 'vibe',    cat: 'mod', name: 'Uni-Vibe', dsp: 7, params: [k('speed', 'Speed', 4), k('int', 'Intensity', 6), sel('mode', 'Mode', ['Chorus', 'Vibrato'])] },
   { id: 'rotary',  cat: 'mod', name: 'Rotary',   dsp: 7, params: [sel('speed', 'Vitesse', ['Slow', 'Fast']), k('drive', 'Drive', 3), pct('mix', 'Mix', 100), k('horn', 'Horn/Drum', 5)] },
 
-  { id: 'octave', cat: 'pitch', name: 'Octaver',     dsp: 6, params: [pct('o1', 'Oct −1', 50), pct('o2', 'Oct −2', 0), pct('up', 'Oct +1', 0), pct('dry', 'Dry', 100)] },
-  { id: 'shift',  cat: 'pitch', name: 'Pitch Shift', dsp: 6, params: [k('semi', 'Demi-tons', 12, -24, 24, 1, 'st'), k('cent', 'Détune', 0, -50, 50, 1, 'ct'), pct('mix', 'Mix', 50)] },
-  { id: 'harm',   cat: 'pitch', name: 'Harmonizer',  dsp: 6, params: [sel('key', 'Tonalité', NOTE_NAMES), sel('scale', 'Gamme', ['Majeure', 'Mineure', 'Dorien', 'Mixo']), sel('iv', 'Intervalle', ['3ce', '4te', '5te', '6te', 'Oct']), pct('mix', 'Mix', 50)] },
+  { id: 'octave', cat: 'pitch', name: 'Octaver',     dsp: 7, params: [pct('o1', 'Oct −1', 50), pct('o2', 'Oct −2', 0), pct('up', 'Oct +1', 0), pct('dry', 'Dry', 100)] },
+  { id: 'shift',  cat: 'pitch', name: 'Pitch Shift', dsp: 7, params: [k('semi', 'Demi-tons', 12, -24, 24, 1, 'st'), k('cent', 'Détune', 0, -50, 50, 1, 'ct'), pct('mix', 'Mix', 50)] },
+  { id: 'harm',   cat: 'pitch', name: 'Harmonizer',  dsp: 7, params: [sel('key', 'Tonalité', NOTE_NAMES), sel('scale', 'Gamme', ['Majeure', 'Mineure', 'Dorien', 'Mixo']), sel('iv', 'Intervalle', ['3ce', '4te', '5te', '6te', 'Oct']), pct('mix', 'Mix', 50)] },
 
-  { id: 'ddl',     cat: 'delay', name: 'Digital Delay', dsp: 6, params: [ms('time', 'Time', 380, 1, 2000), pct('fb', 'Feedback', 30), pct('mix', 'Mix', 25), hz('hc', 'High Cut', 8000, 1000, 20000, 10), sel('sync', 'Sync', SYNC)] },
+  { id: 'ddl',     cat: 'delay', name: 'Digital Delay', dsp: 7, params: [ms('time', 'Time', 380, 1, 2000), pct('fb', 'Feedback', 30), pct('mix', 'Mix', 25), hz('hc', 'High Cut', 8000, 1000, 20000, 10), sel('sync', 'Sync', SYNC)] },
   { id: 'analog',  cat: 'delay', name: 'Analog Delay',  dsp: 7, params: [ms('time', 'Time', 320, 20, 600), pct('fb', 'Feedback', 35), pct('mix', 'Mix', 25), pct('mod', 'Mod', 20), sel('sync', 'Sync', SYNC)] },
   { id: 'tape',    cat: 'delay', name: 'Tape Echo',     dsp: 7, params: [ms('time', 'Time', 420, 50, 1200), pct('fb', 'Feedback', 40), pct('mix', 'Mix', 30), pct('wow', 'Wow', 25), k('age', 'Usure', 4)] },
-  { id: 'pingpong',cat: 'delay', name: 'Ping Pong',     dsp: 6, params: [ms('time', 'Time', 450, 1, 2000), pct('fb', 'Feedback', 35), pct('mix', 'Mix', 30), pct('width', 'Largeur', 100), sel('sync', 'Sync', SYNC)] },
+  { id: 'pingpong',cat: 'delay', name: 'Ping Pong',     dsp: 7, params: [ms('time', 'Time', 450, 1, 2000), pct('fb', 'Feedback', 35), pct('mix', 'Mix', 30), pct('width', 'Largeur', 100), sel('sync', 'Sync', SYNC)] },
   { id: 'reverse', cat: 'delay', name: 'Reverse',       dsp: 7, params: [ms('time', 'Time', 600, 100, 2000), pct('fb', 'Feedback', 20), pct('mix', 'Mix', 40)] },
 
-  { id: 'room',    cat: 'reverb', name: 'Room',    dsp: 19,  params: REV(0.8) },
-  { id: 'hall',    cat: 'reverb', name: 'Hall',    dsp: 19, params: REV(2.8) },
-  { id: 'plate',   cat: 'reverb', name: 'Plate',   dsp: 19,  params: REV(1.9) },
-  { id: 'spring',  cat: 'reverb', name: 'Spring',  dsp: 19,  params: [k('dwell', 'Dwell', 5), k('tone', 'Tone', 5), pct('mix', 'Mix', 30), sel('springs', 'Ressorts', ['2', '3', '4'], 1)] },
-  { id: 'shimmer', cat: 'reverb', name: 'Shimmer', dsp: 19, params: REV(6, [sel('int', 'Pitch', ['+12', '+7', '+12/+7']), pct('shim', 'Shimmer', 50)]) },
+  { id: 'room',    cat: 'reverb', name: 'Room',    dsp: 20,  params: REV(0.8) },
+  { id: 'hall',    cat: 'reverb', name: 'Hall',    dsp: 20, params: REV(2.8) },
+  { id: 'plate',   cat: 'reverb', name: 'Plate',   dsp: 20,  params: REV(1.9) },
+  { id: 'spring',  cat: 'reverb', name: 'Spring',  dsp: 20,  params: [k('dwell', 'Dwell', 5), k('tone', 'Tone', 5), pct('mix', 'Mix', 30), sel('springs', 'Ressorts', ['2', '3', '4'], 1)] },
+  { id: 'shimmer', cat: 'reverb', name: 'Shimmer', dsp: 20, params: REV(6, [sel('int', 'Pitch', ['+12', '+7', '+12/+7']), pct('shim', 'Shimmer', 50)]) },
 
   { id: 'vol',  cat: 'util', name: 'Volume', dsp: 4, params: [db('lvl', 'Niveau', 0, -40, 12), k('pan', 'Pan', 0, -100, 100, 1, '')] },
   { id: 'fxl',  cat: 'util', name: 'Send / Return', dsp: 4, params: [db('send', 'Send'), db('ret', 'Return'), pct('mix', 'Mix', 100)] },
@@ -204,22 +204,20 @@ function setScene(p, i, uid, on, over) {
 }
 function renameScenes(p, names) { names.forEach((n, i) => { if (p.scenes[i]) p.scenes[i].name = n; }); }
 
-/* Stairway : deux amplis, un seul actif par scène (intro propre / solo Plexi). */
+/* Stairway : un seul Plexi ; gain bas (intro, couplets) ou haut + boost (lead, solo) selon la scène. */
 function stairwayPreset() {
   const p = makePreset('Stairway to Heaven', '#f5d90a', [
-    ['usclean', { gain: 3.5, bass: 5, mid: 4.5, treb: 6, pres: 4, mast: 5, bright: true }],
-    ['plexi', { gain: 5, bass: 5, mid: 6, treb: 6, pres: 5, mast: 5, jump: 2 }, false],
     ['boost', { gain: 4, tone: 6 }, false],
+    ['plexi', { gain: 2.5, bass: 5, mid: 5.5, treb: 6.5, pres: 5, mast: 5, jump: 2 }],
     ['cab412', { mic: 1, pos: 4, dist: 2 }],
     ['ddl', { time: 430, fb: 25, mix: 15 }],
     ['plate', { decay: 2.4, pre: 30, mix: 22, tone: 5, lc: 100 }],
   ], { tempo: 82 });
-  const us = p.lanes[0][0].uid, px = p.lanes[0][1].uid, bo = p.lanes[0][2].uid;
+  const bo = p.lanes[0][0].uid, px = p.lanes[0][1].uid;
   const clean = [0, 2, 4, 5, 6, 7];
   for (let i = 0; i < SCENES; i++) {
     const c = clean.includes(i);
-    setScene(p, i, us, c, { gain: 3.5 });
-    setScene(p, i, px, !c, { gain: 5 });
+    setScene(p, i, px, true, { gain: c ? 2.5 : 6.5 });
     setScene(p, i, bo, !c, { gain: 4 });
   }
   renameScenes(p, ['Intro', 'Lead', 'Clean', 'Solo', 'Verse', 'Chorus', 'Bridge', 'Outro']);
@@ -227,38 +225,37 @@ function stairwayPreset() {
 }
 
 /* 20 sons stock inspirés de classiques, avec uniquement les modèles du firmware
- * (pas de NAM ni d'IR externe : ils sonnent dès le premier démarrage). */
+ * (pas de NAM ni d'IR à charger : baffles d'usine intégrés ; le gate d'entrée global remplace les blocs Gate,
+ * gardés seulement en métal). Budget DSP de chacun <= 100 %. */
 function factoryPresets() {
   const list = [
     makePreset('Appetite for Destruction', '#ff4d4d', [
-      ['gate', { thr: -55 }], ['green', { drv: 3.5, tone: 5.5, lvl: 6 }, false],
+      ['green', { drv: 3.5, tone: 5.5, lvl: 6 }, false],
       ['brit', { gain: 7, bass: 5, mid: 6.5, treb: 6, pres: 5.5, mast: 6 }],
       ['cab412', { mic: 0, pos: 3, dist: 2 }],
-      ['peq', { lmf: 2.5, lmq: 800, hmf: 1.5, lvl: 0 }],
       ['ddl', { time: 420, fb: 30, mix: 18 }], ['hall', { decay: 2.2, pre: 20, mix: 18, tone: 5, lc: 100 }],
     ], { tempo: 125 }),
     stairwayPreset(),
     makePreset('Purple Rain', '#b06cff', [
-      ['gate', { thr: -65 }], ['comp', { thr: -24, ratio: 3, att: 20, rel: 200, mix: 100, lvl: 0 }],
       ['usclean', { gain: 4, bass: 5, mid: 4, treb: 6.5, pres: 4.5, mast: 5, bright: true }],
+      ['cab212', { mic: 0, pos: 4, dist: 2 }],
       ['chorus', { rate: 0.6, depth: 45, mix: 40, tone: 5 }],
       ['analog', { time: 360, fb: 38, mix: 28, mod: 25 }],
       ['plate', { decay: 2.8, pre: 30, mix: 30, tone: 5, lc: 100 }],
     ], { tempo: 70 }),
     makePreset('Comfortably Numb', '#3aa0ff', [
-      ['gate', { thr: -60 }], ['muff', { sus: 5.5, tone: 5, vol: 5 }, false],
+      ['muff', { sus: 5.5, tone: 5, vol: 5 }, false],
       ['brit', { gain: 5, bass: 5, mid: 5.5, treb: 5.5, pres: 5, mast: 6 }],
       ['cab412', { mic: 0, pos: 3, dist: 2 }],
-      ['chorus', { rate: 0.5, depth: 35, mix: 30, tone: 5 }],
       ['ddl', { time: 480, fb: 42, mix: 26 }], ['hall', { decay: 3.2, pre: 30, mix: 25, tone: 4.5, lc: 100 }],
     ], { tempo: 63 }),
     makePreset('Back in Black', '#9aa3ad', [
-      ['gate', { thr: -55 }], ['green', { drv: 2, tone: 5, lvl: 5.5 }, false],
+      ['green', { drv: 2, tone: 5, lvl: 5.5 }, false],
       ['plexi', { gain: 6.5, bass: 5, mid: 6, treb: 6.5, pres: 5, mast: 5.5, jump: 2 }],
       ['cab412', { mic: 1, pos: 3, dist: 2 }], ['room', { decay: 0.7, pre: 10, mix: 12, tone: 5, lc: 120 }],
     ], { tempo: 118 }),
     makePreset('Smells Like Teen Spirit', '#3ddc84', [
-      ['gate', { thr: -50 }], ['muff', { sus: 6.5, tone: 4.5, vol: 6 }],
+      ['muff', { sus: 6.5, tone: 4.5, vol: 6 }],
       ['brit', { gain: 5.5, bass: 5, mid: 4, treb: 5.5, pres: 5, mast: 5.5 }],
       ['cab412', { mic: 0, pos: 2, dist: 1.5 }], ['room', { decay: 0.8, pre: 10, mix: 14, tone: 4.5, lc: 120 }],
     ], { tempo: 117 }),
@@ -266,50 +263,47 @@ function factoryPresets() {
       ['gate', { thr: -40, rel: 40 }], ['green', { drv: 1.5, tone: 5.5, lvl: 7 }],
       ['rect', { gain: 8, bass: 6, mid: 3.5, treb: 6, pres: 6, mast: 5, mode: 2, rect: 1 }],
       ['cab412', { mic: 2, pos: 2, dist: 1.5 }], ['ddl', { time: 380, fb: 20, mix: 12 }],
-      ['hall', { decay: 2, pre: 20, mix: 15, tone: 4.5, lc: 100 }],
     ], { tempo: 212 }),
     makePreset('Voodoo Child', '#ff5fb0', [
-      ['gate', { thr: -60 }], ['fuzz', { fuzz: 7, vol: 5, germ: true }],
+      ['fuzz', { fuzz: 7, vol: 5, germ: true }],
       ['plexi', { gain: 5, bass: 5, mid: 6, treb: 6, pres: 5, mast: 5.5, jump: 2 }],
       ['cab412', { mic: 1, pos: 3, dist: 2 }], ['vibe', { speed: 4, int: 6, mode: 0 }],
       ['spring', { dwell: 6, tone: 5.5, mix: 30, springs: 1 }],
     ], { tempo: 90 }),
     makePreset('Pride and Joy', '#2fd6c5', [
-      ['comp', { thr: -22, ratio: 4, att: 15, rel: 150, mix: 100, lvl: 0 }],
       ['green', { drv: 2.5, tone: 6, lvl: 6 }],
       ['usclean', { gain: 4.5, bass: 5, mid: 4.5, treb: 6, pres: 4.5, mast: 5, bright: true }],
-      ['cab212', { mic: 0, pos: 4, dist: 2 }], ['spring', { dwell: 7, tone: 5, mix: 28, springs: 2 }],
+      ['cab212', { mic: 5, pos: 4, dist: 2 }], ['spring', { dwell: 7, tone: 5, mix: 28, springs: 2 }],
     ], { tempo: 110 }),
     makePreset('Hotel California', '#f5d90a', [
-      ['comp', { thr: -24, ratio: 3, att: 20, rel: 200, mix: 100, lvl: 0 }],
       ['green', { drv: 2, tone: 5.5, lvl: 5.5 }, false],
       ['usclean', { gain: 4, bass: 5, mid: 4.5, treb: 6, pres: 4.5, mast: 5, bright: true }],
-      ['chorus', { rate: 0.5, depth: 30, mix: 25, tone: 5 }],
+      ['cab212', { mic: 2, pos: 4, dist: 2 }],
       ['ddl', { time: 420, fb: 25, mix: 16 }], ['plate', { decay: 2.2, pre: 30, mix: 22, tone: 5, lc: 100 }],
     ], { tempo: 75 }),
     makePreset('Purple Haze', '#b06cff', [
-      ['gate', { thr: -60 }], ['fuzz', { fuzz: 7.5, vol: 5, germ: true }],
+      ['fuzz', { fuzz: 7.5, vol: 5, germ: true }],
       ['octave', { o1: 35, o2: 0, up: 0, dry: 100 }],
       ['plexi', { gain: 5.5, bass: 5, mid: 6, treb: 6, pres: 5, mast: 5.5, jump: 2 }],
       ['cab412', { mic: 1, pos: 3, dist: 2 }], ['vibe', { speed: 5, int: 7, mode: 0 }],
       ['spring', { dwell: 6, tone: 5.5, mix: 30, springs: 1 }],
     ], { tempo: 100 }),
     makePreset('Bohemian Rhapsody', '#ff9f1a', [
-      ['comp', { thr: -24, ratio: 3, att: 15, rel: 180, mix: 100, lvl: 0 }],
       ['boost', { gain: 5, tone: 6.5 }],
       ['chime', { gain: 5.5, bass: 5, mid: 5.5, treb: 6.5, pres: 3, mast: 5, ch: 1 }],
+      ['cab212', { mic: 0, pos: 4, dist: 2 }],
       ['ddl', { time: 400, fb: 30, mix: 20 }], ['plate', { decay: 2.5, pre: 30, mix: 24, tone: 5, lc: 100 }],
       ['harm', { key: 9, scale: 0, iv: 2, mix: 30 }],
     ], { tempo: 72 }),
     makePreset('Little Wing', '#3ddc84', [
-      ['comp', { thr: -26, ratio: 3, att: 20, rel: 200, mix: 100, lvl: 0 }],
       ['usclean', { gain: 3.5, bass: 5, mid: 4.5, treb: 6, pres: 4, mast: 5, bright: true }],
+      ['cab412', { mic: 4, pos: 4, dist: 2 }],
       ['vibe', { speed: 3, int: 5, mode: 0 }], ['chorus', { rate: 0.4, depth: 25, mix: 20, tone: 5 }],
       ['spring', { dwell: 6, tone: 5, mix: 24, springs: 1 }],
     ], { tempo: 70 }),
     makePreset('Wish You Were Here', '#2fd6c5', [
-      ['comp', { thr: -26, ratio: 3, att: 20, rel: 200, mix: 100, lvl: 0 }],
       ['usclean', { gain: 3.5, bass: 5, mid: 4.5, treb: 6, pres: 4, mast: 5, bright: true }],
+      ['cab212', { mic: 1, pos: 4, dist: 2 }],
       ['chorus', { rate: 0.45, depth: 30, mix: 22, tone: 5 }],
       ['ddl', { time: 460, fb: 30, mix: 18 }], ['plate', { decay: 2.4, pre: 30, mix: 24, tone: 5, lc: 100 }],
       ['peq', { lf: 1, lmf: -1, lmq: 400, hmf: 1.5, hmq: 2500, hf: 1, lvl: 0 }],
@@ -318,32 +312,31 @@ function factoryPresets() {
       ['gate', { thr: -40, rel: 40 }], ['green', { drv: 1.5, tone: 5.5, lvl: 7 }],
       ['lead51', { gain: 8, bass: 6, mid: 4, treb: 6, pres: 6, mast: 5, res: 5.5 }],
       ['cab412', { mic: 2, pos: 2, dist: 1.5 }], ['ddl', { time: 420, fb: 25, mix: 14 }],
-      ['hall', { decay: 2, pre: 20, mix: 16, tone: 4.5, lc: 100 }],
     ], { tempo: 123 }),
     makePreset("Sweet Child O' Mine", '#ff9f1a', [
-      ['gate', { thr: -55 }], ['green', { drv: 3, tone: 5.5, lvl: 6 }],
+      ['green', { drv: 3, tone: 5.5, lvl: 6 }],
       ['brit', { gain: 7, bass: 5, mid: 6.5, treb: 6, pres: 5.5, mast: 6 }],
       ['cab412', { mic: 0, pos: 3, dist: 2 }], ['analog', { time: 420, fb: 35, mix: 22, mod: 20 }],
       ['hall', { decay: 2.6, pre: 25, mix: 22, tone: 5, lc: 100 }],
     ], { tempo: 126 }),
     makePreset('Whole Lotta Love', '#9aa3ad', [
-      ['gate', { thr: -55 }], ['fuzz', { fuzz: 6.5, vol: 5, germ: true }],
+      ['fuzz', { fuzz: 6.5, vol: 5, germ: true }],
       ['plexi', { gain: 5.5, bass: 5, mid: 6, treb: 6, pres: 5, mast: 5.5, jump: 2 }],
       ['cab412', { mic: 1, pos: 3, dist: 2 }], ['room', { decay: 0.9, pre: 10, mix: 15, tone: 5, lc: 120 }],
     ], { tempo: 90 }),
     makePreset('Sunshine of Your Love', '#3aa0ff', [
-      ['gate', { thr: -55 }], ['green', { drv: 2.5, tone: 5.5, lvl: 6 }],
+      ['green', { drv: 2.5, tone: 5.5, lvl: 6 }],
       ['plexi', { gain: 5, bass: 5, mid: 6, treb: 6, pres: 5, mast: 5.5, jump: 2 }],
       ['cab412', { mic: 1, pos: 3, dist: 2 }], ['room', { decay: 0.8, pre: 10, mix: 14, tone: 5, lc: 120 }],
     ], { tempo: 116 }),
     makePreset('Kashmir', '#b06cff', [
-      ['gate', { thr: -55 }], ['muff', { sus: 5, tone: 5, vol: 5.5 }],
+      ['muff', { sus: 5, tone: 5, vol: 5.5 }],
       ['plexi', { gain: 5.5, bass: 5, mid: 6, treb: 5.5, pres: 5, mast: 5.5, jump: 2 }],
       ['cab412', { mic: 1, pos: 3, dist: 2 }], ['ddl', { time: 450, fb: 25, mix: 15 }],
       ['hall', { decay: 2.8, pre: 25, mix: 20, tone: 4.5, lc: 100 }],
     ], { tempo: 80 }),
     makePreset('Beat It', '#ff5fb0', [
-      ['gate', { thr: -55 }], ['green', { drv: 3, tone: 5.5, lvl: 6 }],
+      ['green', { drv: 3, tone: 5.5, lvl: 6 }],
       ['brit', { gain: 7, bass: 5, mid: 6, treb: 6, pres: 5.5, mast: 6 }],
       ['cab412', { mic: 0, pos: 3, dist: 2 }], ['ddl', { time: 400, fb: 30, mix: 18 }],
       ['hall', { decay: 2.4, pre: 25, mix: 20, tone: 5, lc: 100 }],

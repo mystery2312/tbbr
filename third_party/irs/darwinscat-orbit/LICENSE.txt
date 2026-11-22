@@ -1,0 +1,15 @@
+Darwin's Cat: the licence of these impulse responses
+
+The impulse responses in this archive (every .wav, and the .toml beside it) are made by
+Darwin's Cat and licensed under the Creative Commons Attribution 4.0 International licence
+(CC BY 4.0).
+
+In plain words: you may use, share and change them for any purpose (in music, in programs,
+in devices, in commercial and closed products too) as long as you credit Darwin's Cat, for
+example
+
+  IR: Darwin's Cat, darwinscat.com
+
+name the licence, and say if you changed them. They come as they are, with no warranty.
+
+The licence in full: https://creativecommons.org/licenses/by/4.0/legalcode

@@ -15,10 +15,11 @@ import sys, struct, binascii, hashlib
 APP_BASE, FLASH_SIZE, KEY = 0x4000, 0x100000, 0x980F
 def crc16(b): return binascii.crc_hqx(bytes(b), 0)
 
-def sfc(buf, key=KEY):
+def sfc(buf, key=KEY, p0=0):
+    """Chiffrement SFC (involutif) ; p0 = position du début de buf relative à 0x4000 (multiple de 32)."""
     out = bytearray(buf)
     for p in range(0, len(out), 32):
-        k = (key ^ (p >> 2)) & 0xFFFF
+        k = (key ^ ((p0 + p) >> 2)) & 0xFFFF
         for i in range(p, min(p + 32, len(out))):
             out[i] ^= k & 0xFF
             k = ((k << 1) ^ (0x1021 if k & 0x8000 else 0)) & 0xFFFF
@@ -81,6 +82,17 @@ def build(backup, app):
     img[APP_BASE:APP_BASE + len(area)] = sfc(bytes(area))
     return bytes(img), end
 
+CAB_LO, CAB_HI = 0xF3000, 0xFF000                 # cabs d'usine (gen_cabs.py) : 11 IR + répertoire « TBC1 »
+def place_cabs(img, cabs):
+    """Pose cabs.bin (en clair, 48 Ko) dans l'image à 0xF3000, chiffré comme le stockage du firmware (lecture XIP)."""
+    if len(cabs) != CAB_HI - CAB_LO or cabs[-0x1000:-0x1000 + 4] != b"TBC1": raise ValueError("cabs.bin invalide")
+    img = bytearray(img)
+    img[CAB_LO:CAB_HI] = sfc(cabs, p0=CAB_LO - APP_BASE)
+    return bytes(img)
+
+def has_cabs(img):
+    return sfc(img[CAB_HI - 0x1000:CAB_HI - 0x1000 + 32], p0=CAB_HI - 0x1000 - APP_BASE)[:4] == b"TBC1"
+
 def changed_sectors(a, b, lo=APP_BASE, hi=None):
     hi = hi or len(a)
     return [s for s in range(lo, hi, 0x1000) if a[s:s + 0x1000] != b[s:s + 0x1000]]
@@ -98,6 +110,9 @@ if __name__ == "__main__":
     app = open(sys.argv[2], "rb").read()
     app += b"\0" * (-len(app) % 32)              # cfg_tool.bin aligné comme dans les images officielles
     img, end = build(bk, app)
+    if len(sys.argv) > 4:                         # mkfw.py <sauvegarde> <app.bin> <sortie> [cabs.bin]
+        img = place_cabs(img, open(sys.argv[4], "rb").read())
+        print("cabs d'usine posés à 0xF3000")
     open(sys.argv[3], "wb").write(img)
     secs = changed_sectors(img, bk)
     print(f"image écrite : {sys.argv[3]} (sha256 {hashlib.sha256(img).hexdigest()[:16]})")

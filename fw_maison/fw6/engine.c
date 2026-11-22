@@ -114,7 +114,8 @@ struct st_rev { s32 *line[RV_N]; u16 len[RV_N]; u16 idx[RV_N]; s32 filt[8]; s32 
 #define IR_N 256
 #define IR_P 16
 struct st_eq;
-struct st_ir_core { s32 *H, *F, *xin, *outq; u32 pos, head; int slot, np; s32 level, mix; struct bq lc, hc; };
+struct st_ir_core { s32 *H, *F, *xin, *outq; u32 pos, head; int slot, np, P; s32 level, mix; struct bq lc, hc; };   /* P = partitions allouées */
+#define CAB_P 8                                                         /* cabs d'usine : 1 024 points = 8 partitions (moitié de la mémoire d'une IR) */
 #define PIT_W 1200u                                                     /* fenêtre 25 ms */
 #define PIT_LEN 2048u
 struct st_pit { s16 *buf; u32 wr; s32 ph[3], step[3], g[3]; s32 dry; int nv; };
@@ -624,55 +625,107 @@ static void fft(int inv, int scale)                                  /* complexe
     else if (scale) fft_core(0, 1, IR_N);
     else fft_core(0, 0, IR_N);
 }
-static void fft128_fwd_scaled(void) { fft_core(0, 1, IR_N / 2); }    /* complexe 128 points (signal réel de 256, en temps réel) */
-static void fft128_inv(void) { fft_core(1, 0, IR_N / 2); }
+#define IRAM __attribute__((section(".sram")))                     /* code exécuté en RAM (pas de défauts de cache flash) */
+static IRAM void fft128_fwd_scaled(void) { fft_core(0, 1, IR_N / 2); }    /* complexe 128 points (signal réel de 256, en temps réel) */
+static IRAM void fft128_inv(void) { fft_core(1, 0, IR_N / 2); }
 static s32 gre[IR_N / 2 + 1] GFXBSS2, gim[IR_N / 2 + 1] GFXBSS2;
 const short *proto_ir_data(int s);
+/* Charge l'IR h (int16, P partitions de 128 au plus) dans le cœur de convolution. Les filtres f[0..nf-1] (Low/High Cut,
+   couleurs) sont appliqués UNE fois à l'IR, au réglage, et donc intégrés à ses spectres : aucun filtre par échantillon
+   (gain mesuré : ~3 % d'un cœur par bloc). id = identifiant du contenu + réglages (cache : recalcul seulement s'il change). */
+static u32 bq_hash(const struct bq *b) { u32 h = 0; int i; for (i = 0; i < 5; i++) h = h * 2654435761u + (u32)b->c[i]; return h; }
+static void ir_core_load(struct st_ir_core *r, const short *h, u32 id, int P, struct bq *const *f, int nf)
+{
+    int q, k, i;
+    s32 *t;
+    if (!r->H) {
+        r->H = pool_alloc(P * (IR_N / 2 + 1) * 8); r->F = pool_alloc(2 * P * IR_S * 4);                                /* ligne à retard doublée */
+        r->xin = pool_alloc(IR_N * 4); r->outq = pool_alloc(IR_B * 4);
+        if (!r->H || !r->F || !r->xin || !r->outq) { r->np = 0; r->H = 0; return; }
+        r->slot = -1; r->P = P;
+    }
+    for (i = 0; i < nf; i++) id = id * 31u + bq_hash(f[i]);
+    if ((u32)r->slot == id && r->np) return;
+    fft_init();
+    t = r->F;                                                            /* IR filtrée (P x 128 s32), dans la ligne à retard libre */
+    {
+        struct bq w[4];
+        for (i = 0; i < nf && i < 4; i++) { w[i] = *f[i]; w[i].z[0] = w[i].z[1] = w[i].z[2] = w[i].z[3] = 0; }
+        for (k = 0; k < r->P * IR_B; k++) {
+            s32 y = (s32)h[k] << 8;                                      /* Q23 */
+            for (i = 0; i < nf && i < 4; i++) y = bq_run(&w[i], y);
+            t[k] = (y + 128) >> 8;                                       /* unités int16 (peut dépasser après un plateau positif) */
+        }
+    }
+    {   /* queue inaudible coupée : on garde les partitions jusqu'à la dernière dont l'énergie dépasse -60 dB du total */
+        s64 tot = 0, part[IR_P];
+        for (q = 0; q < r->P; q++) { part[q] = 0; for (i = 0; i < IR_B; i++) { s32 v = t[q * IR_B + i]; part[q] += (s64)v * v; } tot += part[q]; }
+        r->np = 1;
+        for (q = r->P - 1; q > 0; q--) if (part[q] * 1000000 > tot) { r->np = q + 1; break; }
+    }
+    for (q = 0; q < r->np; q++) {                                        /* spectres des partitions (non mis à l'échelle, unités Q15) */
+        s32 *Hq = r->H + q * (IR_N / 2 + 1) * 2;
+        for (k = 0; k < IR_N; k++) { fre[k] = k < IR_B ? t[q * IR_B + k] : 0; fim[k] = 0; }
+        fft(0, 0);
+        for (k = 0; k <= IR_N / 2; k++) { Hq[2 * k] = fre[k]; Hq[2 * k + 1] = fim[k]; }
+    }
+    for (k = 0; k < 2 * r->P * IR_S; k++) r->F[k] = 0;                  /* ligne à retard remise à zéro */
+    for (k = 0; k < IR_N; k++) r->xin[k] = 0;
+    for (k = 0; k < IR_B; k++) r->outq[k] = 0;
+    r->slot = (int)id; r->pos = 0; r->head = 0;
+}
 static void design_ir(struct block *b)
 {
     struct st_ir_core *r = &b->s.i.c;
     float *p = b->p;
-    int slot = (int)p[P_IR_SLOT], q, k;
+    int slot = (int)p[P_IR_SLOT];
     const short *h = proto_ir_data(slot);
+    struct bq *f[2];
     r->level = db2q16(p[P_IR_LVL]); r->mix = pct2q15(p[P_IR_MIX]);
     bq_design(&r->lc, BQ_HP, p[P_IR_LC], 0.707f, 0); bq_design(&r->hc, BQ_LP, p[P_IR_HC], 0.707f, 0);
     design_eq_into(b, &b->s.i.fb);
     if (!h) { r->np = 0; r->slot = -1; return; }                         /* emplacement vide : baffle simulé */
-    if (!r->H) {
-        r->H = pool_alloc(IR_P * (IR_N / 2 + 1) * 8); r->F = pool_alloc(2 * IR_P * IR_S * 4);                          /* ligne à retard doublée */
-        r->xin = pool_alloc(IR_N * 4); r->outq = pool_alloc(IR_B * 4);
-        if (!r->H || !r->F || !r->xin || !r->outq) { r->np = 0; r->H = 0; return; }
-        r->slot = -1;
-    }
-    if (r->slot == slot) return;
-    fft_init();
-    {   /* queue inaudible coupée : on garde les partitions jusqu'à la dernière dont l'énergie dépasse -60 dB du total */
-        s64 tot = 0, part[IR_P];
-        int i;
-        for (q = 0; q < IR_P; q++) { part[q] = 0; for (i = 0; i < IR_B; i++) { s32 v = h[q * IR_B + i]; part[q] += (s64)v * v; } tot += part[q]; }
-        r->np = 1;
-        for (q = IR_P - 1; q > 0; q--) if (part[q] * 1000000 > tot) { r->np = q + 1; break; }
-    }
-    for (q = 0; q < r->np; q++) {                                        /* spectres des partitions (non mis à l'échelle, unités Q15) */
-        s32 *Hq = r->H + q * (IR_N / 2 + 1) * 2;
-        for (k = 0; k < IR_N; k++) { fre[k] = k < IR_B ? h[q * IR_B + k] : 0; fim[k] = 0; }
-        fft(0, 0);
-        for (k = 0; k <= IR_N / 2; k++) { Hq[2 * k] = fre[k]; Hq[2 * k + 1] = fim[k]; }
-    }
-    r->slot = slot; r->pos = 0; r->head = 0;
+    f[0] = &r->lc; f[1] = &r->hc;
+    ir_core_load(r, h, 0x49520000u + (u32)slot, IR_P, f, 2);
 }
-static void ir_block(struct st_ir_core *r)
+/* Cabs d'usine (blocs « 4x12 V30 » et « Combo ») : vraies IR de la zone flash 0xF3000 (gen_cabs.py, third_party/irs).
+   Paramètres : Baffle (choix de l'IR), Position (brillance, plateau 2,5 kHz), Distance (effet de proximité, plateau 150 Hz),
+   Low/High Cut ; tous intégrés à l'IR. Sans zone de cabs (pédale pas encore mise à jour) : ancien baffle simulé par filtres. */
+const short *proto_cab_data(int k);
+#define CAB_LVL_DB (-3.0f)                                               /* niveau moyen proche de l'ancien baffle simulé */
+static int cab_index(struct block *b)
+{
+    int v = (int)(b->p[P_CAB412_MIC] + 0.5f);
+    if (b->model == M_CAB412) return v < 0 ? 0 : v > 4 ? 4 : v;          /* 0..4 : V30 SM57 A/B, V30 Dyn 75, V30 + G12F, 4x12 fermé */
+    return 5 + (v < 0 ? 0 : v > 5 ? 5 : v);                             /* Combo 5..10 : 2x12 ouvert/fermé/mi-ouvert, 1x12 ouvert/fermé, 4x10 */
+}
+static void design_cab(struct block *b)
+{
+    struct st_ir_core *r = &b->s.i.c;
+    struct st_eq *e = &b->s.i.fb;
+    float *p = b->p;
+    int k = cab_index(b);
+    const short *h = proto_cab_data(k);
+    struct bq *f[4];
+    if (!h) { design_eq_into(b, e); r->np = 0; r->slot = -1; return; }
+    r->level = db2q16(CAB_LVL_DB); r->mix = 32767;
+    bq_design(&r->lc, BQ_HP, p[P_CAB412_LC], 0.707f, 0); bq_design(&r->hc, BQ_LP, p[P_CAB412_HC], 0.707f, 0);
+    bq_design(&e->b[0], BQ_HSH, 2500.0f, 0.707f, (4.0f - p[P_CAB412_POS]) * 1.2f);
+    bq_design(&e->b[1], BQ_LSH, 150.0f, 0.707f, (2.0f - p[P_CAB412_DIST]) * 1.0f);
+    f[0] = &r->lc; f[1] = &r->hc; f[2] = &e->b[0]; f[3] = &e->b[1];
+    ir_core_load(r, h, 0x43410000u + (u32)k, CAB_P, f, 4);
+}static IRAM void ir_block(struct st_ir_core *r)
 {
     int q, k;
     s32 *X;
     /* FFT réelle de 256 points par une FFT complexe de 128 : z[n] = x[2n] + j x[2n+1] */
     for (k = 0; k < IR_N / 2; k++) { fre[k] = r->xin[2 * k]; fim[k] = r->xin[2 * k + 1]; }
     fft128_fwd_scaled();                                                 /* Z / 128 */
-    r->head = (r->head + IR_P - 1) % IR_P;                               /* ligne à retard fréquentielle */
+    r->head = (r->head + r->P - 1) % r->P;                               /* ligne à retard fréquentielle */
     {   /* X[k] / 256 = ((Z[k] + Z*[128-k]) + W^k (Z[k] - Z*[128-k]) / j) / 4 ; écrit deux fois (head et head + P) :
            les partitions head..head+np-1 sont alors contiguës, sans rebouclage */
         s32 *X2;
-        X = r->F + r->head * IR_S; X2 = X + IR_P * IR_S;
+        X = r->F + r->head * IR_S; X2 = X + r->P * IR_S;
         for (k = 0; k <= IR_N / 2; k++) {
             const int a = k & (IR_N / 2 - 1), b = (IR_N / 2 - k) & (IR_N / 2 - 1);
             const s32 zr = fre[a], zi = fim[a], cr = fre[b], ci = -fim[b];
@@ -716,8 +769,7 @@ static s32 run_ir(struct block *b, s32 x)
     r->xin[IR_B + r->pos] = x;
     y = r->outq[r->pos];
     if (++r->pos >= IR_B) { r->pos = 0; ir_block(r); }
-    y = bq_run(&r->hc, bq_run(&r->lc, y));
-    y = mulq16(y, r->level);
+    y = mulq16(y, r->level);                                             /* filtres déjà intégrés à l'IR (ir_core_load) */
     if (r->mix < 32767) y = mulq15(y, r->mix) + mulq15(dry, 32767 - r->mix);
     return y;
 }
@@ -885,6 +937,29 @@ int engine_nam_test(int slot, int split, s32 *out)
     return 0;
 }
 
+/* banc d'essai de la convolution (commande 0x1A, modèle 120..123) : ms pour reps répétitions de
+   120 = ir_block complet, 121 = 2 FFT de 128 seules, 122 = 128 appels de run_ir (dont 1 ir_block), 123 = permutation seule */
+u32 engine_bench_ir(int what, int reps)
+{
+    u32 usb_read_sofframe(int id), t0;
+    struct block *b = &grid[0][0];
+    int i, k;
+    engine_clear();
+    if (engine_block_set_force(0, 0, M_CAB412) != 0) return 0xFFFFFFFFu;
+    if (!b->s.i.c.np) return 0xFFFFFFFEu;
+    for (k = 0; k < IR_N; k++) { fre[k] = (s32)(k * 7919) & 0xFFFF; fim[k] = 0; }
+    t0 = usb_read_sofframe(0);
+    for (i = 0; i < reps; i++) {
+        if (what == 120) ir_block(&b->s.i.c);
+        else if (what == 121) { fft128_fwd_scaled(); fft128_inv(); }
+        else if (what == 122) { for (k = 0; k < IR_B; k++) (void)run_ir(b, (s32)(k * 40503) >> 8); }
+        else { for (k = 1; k < 128; k++) { int j = brev[k] >> 1; if (k < j) { s32 t = fre[k]; fre[k] = fre[j]; fre[j] = t; } } }
+        if ((i & 63) == 0) wdt_clear();
+    }
+    t0 = (usb_read_sofframe(0) - t0) & 2047;
+    engine_clear();
+    return t0;
+}
 /* mesure du coût d'un modèle (commande 0x1A) : un seul bloc (réglages par défaut), n échantillons de bruit ;
    m < 0 = grille vide (coût de base). Renvoie les ms (trames USB SOF). Remet le moteur à zéro. */
 u32 bench_peak, bench_avg, bench_bad;                                 /* niveau de sortie mesuré par engine_bench_model */
@@ -931,7 +1006,7 @@ static void design(struct block *b)
     case CAT_DELAY: design_dly(b); break;
     case CAT_REVERB: design_rev(b); break;
     case CAT_PITCH: design_pit(b); break;
-    case CAT_CAB: if (b->model == M_IR) design_ir(b); else design_eq(b); break;
+    case CAT_CAB: if (b->model == M_IR) design_ir(b); else design_cab(b); break;
     default: design_eq(b); break;                                      /* eq, util */
     }
 }
@@ -970,7 +1045,7 @@ static s32 run(struct block *b, s32 x)
     case CAT_DELAY: return run_dly(&b->s.l, x);
     case CAT_REVERB: return run_rev(&b->s.r, x);
     case CAT_PITCH: return run_pit(&b->s.t, x);
-    case CAT_CAB: return b->model == M_IR ? run_ir(b, x) : run_eq(&b->s.e, x);
+    case CAT_CAB: return run_ir(b, x);                                   /* IR Loader et cabs d'usine (repli : filtres si pas d'IR) */
     default: return run_eq(&b->s.e, x);
     }
 }

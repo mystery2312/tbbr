@@ -123,6 +123,7 @@ static void send_info(void)
     jkv_n("dspUsed", engine_dsp_total(-1, -1), 1);
     jkv_n("namCpu", engine_nam_c1_pct(), 1);                        /* moitié avant du NAM : % du 2e cœur */
     jkv_s("fsMode", fs_mode_name(proto_fs_mode()), 1);
+    { int proto_cab_count(void); jkv_n("cabs", proto_cab_count(), 1); }   /* cabs d'usine (IR) présents en flash */
     jkv_n("inGateOn", in_gate_on(), 1);                              /* gate d'entrée global (anti-souffle) */
     jkv_n("inGate", in_gate_db(), 1);
     js("\"saved\":\"");                                              /* presets présents dans la pédale : 1 caractère par preset */
@@ -194,6 +195,9 @@ static int key_is(const char *s, int n, const char *k) { int i; for (i = 0; i < 
 void ui_msg_dsp(void);
 /* budget DSP d'un preset JSON, sans rien appliquer : somme des coûts sur le 1er cœur (NAM = sa moitié arrière).
    Renvoie 1000 si le preset est impossible (plus d'un NAM, ou NAM trop lourd pour le 2e cœur). */
+/* Limite de CHARGEMENT d'un preset existant : 115 % (les coûts peuvent augmenter d'une version à l'autre, ex. cabs à IR en 0.8 ;
+   mesuré sans décrochage jusqu'à 132 %, et le garde-fou de surcharge protège). La construction dans l'app reste limitée à 100 %. */
+#define DSP_LOAD_MAX 115
 int preset_dsp(const char *txt, u32 len)
 {
     const char *s; int n, l, c, tot = 0, nams = 0;
@@ -455,16 +459,23 @@ static u32 preset_export(void)
     ex_s("]}");
     return ex_bad ? 0 : ex_n;
 }
+/* Banque d'usine : chaque preset d'usine écrit par le firmware porte une étiquette dans hdr[3]
+   (« FB », version de la banque, numéro) ; une sauvegarde de l'utilisateur l'efface (hdr[3] = 0).
+   Quand FACTORY_BANK augmente, les presets d'usine NON modifiés sont remplacés par leur nouvelle version au démarrage. */
+#define FACTORY_BANK 2u                                                 /* 2 = cabs à IR (fw6 0.8) */
+#define FB_TAG(k) (0x46420000u | (FACTORY_BANK << 8) | (u32)(k))
+static u32 store_tag;                                                   /* étiquette du prochain preset_store */
 /* écrit l'état réel dans l'emplacement i, sans toucher à la table meta (utilisé aussi au boot) */
 static int preset_store(int i)
 {
-    u32 a, hdr[4];
+    u32 a, hdr[4], tag = store_tag;
+    store_tag = 0;
     if (i < 0 || i >= CAT_PRESETS || big_p) return -1;              /* un envoi en cours lit CUR_JSON */
     preset_index = i;                                               /* le « i » exporté = l'emplacement */
     cur_json_len = preset_export();
     if (!cur_json_len) return -1;                                    /* trop long pour un secteur */
     a = preset_addr(i);
-    hdr[0] = TBP_MAGIC; hdr[1] = cur_json_len; hdr[2] = crc16x((const u8 *)CUR_JSON, cur_json_len); hdr[3] = 0;
+    hdr[0] = TBP_MAGIC; hdr[1] = cur_json_len; hdr[2] = crc16x((const u8 *)CUR_JSON, cur_json_len); hdr[3] = tag;
     if (storage_erase(a)) return -2;
     if (storage_write(a + 16, (const u8 *)CUR_JSON, cur_json_len)) return -3;
     if (storage_write(a, (const u8 *)hdr, 16)) return -4;              /* en-tête en dernier : un preset coupé reste invalide */
@@ -489,7 +500,7 @@ static int preset_load(int i)
     h = (const u32 *)storage_ptr(preset_addr(i));
     if (h[0] != TBP_MAGIC || h[1] == 0 || h[1] > 0x1000u - 16) return -2;
     if (crc16x((const u8 *)(h + 4), h[1]) != h[2]) return -3;
-    if (preset_dsp((const char *)(h + 4), h[1]) > 100) return -4;   /* sauvé avec d'anciens coûts : ignoré au démarrage, sans message */
+    if (preset_dsp((const char *)(h + 4), h[1]) > DSP_LOAD_MAX) return -4;   /* sauvé avec d'anciens coûts : ignoré au démarrage, sans message */
     (void)k;
     if (apply_preset_json((const char *)(h + 4), h[1]) != 0) return -5;   /* lu directement en flash (XIP) */
     saved_mods = engine_mods();                                      /* tel que sauvé : pas « modifié » */
@@ -533,6 +544,26 @@ int proto_slot_name(int i, char *o)
     if (json_str((const char *)(h + 4), h[1], "name", &s, &n)) copy_name(o, s, n, 24); else copy_name(o, "Preset", 6, 24);
     return 1;
 }
+static u32 preset_tag(int i) { const u32 *h = (const u32 *)storage_ptr(preset_addr(i)); return h[0] == TBP_MAGIC ? h[3] : 0; }
+static int factory_store(int k, int i) { if (preset_init(k) != 0) return -1; store_tag = FB_TAG(k); return preset_store(i); }
+static int name_eq(const char *a, const char *b) { while (*a && *a == *b) { a++; b++; } return *a == *b; }
+/* commande FACTORY_RESET [1] : recharge la banque d'usine ; remplace le preset qui porte le même nom, sinon 1er emplacement vide.
+   Les autres presets ne sont jamais touchés. Renvoie le nombre de presets écrits. */
+static int factory_reload(void)
+{
+    int k, i, n = 0;
+    char nm[24], fn[24];
+    for (k = 0; k < FACTORY_PRESET_COUNT; k++) {
+        const char *s; int sn, slot = -1;
+        if (!json_str(factory_preset_json[k], factory_preset_len[k], "name", &s, &sn)) continue;
+        copy_name(fn, s, sn, 24);
+        for (i = 0; i < CAT_PRESETS && slot < 0; i++) if (proto_slot_name(i, nm) && name_eq(nm, fn)) slot = i;
+        for (i = 0; i < CAT_PRESETS && slot < 0; i++) if (!preset_saved(i)) slot = i;
+        if (slot >= 0 && factory_store(k, slot) == 0) n++;
+    }
+    if (preset_load(preset_index) != 0) preset_init(0);
+    return n;
+}
 void proto_boot(void)
 {
     meta_load();
@@ -545,10 +576,20 @@ void proto_boot(void)
         int n = 0, i, ok = 1;
         for (i = 0; i < CAT_PRESETS && n < FACTORY_PRESET_COUNT; i++) {
             if (preset_saved(i)) continue;
-            if (preset_init(n) != 0 || preset_store(i) != 0) { ok = 0; break; }
+            if (factory_store(n, i) != 0) { ok = 0; break; }
             n++;
         }
-        if (ok) META->pad |= 0x10000u;
+        if (ok) META->pad |= 0x10000u | (FACTORY_BANK << 18);
+        meta_save();
+    }
+    /* banque d'usine plus récente : met à jour les presets d'usine que l'utilisateur n'a pas modifiés (bits 18..21 de pad) */
+    if (((META->pad >> 18) & 15u) < FACTORY_BANK) {
+        int i;
+        for (i = 0; i < CAT_PRESETS; i++) {
+            u32 t = preset_tag(i), k = t & 0xFFu;
+            if ((t & 0xFFFF0000u) == 0x46420000u && ((t >> 8) & 0xFFu) < FACTORY_BANK && k < FACTORY_PRESET_COUNT) factory_store((int)k, i);
+        }
+        META->pad = (META->pad & ~(15u << 18)) | (FACTORY_BANK << 18);
         meta_save();
     }
     if (META->last_preset < CAT_PRESETS && preset_load((int)META->last_preset) == 0) preset_index = (int)META->last_preset;   /* numéro = emplacement, pas le « i » du JSON */
@@ -629,7 +670,7 @@ static void dispatch(u32 cmd, const u8 *pl, u32 n)
     case C_HELLO: host_ok = 1; send_info(); break;
     case C_PRESET_SET:
         if (n >= 0x1000u - 16) { nak(cmd); break; }                    /* trop long pour un secteur de preset */
-        if (preset_dsp((const char *)pl, n) > 100) { nak(cmd); ui_msg_dsp(); break; }   /* DSP insuffisant : l'ancien preset reste */
+        if (preset_dsp((const char *)pl, n) > DSP_LOAD_MAX) { nak(cmd); ui_msg_dsp(); break; }   /* DSP insuffisant : l'ancien preset reste */
         if (apply_preset_json((const char *)pl, n) == 0) ack(cmd); else nak(cmd);   /* lu sur place (rbuf) */
         break;
     case C_PRESET_SELECT:                                             /* la pédale charge le preset ; l'app relit l'état (PRESET_GET 0x7F) */
@@ -727,7 +768,10 @@ static void dispatch(u32 cmd, const u8 *pl, u32 n)
             if (meta_save() == 0) { engine_nam_changed(slot); ack(cmd); } else nak(cmd);
         } else nak(cmd);
         break;
-    case C_FW_BEGIN: case C_FACTORY_RESET: nak(cmd); break;           /* mise à jour par l'app : à faire (l'installateur passe par UBOOT) */
+    case C_FACTORY_RESET:                                             /* [1] : recharger les presets d'usine (voir factory_reload) */
+        if (n >= 1 && pl[0] == 1 && !big_p) { int w = factory_reload(); ack(cmd); notify_preset(preset_index, 2); (void)w; } else nak(cmd);
+        break;
+    case C_FW_BEGIN: nak(cmd); break;                                 /* mise à jour par l'app : l'installateur passe par UBOOT */
     case C_FW_CHUNK: case C_FW_END: break;
     default: nak(cmd);
     }
@@ -820,6 +864,13 @@ u32 proto_preset_rgb(void) { return preset_rgb; }
 int proto_preset_index(void) { return preset_index; }
 u32 proto_tempo(void) { return tempo_bpm; }
 /* échantillons int16 d'une IR enregistrée (2048 points, lecture directe en flash) ; 0 si l'emplacement est vide */
+/* cabs d'usine : zone [0xF3000, 0xFF000) écrite par l'installateur (gen_cabs.py) ; répertoire « TBC1 » au secteur 0xFE000 */
+#define CAB_BASE 0xF3000u
+#define CAB_DIR  0xFE000u
+struct cab_dir { u32 magic, count; struct { char name[24]; u16 len, r0; u32 r1; } e[11]; };
+static const struct cab_dir *cab_dir(void) { const struct cab_dir *d = (const struct cab_dir *)storage_ptr(CAB_DIR); return d->magic == 0x31434254u && d->count <= 11 ? d : 0; }
+const short *proto_cab_data(int k) { const struct cab_dir *d = cab_dir(); return d && k >= 0 && k < (int)d->count && d->e[k].len ? (const short *)storage_ptr(CAB_BASE + (u32)k * 0x1000u) : 0; }
+int proto_cab_count(void) { const struct cab_dir *d = cab_dir(); return d ? (int)d->count : 0; }
 const short *proto_ir_data(int s) { return (s >= 0 && s < CAT_IR_SLOTS && META->ir[s].valid) ? (const short *)storage_ptr(IR_BASE + (u32)s * IR_SZ) : 0; }
 const float *proto_nam_weights(int s, int *n) { if (s < 0 || s >= CAT_NAM_SLOTS || !META->nam[s].valid) return 0; *n = (int)(META->nam[s].size / 4); return (const float *)storage_ptr(NAM_BASE + (u32)s * NAM_SZ); }
 const u8 *proto_nam_blob(int s, int *n) { if (s < 0 || s >= CAT_NAM_SLOTS || !META->nam[s].valid) return 0; *n = (int)META->nam[s].size; return (const u8 *)storage_ptr(NAM_BASE + (u32)s * NAM_SZ); }

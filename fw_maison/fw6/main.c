@@ -1,4 +1,4 @@
-﻿/* fw4 : fw3 + liaison USB MIDI (SysEx) pour l'éditeur et l'installateur.
+/* fw4 : fw3 + liaison USB MIDI (SysEx) pour l'éditeur et l'installateur.
  * Protocole (proto_sysex, plus bas) : F0 7D 42 58 <cmd> <données 7 bits> F7.
  *
  * fw3 : multi-effet BlackBox (AC791N) en FLASH à 0x2000120 — effets de meilleure qualité + mesure de charge processeur.
@@ -47,7 +47,7 @@ enum { RB_MAGIC = 0, RB_BOOTS, RB_STAGE, RB_HALVES, RB_EXIT, RB_OVERRUNS, RB_TIM
        RB_LADDER, RB_FXMASK, RB_DRAW, RB_SPINBASE, RB_LOADNOW, RB_LOADMAX };
 #define RB_OVERLOADS 20                         /* nombre de coupures pour surcharge (RB[17..19] déjà pris) */
 #define FW_MAGIC 0x46573452u                    /* "R4WF" */
-#define FW_VERSION "TBBR fw6 0.7"
+#define FW_VERSION "TBBR fw6 0.8"
 #define FW_MHZ 396                                      /* horloge processeur (clock.c) */
 #include "catalog.h"
 #include "engine.h"
@@ -995,7 +995,8 @@ void proto_sysex(const u8 *m, u32 n)
     case 0x1A: {                                                /* COÛT modèle(1) (127 = grille vide) : ms pour 19 200 échantillons (0,4 s audio) */
         u32 engine_bench_model(int m, int n), ms;
         audio_mute_for_flash();
-        ms = engine_bench_model(n >= 7 && m[5] != 127 ? m[5] : -1, 19200);
+        if (n >= 7 && m[5] >= 120 && m[5] <= 123) { u32 engine_bench_ir(int what, int reps); ms = engine_bench_ir(m[5], 150); }   /* 150 blocs = 0,4 s */
+        else ms = engine_bench_model(n >= 7 && m[5] != 127 ? m[5] : -1, 19200);
         { extern u32 bench_peak, bench_avg, bench_bad; put32(io_buf, ms); put32(io_buf + 5, bench_peak); put32(io_buf + 10, bench_avg); put32(io_buf + 15, bench_bad); }
         reply(0x1A, io_buf, 20);
         break; }
