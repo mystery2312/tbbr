@@ -14,6 +14,9 @@ const LS_KEY = 'tbbr.state.v1', W = 240, H = 240; // résolution de l'écran (ma
 const C = { bg: '#0b0d10', bar: '#11141a', line: '#232830', tx: '#eceef1', tx2: '#a3abb5', tx3: '#646c77', acc: '#19d3ff', wire: '#3c434d', ok: '#3ddc84', warn: '#ffb020', bad: '#ff4d4d' };
 const FONT = 'Inter, system-ui, sans-serif', MONO = "'JetBrains Mono', ui-monospace, monospace";
 const $ = s => document.querySelector(s);
+/* ?embed : façade seule, fond transparent, à l'échelle du cadre (bandeau du site GitHub Pages) */
+const EMBED = new URLSearchParams(location.search).has('embed');
+if (EMBED) { document.documentElement.classList.add('embed'); document.body.classList.add('embed'); }
 const scr = $('#scr');
 scr.setAttribute('viewBox', `0 0 ${W} ${H}`);
 const BC = 'BroadcastChannel' in window ? new BroadcastChannel('tbbr') : null;
@@ -478,7 +481,9 @@ const cssPerMm = () => physPerMm ? physPerMm / (window.devicePixelRatio || 1) : 
 const sideMm = () => clamp(+$('#diag').value || 1.54, 0.8, 3) / Math.SQRT2 * 25.4;
 $('#diag').value = PREF('tbbr.ecran.diag2') || '1.54';
 function applyScale() {
-  const side = sideMm(), mm = scaleMode === 'real' ? cssPerMm() : W / side;
+  const side = sideMm();
+  const mm = EMBED ? Math.min(innerWidth / 117, innerHeight / 116)        // façade 113 × 109 mm + ombre, ajustée au cadre
+    : scaleMode === 'real' ? cssPerMm() : W / side;
   const root = document.documentElement.style;
   root.setProperty('--mm', mm.toFixed(4) + 'px');
   document.querySelector('.pedal').style.setProperty('--side', side.toFixed(2));

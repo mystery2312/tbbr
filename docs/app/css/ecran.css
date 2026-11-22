@@ -69,3 +69,8 @@ main { display: flex; flex-direction: column; align-items: center; gap: 16px; pa
 .crow.end { justify-content: flex-end; }
 .sync { font: 700 10px 'JetBrains Mono', monospace; letter-spacing: .06em; color: var(--tx3); padding: 3px 8px; border-radius: 10px; border: 1px solid var(--line2); }
 .sync.on { color: #3ddc84; border-color: rgba(61, 220, 132, .45); }
+
+/* Mode intégré (?embed) : façade seule, fond transparent, centrée dans son cadre (bandeau du site). */
+html.embed, body.embed { background: transparent; min-height: 0; height: 100%; overflow: hidden; }
+body.embed .top, body.embed .calib-warn, body.embed .ruler, body.embed .caps, body.embed .hint, body.embed .calib { display: none !important; }
+body.embed main { height: 100%; padding: 0; justify-content: center; gap: 0; }
