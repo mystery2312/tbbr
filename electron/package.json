@@ -1,0 +1,53 @@
+{
+  "name": "blackbox-tbbr",
+  "version": "1.0.0",
+  "description": "BlackBox TBBR — application de bureau",
+  "main": "main.js",
+  "author": "TBBR",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^45.4.1",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "com.tbbr.blackbox",
+    "productName": "BlackBox TBBR",
+    "asar": true,
+    "files": [
+      "main.js",
+      "package.json",
+      "build/icon.png"
+    ],
+    "extraResources": [
+      {
+        "from": "../interface/app",
+        "to": "app",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "BlackBox_TBBR_App_${version}.exe"
+    },
+    "portable": {
+      "artifactName": "BlackBox_TBBR_App_${version}.exe"
+    }
+  }
+}

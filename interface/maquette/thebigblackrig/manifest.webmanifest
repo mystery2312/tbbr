@@ -1,0 +1,15 @@
+{
+  "name": "The Big Black Rig",
+  "short_name": "BigBlackRig",
+  "description": "Éditeur de presets pour le firmware custom de la M-VAVE Blackbox.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#08090b",
+  "theme_color": "#0a0b0d",
+  "lang": "fr",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

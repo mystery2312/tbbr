@@ -1,0 +1,54 @@
+# LISTE BLANCHE : tout est ignoré sauf ce qui est explicitement autorisé ci-dessous.
+# Jamais dans ce dépôt : sauvegardes de pédales, firmwares M-VAVE, fichiers UltraRig, désassemblages, notes privées (save.md).
+/*
+!/.gitignore
+!/README.md
+!/LICENSE
+!/THIRD_PARTY.md
+!/build_all.ps1
+!/docs/
+!/third_party/
+!/interface/
+!/installer/
+!/electron/
+
+!/fw_maison/
+/fw_maison/*
+!/fw_maison/fw6/
+!/fw_maison/reboot/
+
+!/scripts/
+/scripts/*
+!/scripts/bb_tool.py
+!/scripts/mkfw.py
+
+# ---- sorties de compilation et fichiers locaux (partout)
+*.o
+*.elf
+*.bin
+*.log
+*.spec
+*.zip
+*.exe
+*.pyc
+__pycache__/
+node_modules/
+!/third_party/jl-uboot-tool/wl82loader.bin
+!/fw_maison/reboot/reboot.bin
+
+# firmware : fichiers générés par build.ps1
+/fw_maison/fw6/assets.h
+/fw_maison/fw6/catalog.h
+/fw_maison/fw6/tables.h
+/fw_maison/fw6/factory_presets.h
+/fw_maison/fw6/nam_asm.S
+/fw_maison/fw6/sdk/vm_sfc_mark.ll
+/fw_maison/reboot/link.ld
+
+# installateur / app de bureau : sorties
+/installer/build/
+/installer/dist/
+/installer/test_backups/
+/installer/resources/VERSION.txt
+/electron/dist/
+/electron/dist_next/

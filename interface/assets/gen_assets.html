@@ -1,0 +1,103 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<!-- Générateur d'assets pour l'écran de la pédale (exécuté par Edge sans fenêtre, voir gen_assets.py).
+     Rastérise les polices de ecran.js (mêmes familles / graisses / tailles) et convertit les icônes MODEL_GLYPH de data.js
+     en polylignes + cercles (coordonnées 0..24), écrites en JSON dans #out. -->
+<style>
+@font-face { font-family: 'Inter'; font-weight: 700; src: url('../fonts/Inter-700.ttf'); }
+@font-face { font-family: 'Inter'; font-weight: 800; src: url('../fonts/Inter-800.ttf'); }
+@font-face { font-family: 'JetBrains Mono'; font-weight: 700; src: url('../fonts/JetBrainsMono-700.ttf'); }
+@font-face { font-family: 'Inter'; font-weight: 400; src: url('../fonts/Inter-400.woff2'); }
+</style>
+<script src="../app/js/data.js"></script>
+</head><body><pre id="out">EN COURS</pre>
+<script>
+'use strict';
+const FULL = Array.from({ length: 95 }, (_, i) => String.fromCharCode(32 + i)).join('') + 'àâäçéèêëîïôöùûüÿœæÀÂÄÇÉÈÊËÎÏÔÖÙÛÜŒÆ…−·◆⟳°×';
+/* polices utilisées par ecran.js : [nom C, famille, graisse, taille, jeu de caractères] */
+const FONTS = [
+  ['mono11', 'JetBrains Mono', 700, 11, FULL], ['mono12', 'JetBrains Mono', 700, 12, FULL], ['mono14', 'JetBrains Mono', 700, 14, FULL],
+  ['mono18', 'JetBrains Mono', 700, 18, FULL], ['mono22', 'JetBrains Mono', 700, 22, '0123456789ABCD'], ['mono28', 'JetBrains Mono', 700, 28, '+-−.0123456789 dB'],
+  ['sans14', 'Inter', 700, 14, FULL], ['sans16', 'Inter', 700, 16, FULL], ['sans18', 'Inter', 700, 18, FULL],
+  ['bold15', 'Inter', 800, 15, FULL], ['bold28', 'Inter', 800, 28, FULL], ['bold30', 'Inter', 800, 30, '0123456789'], ['bold100', 'Inter', 800, 100, 'ABCDEFG#'],
+  /* logo de démarrage (comme .brand-txt de l'app) : chaque « caractère » est un mot entier, espacement 0,14 em ;
+     A = BIG et C = RIG en Inter 400, B = BLACK en Inter 800 */
+  ['logo', 'Inter', 400, 24, [['A', 'BIG', 400], ['B', 'BLACK', 800], ['C', 'RIG', 400]], '0.14em'],
+];
+function rasterFont([name, fam, wt, px, chars, spacing]) {
+  const c = document.createElement('canvas'), g = c.getContext('2d');
+  c.width = px * 10; c.height = px * 3;
+  g.font = `${wt} ${px}px '${fam}'`;
+  const m0 = g.measureText('Hg'), asc = Math.ceil(m0.fontBoundingBoxAscent), desc = Math.ceil(m0.fontBoundingBoxDescent);
+  const glyphs = [];
+  for (const item of chars) {
+    const [ch, text, w2] = Array.isArray(item) ? item : [item, item, wt];
+    g.font = `${w2} ${px}px '${fam}'`;
+    if (spacing) g.letterSpacing = spacing;
+    g.clearRect(0, 0, c.width, c.height);
+    g.fillStyle = '#fff'; g.textBaseline = 'alphabetic';
+    const ox = px, oy = px * 2;
+    g.fillText(text, ox, oy);
+    const m = g.measureText(text), adv = m.width;
+    const d = g.getImageData(0, 0, c.width, c.height).data;
+    let x0 = c.width, y0 = c.height, x1 = -1, y1 = -1;
+    for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) if (d[(y * c.width + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    const a = [];
+    if (x1 >= 0) for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) a.push(Math.round(d[(y * c.width + x) * 4 + 3] / 17));   /* 0..15 */
+    glyphs.push({ ch: ch.codePointAt(0), adv: Math.round(adv * 16) / 16, x: x1 >= 0 ? x0 - ox : 0, y: x1 >= 0 ? y0 - oy : 0, w: x1 >= 0 ? x1 - x0 + 1 : 0, h: x1 >= 0 ? y1 - y0 + 1 : 0, a });
+  }
+  return { name, fam, wt, px, asc, desc, glyphs };
+}
+/* icônes : chaque élément SVG -> polyligne (échantillonnée par le moteur SVG) ou cercle exact */
+function rectPath(e) {
+  const x = +e.getAttribute('x') || 0, y = +e.getAttribute('y') || 0, w = +e.getAttribute('width'), h = +e.getAttribute('height');
+  let r = +(e.getAttribute('rx') || e.getAttribute('ry') || 0); r = Math.min(r, w / 2, h / 2);
+  return r ? `M${x + r} ${y}H${x + w - r}A${r} ${r} 0 0 1 ${x + w} ${y + r}V${y + h - r}A${r} ${r} 0 0 1 ${x + w - r} ${y + h}H${x + r}A${r} ${r} 0 0 1 ${x} ${y + h - r}V${y + r}A${r} ${r} 0 0 1 ${x + r} ${y}Z`
+           : `M${x} ${y}H${x + w}V${y + h}H${x}Z`;
+}
+function simplify(pts, tol) {               /* Douglas-Peucker */
+  if (pts.length < 3) return pts;
+  const [ax, ay] = pts[0], [bx, by] = pts[pts.length - 1];
+  let imax = 0, dmax = 0;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const [px, py] = pts[i], dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy) || 1e-9;
+    const d = Math.abs((px - ax) * dy - (py - ay) * dx) / L;
+    if (d > dmax) { dmax = d; imax = i; }
+  }
+  if (dmax <= tol) return [pts[0], pts[pts.length - 1]];
+  return simplify(pts.slice(0, imax + 1), tol).slice(0, -1).concat(simplify(pts.slice(imax), tol));
+}
+function iconElems(markup) {
+  const ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24'); svg.style.position = 'absolute';
+  svg.innerHTML = markup; document.body.appendChild(svg);
+  const out = [];
+  for (const e of [...svg.children]) {
+    const alpha = e.hasAttribute('opacity') ? +e.getAttribute('opacity') : 1;
+    if (e.tagName === 'circle') { out.push({ t: 'c', cx: +e.getAttribute('cx'), cy: +e.getAttribute('cy'), r: +e.getAttribute('r'), alpha }); continue; }
+    const d = e.tagName === 'rect' ? rectPath(e) : e.getAttribute('d');
+    const p = document.createElementNS(ns, 'path'); p.setAttribute('d', d); svg.appendChild(p);
+    const L = p.getTotalLength(), step = 0.1;
+    let cur = [], prev = null;
+    for (let s = 0; s <= L + 1e-6; s += step) {
+      const q = p.getPointAtLength(Math.min(s, L)), pt = [q.x, q.y];
+      if (prev && Math.hypot(pt[0] - prev[0], pt[1] - prev[1]) > step * 3) { if (cur.length > 1) out.push({ t: 'p', pts: simplify(cur, 0.04), alpha }); cur = []; }
+      cur.push(pt); prev = pt;
+    }
+    if (cur.length > 1) out.push({ t: 'p', pts: simplify(cur, 0.04), alpha });
+    p.remove();
+  }
+  svg.remove();
+  return out;
+}
+(async () => {
+  for (const f of FONTS) await document.fonts.load(`${f[2]} ${f[3]}px '${f[1]}'`);
+  const fonts = FONTS.map(rasterFont);
+  const icons = {};
+  for (const [id, mk] of Object.entries(MODEL_GLYPH)) icons[id] = iconElems(mk);
+  const cats = Object.fromEntries(Object.entries(CAT_GLYPH).map(([k, v]) => [k, Object.keys(MODEL_GLYPH).find(id => MODEL_GLYPH[id] === v)]));
+  const loaded = FONTS.map(f => [f[0], document.fonts.check(`${f[2]} ${f[3]}px '${f[1]}'`)]);
+  const models = MODELS.map(m => [m.id, m.cat]);
+  document.getElementById('out').textContent = JSON.stringify({ fonts, icons, catIcon: cats, loaded, models });
+})();
+</script></body></html>

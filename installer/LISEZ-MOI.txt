@@ -1,0 +1,40 @@
+BlackBox — Installateur TBBR
+============================
+
+Ce programme installe et met à jour le firmware TBBR sur une pédale M-VAVE BlackBox.
+Fenêtre de l'interface : Microsoft Edge (déjà présent sous Windows 10/11).
+Ancienne interface de secours : BlackBox_TBBR_Installer.exe --classic
+
+PREMIÈRE INSTALLATION
+1. SAUVEGARDE : branche la pédale en USB (sans hub), allume-la, puis « Sauvegarder ».
+   La flash complète (1 Mio) est lue deux fois, comparée et enregistrée dans
+   « Documents\BlackBox Backup\BlackBox_<date> ». Sans sauvegarde, l'installation est bloquée.
+2. INSTALLER : clique sur « Installer ». L'image est construite à partir de TA sauvegarde :
+   le bootloader et les données propres à la pédale ne sont pas modifiés.
+
+METTRE À JOUR (nouvelle version du firmware)
+Pas besoin de retélécharger l'installateur : chaque version est fournie sous forme
+d'un petit fichier « TBBR_fw6_x.y.tbbr » (≈ 200 Ko).
+1. Ouvre l'installateur, glisse le fichier .tbbr dans la fenêtre (ou clique sur la zone
+   « Nouvelle version ? »). Il est vérifié (SHA-256, version, taille) avant d'être accepté.
+2. Clique sur « Mettre à jour vers x.y ». Presets, IR et captures NAM sont conservés.
+Astuce : on peut aussi lancer « BlackBox_TBBR_Installer.exe TBBR_fw6_x.y.tbbr ».
+
+RESTAURER LE FIRMWARE D'ORIGINE
+« Restaurer » réécrit toute la flash depuis la sauvegarde M-VAVE (bootloader exclu).
+L'installateur garde la sauvegarde M-VAVE d'origine sélectionnée en priorité.
+
+Après une installation ou une restauration, ÉTEINS puis RALLUME la pédale avec
+son interrupteur avant de jouer. Ne débranche jamais l'USB pendant une écriture.
+Garde le dossier de sauvegarde en lieu sûr, et ne le partage pas : il contient
+des identifiants propres à ta pédale. Ferme l'app TBBR et M-UPGRADE avant d'utiliser
+l'installateur (ils occupent le port MIDI).
+
+English
+=======
+Installs and updates the TBBR firmware on an M-VAVE BlackBox pedal (FR/EN at the top right).
+First install: 1. Back up (full 1 MiB flash, read twice). 2. Install.
+Updates: drop the small "TBBR_fw6_x.y.tbbr" file into the installer window, then
+"Update to x.y". Presets, IRs and NAM captures are kept. No need to download the installer again.
+Restore: rewrites the whole flash from the original M-VAVE backup (bootloader excluded).
+Power the pedal off and on after installing or restoring. Never unplug USB while writing.
