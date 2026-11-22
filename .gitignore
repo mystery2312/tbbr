@@ -6,6 +6,7 @@
 !/LICENSE
 !/THIRD_PARTY.md
 !/build_all.ps1
+!/release.ps1
 !/docs/
 !/third_party/
 !/interface/
