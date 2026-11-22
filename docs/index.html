@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TBBR — The Big Black Rig</title>
+<meta name="description" content="Firmware libre pour la M-VAVE BlackBox : NAM A2 Lite natif, IR, amplis et pédales modélisés, éditeur et flasher.">
+<link rel="icon" href="app/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #08090b; --panel: #121418; --panel2: #171a1f; --panel3: #1d2127; --line: #22262d; --line2: #2d323a;
+  --tx: #eceef1; --tx2: #9ba3ad; --tx3: #5f6772; --acc: #19d3ff; --acc2: #0aa6cc; --ok: #3ddc84; --warn: #ffb020;
+  --mono: 'JetBrains Mono', Consolas, monospace; color-scheme: dark;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { background: var(--bg); color: var(--tx); font: 15px/1.55 Inter, 'Segoe UI', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+a { color: var(--acc); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.wrap { width: min(1080px, 100%); margin: 0 auto; padding: 0 16px; }
+.ic { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+header { position: sticky; top: 0; z-index: 10; background: linear-gradient(#14171bee, #0e1013ee); border-bottom: 1px solid var(--line); backdrop-filter: blur(6px); }
+.top { height: 56px; display: flex; align-items: center; gap: 14px; }
+.brand { display: flex; align-items: center; gap: 9px; }
+.brand svg { width: 28px; height: 28px; fill: none; stroke: var(--acc); stroke-width: 2; }
+.brand span { font-weight: 800; letter-spacing: .14em; font-size: 12px; color: var(--tx2); }
+.brand b { color: var(--tx); }
+nav { display: flex; gap: 18px; margin-left: auto; font-size: 13px; font-weight: 600; }
+nav a { color: var(--tx2); }
+nav a:hover { color: var(--tx); text-decoration: none; }
+.seg { display: inline-flex; padding: 2px; border-radius: 8px; background: #0a0b0e; border: 1px solid var(--line2); }
+.seg button { font: 700 11.5px Inter, sans-serif; height: 26px; padding: 0 10px; border: 0; border-radius: 6px; background: none; color: var(--tx2); cursor: pointer; }
+.seg button.on { background: var(--panel3); color: var(--acc); box-shadow: 0 0 0 1px var(--line2); }
+@media (max-width: 720px) { nav { display: none; } .seg { margin-left: auto; } }
+
+.hero { padding: 64px 0 48px; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 40px; align-items: center; }
+@media (max-width: 860px) { .hero { grid-template-columns: 1fr; padding-top: 36px; } .hero .pedal { max-width: 300px; margin: 0 auto; } }
+.kicker { font: 700 11px var(--mono); letter-spacing: .16em; color: var(--acc); text-transform: uppercase; }
+h1 { font-size: clamp(34px, 5.2vw, 54px); line-height: 1.05; font-weight: 800; letter-spacing: -.02em; margin: 12px 0 16px; }
+h1 em { font-style: normal; color: var(--acc); }
+.lead { color: var(--tx2); font-size: 17px; max-width: 560px; }
+.cta { display: flex; gap: 10px; flex-wrap: wrap; margin: 26px 0 12px; }
+.btn { height: 44px; padding: 0 18px; display: inline-flex; align-items: center; gap: 9px; border-radius: 11px; background: var(--panel3); border: 1px solid var(--line2); color: var(--tx); font-weight: 700; font-size: 14px; white-space: nowrap; }
+.btn:hover { text-decoration: none; background: #252a31; border-color: #3a414b; }
+.btn.primary { background: var(--acc); border-color: var(--acc); color: #001a22; }
+.btn.primary:hover { filter: brightness(1.1); background: var(--acc); }
+.meta { color: var(--tx3); font-size: 12.5px; }
+.meta b { color: var(--tx2); }
+.pedal svg { width: 100%; height: auto; filter: drop-shadow(0 24px 40px rgba(0, 0, 0, .7)); }
+
+section { padding: 44px 0; border-top: 1px solid var(--line); }
+h2 { font-size: 24px; font-weight: 800; letter-spacing: -.01em; margin-bottom: 6px; }
+.sub { color: var(--tx2); margin-bottom: 22px; }
+.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.card { background: linear-gradient(180deg, var(--panel2), var(--panel)); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+.card h3 { font-size: 15px; font-weight: 700; margin: 10px 0 6px; }
+.card p { color: var(--tx2); font-size: 13.5px; }
+.card .ic { width: 22px; height: 22px; color: var(--acc); }
+.steps { counter-reset: s; display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.steps .card { position: relative; padding-left: 60px; }
+.steps .card::before { counter-increment: s; content: counter(s); position: absolute; left: 18px; top: 18px; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--acc); color: #001a22; font-weight: 800; font-size: 13px; }
+.steps .card h3 { margin-top: 2px; }
+.note { margin-top: 16px; display: flex; gap: 10px; padding: 12px 14px; border-radius: 10px; background: rgba(255, 176, 32, .07); border: 1px solid rgba(255, 176, 32, .35); color: #ffd08a; font-size: 13px; }
+.note .ic { color: var(--warn); }
+code { font: 12.5px var(--mono); background: #0a0b0e; border: 1px solid var(--line2); border-radius: 6px; padding: 1px 6px; color: var(--tx); }
+footer { border-top: 1px solid var(--line); padding: 28px 0 40px; color: var(--tx3); font-size: 12.5px; }
+footer p + p { margin-top: 6px; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></symbol>
+  <symbol id="i-web" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+  <symbol id="i-git" viewBox="0 0 24 24"><path d="M9 19c-4 1.5-4-2-6-2m12 4v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12 12 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></symbol>
+  <symbol id="i-nam" viewBox="0 0 24 24"><path d="M3 12h3l3-7 4 14 3-7h5"/></symbol>
+  <symbol id="i-cab" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="3"/><circle cx="15.5" cy="8.5" r="3"/><circle cx="8.5" cy="15.5" r="3"/><circle cx="15.5" cy="15.5" r="3"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+  <symbol id="i-amp" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="8" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/></symbol>
+  <symbol id="i-save" viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7V3M8 21v-7h8v7"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17v.5"/></symbol>
+</svg>
+
+<header><div class="wrap top">
+  <div class="brand"><svg viewBox="0 0 32 32"><rect x="2" y="7" width="28" height="18" rx="4"/><circle cx="10" cy="19" r="3"/><circle cx="22" cy="19" r="3"/><path d="M7 12h18"/></svg><span>BIG<b>BLACK</b>RIG</span></div>
+  <nav><a href="#features" data-t="Fonctions|Features"></a><a href="#install" data-t="Installer|Install"></a><a href="#update" data-t="Mises à jour|Updates"></a><a href="https://github.com/mystery2312/tbbr">GitHub</a></nav>
+  <div class="seg" id="lang"><button data-l="fr">FR</button><button data-l="en">EN</button></div>
+</div></header>
+
+<main class="wrap">
+  <div class="hero">
+    <div>
+      <div class="kicker" data-t="Firmware libre · M-VAVE BlackBox|Open firmware · M-VAVE BlackBox"></div>
+      <h1 data-h="Ta BlackBox,<br><em>en plus grand.</em>|Your BlackBox,<br><em>bigger.</em>"></h1>
+      <p class="lead" data-t="TBBR remplace le firmware de la M-VAVE BlackBox : captures NAM jouées nativement, IR de baffle, amplis et pédales modélisés, 80 presets dans la pédale, et un éditeur clair sur PC, tablette ou navigateur.|TBBR replaces the M-VAVE BlackBox firmware: NAM captures played natively, cab IRs, modeled amps and pedals, 80 presets stored in the pedal, and a clean editor on PC, tablet or browser."></p>
+      <div class="cta">
+        <a class="btn primary" href="https://github.com/mystery2312/tbbr/releases/latest/download/BlackBox_TBBR_App.exe"><svg class="ic"><use href="#i-down"/></svg><span data-t="Télécharger pour Windows|Download for Windows"></span></a>
+        <a class="btn" href="app/"><svg class="ic"><use href="#i-web"/></svg><span data-t="Éditeur en ligne|Online editor"></span></a>
+      </div>
+      <div class="meta"><span data-t="Version|Version"></span> <b id="ver">…</b> · <span data-t="Windows 10/11 · gratuit et open source (GPL-3.0)|Windows 10/11 · free and open source (GPL-3.0)"></span></div>
+    </div>
+    <div class="pedal">
+      <svg viewBox="-1 -1 115 111">
+        <defs>
+          <linearGradient id="gB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a2d32"/><stop offset=".55" stop-color="#1b1d21"/><stop offset="1" stop-color="#141619"/></linearGradient>
+          <linearGradient id="gK" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3c4047"/><stop offset="1" stop-color="#25282d"/></linearGradient>
+          <radialGradient id="gF" cx=".35" cy=".3" r=".75"><stop offset="0" stop-color="#eef0f2"/><stop offset=".45" stop-color="#a3a9b1"/><stop offset=".75" stop-color="#5b616a"/><stop offset="1" stop-color="#30343a"/></radialGradient>
+        </defs>
+        <rect width="113" height="109" rx="6" fill="url(#gB)" stroke="#353a42" stroke-width=".5"/>
+        <text x="6" y="7.4" font-size="2.4" font-weight="800" letter-spacing=".6" fill="#8a929c" font-family="Inter, sans-serif">BLACKBOX</text>
+        <circle cx="19" cy="25" r="7.5" fill="#24272c" stroke="#17191d" stroke-width="1.2"/><rect x="18.6" y="19" width=".8" height="3.2" rx=".3" fill="#e8eaed"/>
+        <circle cx="94" cy="25" r="7.5" fill="#24272c" stroke="#17191d" stroke-width="1.2"/><rect x="93.6" y="19" width=".8" height="3.2" rx=".3" fill="#e8eaed"/>
+        <g font-family="JetBrains Mono, monospace" font-size="2" font-weight="700" text-anchor="middle" fill="#9aa2ac"><text x="19" y="37">MASTER</text><text x="94" y="37">PARA</text></g>
+        <rect x="40.15" y="9" width="32.7" height="32.7" rx="2" fill="#000" stroke="#2c3139" stroke-width=".4"/>
+        <rect x="42.65" y="11.5" width="27.7" height="27.7" fill="#05080b"/>
+        <g fill="none" stroke="#19d3ff" stroke-width="1"><rect x="49.5" y="18.5" width="14" height="9" rx="2"/><circle cx="53.5" cy="24.5" r="1.5"/><circle cx="59.5" cy="24.5" r="1.5"/><path d="M51 21.5h11"/></g>
+        <text x="56.5" y="33" font-size="2.2" font-weight="800" text-anchor="middle" fill="#eceef1" letter-spacing=".3" font-family="Inter, sans-serif">TBBR</text>
+        <g id="keys" font-family="JetBrains Mono, monospace" font-size="1.9" font-weight="700" text-anchor="middle"></g>
+        <circle cx="22" cy="69.1" r="1.1" fill="#3ddc84"/><circle cx="91" cy="69.1" r="1.1" fill="#3ddc84"/>
+        <g stroke="#0b0c0e" stroke-width=".8" fill="url(#gF)"><circle cx="22" cy="81" r="7.6"/><circle cx="91" cy="81" r="7.6"/></g>
+        <path d="M33 81h14.5M65.5 81H80" stroke="#4a5058" stroke-width=".25"/>
+        <text x="56.5" y="81.7" font-size="1.9" font-weight="700" text-anchor="middle" fill="#8a929c" letter-spacing=".25" font-family="JetBrains Mono, monospace">TUNER</text>
+      </svg>
+    </div>
+  </div>
+
+  <section id="features">
+    <h2 data-t="Ce que fait TBBR|What TBBR does"></h2>
+    <p class="sub" data-t="Tout tourne dans la pédale : pas besoin d'ordinateur pour jouer.|Everything runs inside the pedal: no computer needed to play."></p>
+    <div class="grid">
+      <div class="card"><svg class="ic"><use href="#i-nam"/></svg><h3 data-t="NAM A2 Lite natif|Native NAM A2 Lite"></h3><p data-t="Charge tes captures .nam telles quelles. Le réseau tourne en temps réel sur les deux cœurs de la puce.|Load your .nam captures as they are. The network runs in real time on both cores of the chip."></p></div>
+      <div class="card"><svg class="ic"><use href="#i-cab"/></svg><h3 data-t="IR de baffle|Cab IRs"></h3><p data-t="32 emplacements d'IR dans la pédale, à importer depuis l'éditeur (fichiers .wav).|32 IR slots in the pedal, imported from the editor (.wav files)."></p></div>
+      <div class="card"><svg class="ic"><use href="#i-amp"/></svg><h3 data-t="Amplis et pédales|Amps and pedals"></h3><p data-t="Overdrives, distos, fuzz, amplis clean à high gain, modulations, délais, réverbes, accordeur.|Overdrives, distortions, fuzz, clean to high-gain amps, modulation, delays, reverbs, tuner."></p></div>
+      <div class="card"><svg class="ic"><use href="#i-grid"/></svg><h3 data-t="Grille 2 × 8 et scènes|2 × 8 grid and scenes"></h3><p data-t="Chaînes en série ou en parallèle, 8 scènes par preset, footswitchs configurables.|Serial or parallel chains, 8 scenes per preset, configurable footswitches."></p></div>
+      <div class="card"><svg class="ic"><use href="#i-save"/></svg><h3 data-t="80 presets dans la pédale|80 presets in the pedal"></h3><p data-t="La pédale garde tout : presets, IR, captures, réglages. L'éditeur lit ce qu'elle contient.|The pedal keeps everything: presets, IRs, captures, settings. The editor reads what it holds."></p></div>
+      <div class="card"><svg class="ic"><use href="#i-bolt"/></svg><h3 data-t="Mises à jour en un clic|One-click updates"></h3><p data-t="L'app prévient quand une nouvelle version sort et met la pédale à jour, presets conservés.|The app tells you when a new version is out and updates the pedal, presets kept."></p></div>
+    </div>
+  </section>
+
+  <section id="install">
+    <h2 data-t="Installer|Install"></h2>
+    <p class="sub" data-t="Environ 5 minutes, sur un PC Windows avec un câble USB.|About 5 minutes, on a Windows PC with a USB cable."></p>
+    <div class="steps">
+      <div class="card"><h3 data-t="Télécharge l'app|Download the app"></h3><p data-h="<a href='https://github.com/mystery2312/tbbr/releases/latest/download/BlackBox_TBBR_App.exe'>BlackBox_TBBR_App.exe</a> : un seul fichier, rien à installer. Ferme M-UPGRADE s'il est ouvert.|<a href='https://github.com/mystery2312/tbbr/releases/latest/download/BlackBox_TBBR_App.exe'>BlackBox_TBBR_App.exe</a>: a single file, nothing to install. Close M-UPGRADE if it is open."></p></div>
+      <div class="card"><h3 data-t="Sauvegarde ta pédale|Back up your pedal"></h3><p data-t="Branche la pédale en USB (sans hub), puis dans Appareil → Ouvrir l'installateur → Sauvegarder. C'est ce qui permet de revenir au firmware M-VAVE.|Connect the pedal by USB (no hub), then Device → Open the installer → Back up. This is what lets you go back to the M-VAVE firmware."></p></div>
+      <div class="card"><h3 data-t="Installe TBBR|Install TBBR"></h3><p data-t="Clique sur Installer. Chaque secteur est relu et vérifié ; le bootloader n'est jamais touché. Éteins puis rallume la pédale, c'est prêt.|Click Install. Every sector is read back and verified; the bootloader is never touched. Power the pedal off and on, you're ready."></p></div>
+    </div>
+    <div class="note"><svg class="ic"><use href="#i-warn"/></svg><span data-t="TBBR est un projet indépendant, ni affilié à M-VAVE ni approuvé par M-VAVE. Tu installes un firmware non officiel à tes risques ; garde ta sauvegarde : elle permet de tout restaurer.|TBBR is an independent project, neither affiliated with nor endorsed by M-VAVE. You install unofficial firmware at your own risk; keep your backup: it lets you restore everything."></span></div>
+  </section>
+
+  <section id="update">
+    <h2 data-t="Mises à jour|Updates"></h2>
+    <p class="sub" data-t="Rien à retélécharger à la main.|Nothing to download again by hand."></p>
+    <div class="grid">
+      <div class="card"><h3 data-t="Dans l'app|In the app"></h3><p data-t="Quand une version sort, un bandeau « Mettre à jour la pédale » apparaît dès que la pédale est connectée. Un clic : l'installateur s'ouvre et fait le reste.|When a version comes out, an \"Update the pedal\" banner appears as soon as the pedal is connected. One click: the installer opens and does the rest."></p></div>
+      <div class="card"><h3 data-t="À la main|By hand"></h3><p data-h="Chaque <a href='https://github.com/mystery2312/tbbr/releases'>release</a> contient un petit fichier <code>.tbbr</code> : glisse-le dans l'installateur.|Every <a href='https://github.com/mystery2312/tbbr/releases'>release</a> contains a small <code>.tbbr</code> file: drop it into the installer."></p></div>
+      <div class="card"><h3 data-t="Éditeur en ligne|Online editor"></h3><p data-h="Sans rien installer : <a href='app/'>l'éditeur</a> marche dans Chrome ou Edge (WebMIDI) une fois TBBR installé sur la pédale.|Without installing anything: <a href='app/'>the editor</a> works in Chrome or Edge (WebMIDI) once TBBR is on the pedal."></p></div>
+    </div>
+  </section>
+</main>
+
+<footer><div class="wrap">
+  <p data-h="Code source sur <a href='https://github.com/mystery2312/tbbr'>GitHub</a>, licence GPL-3.0. Composants tiers : SDK JieLi (Apache-2.0), jl-uboot-tool (MIT), polices Inter et JetBrains Mono (OFL).|Source code on <a href='https://github.com/mystery2312/tbbr'>GitHub</a>, GPL-3.0 license. Third-party components: JieLi SDK (Apache-2.0), jl-uboot-tool (MIT), Inter and JetBrains Mono fonts (OFL)."></p>
+  <p data-t="M-VAVE et BlackBox sont des marques de leurs propriétaires. Les noms d'amplis et de pédales servent uniquement à décrire le son visé.|M-VAVE and BlackBox are trademarks of their owners. Amp and pedal names are only used to describe the intended sound."></p>
+</div></footer>
+
+<script>
+'use strict';
+const keys = ['HOME', 'FX', 'AMP', 'MOD', 'DLY', 'REV', 'CAB'];
+document.getElementById('keys').innerHTML = keys.map((k, i) => { const x = 7 + i * 14.5; return `<rect x="${x}" y="50.5" width="12" height="5.6" rx="1" fill="#0b0c0e"/><rect x="${x}" y="50" width="12" height="5.6" rx="1" fill="url(#gK)"/><text x="${x + 6}" y="53.5" fill="${k === 'AMP' ? '#19d3ff' : '#d7dbe0'}">${k}</text>`; }).join('');
+let lang = 'fr';
+try { const s = localStorage.getItem('tbbr.lang'); lang = s || (navigator.language || '').toLowerCase().startsWith('fr') ? (s || 'fr') : 'en'; } catch (e) { /* stockage indisponible */ }
+function apply() {
+  document.documentElement.lang = lang;
+  const pick = v => { const p = v.split('|'); return lang === 'en' ? (p[1] ?? p[0]) : p[0]; };
+  document.querySelectorAll('[data-t]').forEach(el => { el.textContent = pick(el.dataset.t); });
+  document.querySelectorAll('[data-h]').forEach(el => { el.innerHTML = pick(el.dataset.h); });
+  document.querySelectorAll('#lang button').forEach(b => b.classList.toggle('on', b.dataset.l === lang));
+}
+document.getElementById('lang').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; lang = b.dataset.l; try { localStorage.setItem('tbbr.lang', lang); } catch (x) { /* ignoré */ } apply(); });
+apply();
+fetch('https://api.github.com/repos/mystery2312/tbbr/releases/latest').then(r => r.ok ? r.json() : null).then(j => {
+  document.getElementById('ver').textContent = j && j.tag_name ? j.tag_name : '—';
+}).catch(() => { document.getElementById('ver').textContent = '—'; });
+</script>
+</body>
+</html>

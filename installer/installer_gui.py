@@ -823,6 +823,7 @@ class WebApp:
         self.backup_parent = Path.home() / "Documents" / "BlackBox Backup"
         self.embedded = embedded_fw()
         self.pkg = None                                               # paquet .tbbr chargé : {"fw", "name", "app"}
+        self.auto_update = "--update" in sys.argv
         self.last_seen = time.time()
         self.main_q = queue.Queue()
         self.quit_flag = False
@@ -966,6 +967,12 @@ class WebApp:
         while not self.quit_flag:
             if not self.busy:
                 self.detect(query_info=False)
+                # lancé par l'app (--update + paquet .tbbr) : mise à jour dès que la pédale TBBR est là, sans autre clic
+                if (self.auto_update and self.task is None and self.pkg and self.backup_info.get("ok")
+                        and self.device.get("kind") == "tbbr" and self.device.get("fw")):
+                    self.auto_update = False
+                    if self.update_state() == "available":
+                        self.do_install()
             time.sleep(2.5)
 
     def target_fw(self):

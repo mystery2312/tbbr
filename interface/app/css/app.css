@@ -849,3 +849,8 @@ img, svg, a { -webkit-user-drag: none; }
 .ctx-sep { height: 1px; margin: 4px 6px; background: var(--line); }
 .ctx.touch .ctx-item { padding: 12px 12px; font-size: 15px; }       /* doigt : cibles plus grandes */
 .ctx.touch .ctx-item .ic { width: 19px; height: 19px; }
+
+/* ---------- Bandeau de mise à jour (GitHub Releases) ---------- */
+.upd-banner { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 90; display: flex; align-items: center; gap: 12px; max-width: min(720px, calc(100vw - 24px)); padding: 10px 10px 10px 16px; border-radius: 12px; background: linear-gradient(180deg, #16303a, #10181d); border: 1px solid rgba(25, 211, 255, .5); box-shadow: 0 16px 40px rgba(0, 0, 0, .6); font-weight: 600; font-size: 13px; animation: pop .2s; }
+.upd-banner > .ic { color: var(--acc); }
+.upd-banner span { flex: 1; min-width: 0; }

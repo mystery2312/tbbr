@@ -4,12 +4,15 @@
  */
 'use strict';
 
-const { app, BrowserWindow, Menu, dialog, session, shell } = require('electron');
+const { app, BrowserWindow, Menu, dialog, session, shell, ipcMain, net } = require('electron');
 const fs = require('fs');
 const http = require('http');
 const path = require('path');
+const { spawn } = require('child_process');
 
 const PORT = 8791;
+const REPO = 'mystery2312/tbbr';                                    // GitHub : releases = app, installateur, paquets .tbbr
+const RELEASES = `https://github.com/${REPO}/releases/latest`;
 const APP_ROOT = app.isPackaged
   ? path.join(process.resourcesPath, 'app')
   : path.join(__dirname, '..', 'interface', 'app');
@@ -87,6 +90,55 @@ function openInstaller() {
   });
 }
 
+/* ---------------- mises à jour (GitHub Releases) ---------------- */
+const verTuple = s => (String(s || '').match(/\d+/g) || []).map(Number);
+function verGt(a, b) {
+  const x = verTuple(a), y = verTuple(b);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d > 0; }
+  return false;
+}
+let relCache = null;
+async function latestRelease() {
+  if (relCache && Date.now() - relCache.t < 10 * 60 * 1000) return relCache.r;
+  const res = await net.fetch(`https://api.github.com/repos/${REPO}/releases/latest`,
+    { headers: { 'Accept': 'application/vnd.github+json', 'User-Agent': 'TBBR-desktop' } });
+  if (!res.ok) throw new Error('GitHub ' + res.status);
+  const j = await res.json();
+  const assets = j.assets || [];
+  const tbbr = assets.find(a => /\.tbbr$/i.test(a.name));
+  const m = tbbr && tbbr.name.match(/TBBR_(fw\d+)_(\d+\.\d+)\.tbbr/i);
+  const r = {
+    tag: j.tag_name, page: j.html_url || RELEASES,
+    fw: m ? `TBBR ${m[1]} ${m[2]}` : null, tbbrUrl: tbbr && tbbr.browser_download_url, tbbrName: tbbr && tbbr.name,
+    appVersion: app.getVersion(), appNewer: verGt(j.tag_name, app.getVersion()),
+  };
+  relCache = { t: Date.now(), r };
+  return r;
+}
+async function updatePedal() {
+  const r = await latestRelease();
+  if (!r.tbbrUrl) throw new Error('pas de paquet .tbbr dans la dernière version');
+  if (!fs.existsSync(INSTALLER)) throw new Error('installateur absent : ' + INSTALLER);
+  const res = await net.fetch(r.tbbrUrl, { headers: { 'User-Agent': 'TBBR-desktop' } });
+  if (!res.ok) throw new Error('téléchargement ' + res.status);
+  const dir = path.join(app.getPath('userData'), 'updates');
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, path.basename(r.tbbrName));
+  fs.writeFileSync(file, Buffer.from(await res.arrayBuffer()));
+  log('paquet téléchargé : ' + file);
+  // l'installateur vérifie le paquet (SHA-256, version) et lance la mise à jour dès que la pédale est détectée
+  const p = spawn(INSTALLER, [file, '--update'], { detached: true, stdio: 'ignore' });
+  p.unref();
+  return { ok: true, fw: r.fw };
+}
+function setupIpc() {
+  ipcMain.handle('tbbr:version', () => app.getVersion());
+  ipcMain.handle('tbbr:check', async () => { try { return await latestRelease(); } catch (e) { log('check: ' + e); return { error: String(e.message || e) }; } });
+  ipcMain.handle('tbbr:update-pedal', async () => { try { return await updatePedal(); } catch (e) { log('update: ' + e); return { error: String(e.message || e) }; } });
+  ipcMain.handle('tbbr:installer', () => { openInstaller(); return true; });
+  ipcMain.handle('tbbr:release-page', () => { shell.openExternal(RELEASES); return true; });
+}
+
 function createWindow(url) {
   win = new BrowserWindow({
     width: 1280,
@@ -101,7 +153,8 @@ function createWindow(url) {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
-      spellcheck: false
+      spellcheck: false,
+      preload: path.join(__dirname, 'preload.js')
     }
   });
 
@@ -265,6 +318,7 @@ async function main() {
     url = await startServer(0);
   }
   log('server: ' + url + ' root=' + APP_ROOT);
+  setupIpc();
   Menu.setApplicationMenu(null);
   createWindow(url);
 

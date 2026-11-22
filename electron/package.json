@@ -1,6 +1,6 @@
 {
   "name": "blackbox-tbbr",
-  "version": "1.0.0",
+  "version": "0.7.0",
   "description": "BlackBox TBBR — application de bureau",
   "main": "main.js",
   "author": "TBBR",
@@ -19,6 +19,7 @@
     "asar": true,
     "files": [
       "main.js",
+      "preload.js",
       "package.json",
       "build/icon.png"
     ],

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Écran Blackbox</title>
+<meta name="theme-color" content="#08090b">
+<link rel="icon" href="icon.svg?v=1795243662" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/ecran.css?v=1795250216">
+</head>
+<body>
+  <header class="top">
+    <div class="title"><b>Écran Blackbox</b><span>Pédale 113 × 109 mm · écran 1,54″ 240 × 240 · synchronisé avec l’éditeur</span></div>
+    <span class="sync" id="sync">autonome</span>
+    <div class="seg" id="scale">
+      <button data-s="real" title="Taille physique de la pédale (après calibrage)">Taille réelle</button><button data-s="px" title="L'écran affiché à 240 × 240 pixels">Écran 240 px</button>
+    </div>
+    <label class="diag" title="Diagonale de l’écran de la pédale (1,54″ d’après le manuel)">écran <input id="diag" type="number" min="0.8" max="3" step="0.01" value="1.54">″</label>
+    <button class="link" id="calibBtn">Calibrer</button>
+    <a class="link" href="./" target="_blank" rel="noopener">Éditeur</a>
+  </header>
+
+  <div class="calib-warn" id="calibWarn">Taille estimée : <b>calibre ton écran</b> (avec une carte bancaire) pour une taille exacte.</div>
+
+  <main>
+    <div class="pedal">
+      <span class="brand">BLACKBOX</span>
+      <div class="knob-wrap kl"><div class="knob" id="master" title="MASTER : molette ou glisser"><i></i></div><small>MASTER</small></div>
+      <div class="bezel"><svg id="scr" viewBox="0 0 240 240" aria-label="Écran de la pédale"></svg></div>
+      <div class="knob-wrap kr"><div class="knob para" id="para" title="PARA : molette ou glisser pour tourner, clic pour appuyer, maintien = bypass du bloc"><i></i></div><small>PARA</small></div>
+      <div class="keys" id="keys">
+        <button data-k="HOME">HOME</button><button data-k="FX">FX</button><button data-k="AMP">AMP</button><button data-k="MOD">MOD</button><button data-k="DLY">DLY</button><button data-k="REV">REV</button><button data-k="CAB">CAB</button>
+      </div>
+      <i class="led ledl" id="ledL"></i><i class="led ledr" id="ledR"></i>
+      <button class="fsw fl" id="fsL" aria-label="Footswitch gauche"></button>
+      <button class="tuner-line" id="fsLR" title="Appui simultané des deux footswitchs"><i></i><span>TUNER</span><i></i></button>
+      <button class="fsw fr" id="fsR" aria-label="Footswitch droit"></button>
+    </div>
+    <div class="ruler" id="ruler" title="Règle de 10 cm : vérifie avec une vraie règle"></div>
+    <div class="caps"><small id="capL"></small><small id="capR"></small></div>
+    <p class="hint">Clavier : ← → footswitchs · ↑ ↓ tourner PARA · Entrée appuyer PARA · H HOME. Ouvre l’éditeur dans un autre onglet : l’écran suit chaque modification, et ce que tu règles ici remonte dans l’éditeur.</p>
+  </main>
+
+  <div class="calib" id="calib" hidden>
+    <div class="calib-box">
+      <h3>Calibrer la taille réelle</h3>
+      <p>Pose une carte bancaire (ou une carte d’identité : 85,6 mm de large) à plat contre l’écran, son bord gauche sur le trait, puis règle jusqu’à ce que le rectangle ait <b>exactement</b> la largeur de la carte.</p>
+      <div class="card-wrap"><div class="card" id="card"><span>85,6 × 54 mm</span></div></div>
+      <div class="crow"><button id="cMinus">−</button><input type="range" id="cRange" min="2" max="14" step="0.005"><button id="cPlus">+</button></div>
+      <div class="crow end"><button id="cCancel">Annuler</button><button id="cOk" class="primary">Valider</button></div>
+    </div>
+  </div>
+
+<script src="js/data.js?v=1795361055"></script>
+<script src="js/ecran.js?v=1795358749"></script>
+</body>
+</html>

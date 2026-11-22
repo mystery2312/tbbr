@@ -21,7 +21,10 @@ try {
     cmd /c "npm run dist"; if ($LASTEXITCODE) { throw "electron" }
 } finally { Pop-Location }
 
-$appExe = Join-Path $elec 'dist\BlackBox_TBBR_App_1.0.0.exe'
+Write-Host "=== site GitHub Pages (docs\app) ==="
+powershell -ExecutionPolicy Bypass -File (Join-Path $root 'blackbox\docs\make_site.ps1')
+$ver = (Get-Content (Join-Path $elec 'package.json') -Raw | ConvertFrom-Json).version
+$appExe = Join-Path $elec ("dist\BlackBox_TBBR_App_$ver.exe")
 Write-Host ""
 Write-Host "Firmware   : $fw\fw_flash_1MiB.bin"
 Write-Host "Installateur : $inst\dist\BlackBox_TBBR_Installer.exe"

@@ -421,6 +421,7 @@ function onFrame(fr) {
     if (U.info.fsMode && FS_MODES[U.info.fsMode]) { S.globals.fsMode = U.info.fsMode; persist(); renderTop(); }   /* mode mémorisé par la pédale */
     if (typeof U.info.inGate === 'number') { S.globals.inGateOn = !!U.info.inGateOn; S.globals.inGate = U.info.inGate; persist(); if (U.view === 'global') renderGlobal(); }   /* gate d'entrée : la pédale fait foi */
     toast('Connecté à ' + (U.info.model || 'la pédale') + ' · ' + (U.info.fw || ''), 'ok');
+    checkForUpdates();
     if (!U.synced) { U.synced = true; pedalSync(); }                /* lecture de la pédale (ses presets font foi) */
     if (U.view === 'device') renderDevice();
   } else if (fr.cmd === CMD.ACK) {
@@ -2238,8 +2239,11 @@ function renderDevice() {
   const fwCard = h('div', { class: 'card' }, h('h3', {}, icon('bolt'), 'Mise à jour du firmware'),
     h('div', { class: 'note warn' }, 'Les mises à jour de firmware passent par l’installateur PC : le navigateur ne peut pas accéder au disque UBOOT de la pédale. L’installateur sauvegarde le firmware d’origine, installe TBBR, et permet de restaurer la sauvegarde.'),
     h('div', { class: 'row' },
-      h('a', { class: 'btn primary', href: 'BlackBox_TBBR_Installer.exe', download: 'BlackBox_TBBR_Installer.exe' },
-        icon('down'), 'Télécharger l’installateur PC')));
+      window.tbbrDesktop
+        ? [h('button', { class: 'btn primary', onclick: () => checkForUpdates(true).then(() => { if (!document.querySelector('.upd-banner')) toast('Ta pédale et l’app sont à jour.', 'ok'); }) }, icon('down'), 'Rechercher une mise à jour'),
+           h('button', { class: 'btn', onclick: () => disconnect().then(() => window.tbbrDesktop.openInstaller()) }, icon('bolt'), 'Ouvrir l’installateur')]
+        : h('a', { class: 'btn primary', href: `https://github.com/${TBBR_REPO}/releases/latest`, target: '_blank', rel: 'noopener' },
+            icon('down'), 'Télécharger l’installateur PC')));
 
   /* Sauvegardes */
   const backupCard = h('div', { class: 'card' }, h('h3', {}, icon('save'), 'Sauvegarde & restauration'),
@@ -2452,6 +2456,52 @@ function progressModal(title) {
   state.close = () => { const c = state.cancelled; md.close(); state.cancelled = c; };
   return state;
 }
+/* ---- Mises à jour (GitHub Releases) : firmware de la pédale et app de bureau ----
+   App de bureau : window.tbbrDesktop (electron/preload.js) télécharge le .tbbr et lance l'installateur en mode mise à jour.
+   Navigateur : on lit l'API GitHub et on propose la page de téléchargement. */
+const TBBR_REPO = 'mystery2312/tbbr';
+const fwTuple = s => { const m = String(s || '').match(/fw(\d+) (\d+)\.(\d+)/); return m ? m.slice(1).map(Number) : null; };
+const tupleGt = (a, b) => { for (let i = 0; i < 3; i++) { if (a[i] !== b[i]) return a[i] > b[i]; } return false; };
+let updChecked = 0;
+async function latestReleaseWeb() {
+  const r = await fetch(`https://api.github.com/repos/${TBBR_REPO}/releases/latest`, { headers: { Accept: 'application/vnd.github+json' } });
+  if (!r.ok) throw new Error('GitHub ' + r.status);
+  const j = await r.json(), a = (j.assets || []).find(x => /\.tbbr$/i.test(x.name));
+  const m = a && a.name.match(/TBBR_(fw\d+)_(\d+\.\d+)\.tbbr/i);
+  return { tag: j.tag_name, page: j.html_url, fw: m ? `TBBR ${m[1]} ${m[2]}` : null };
+}
+async function checkForUpdates(force) {
+  if (!force && Date.now() - updChecked < 30 * 60 * 1000) return;
+  updChecked = Date.now();
+  let r;
+  try { r = window.tbbrDesktop ? await window.tbbrDesktop.checkUpdates() : await latestReleaseWeb(); } catch (e) { return; }
+  if (!r || r.error) return;
+  const cur = fwTuple(U.info && U.info.fw), nxt = fwTuple(r.fw);
+  if (cur && nxt && tupleGt(nxt, cur)) showUpdateBanner('fw', r);
+  else if (r.appNewer) showUpdateBanner('app', r);
+}
+function showUpdateBanner(kind, r) {
+  document.querySelector('.upd-banner')?.remove();
+  const fw = kind === 'fw', desk = !!window.tbbrDesktop;
+  const short = s => String(s || '').replace(/^TBBR fw\d+\s*/, 'v');
+  const go = async () => {
+    if (!fw || !desk) { if (desk) window.tbbrDesktop.openReleasePage(); else window.open(r.page, '_blank', 'noopener'); return; }
+    if (!confirm(`Mettre la pédale à jour vers ${r.fw} ?\n\nL'installateur va s'ouvrir et faire la mise à jour (environ 1 minute). Presets, IR et captures NAM sont conservés. Ne débranche pas l'USB.`)) return;
+    b.querySelector('.upd-go').disabled = true;
+    await disconnect();                                              // libère le port MIDI pour l'installateur
+    const res = await window.tbbrDesktop.updatePedal();
+    if (res && res.error) { toast('Mise à jour impossible : ' + res.error, 'err'); b.querySelector('.upd-go').disabled = false; return; }
+    toast('Installateur lancé : suis la mise à jour dans sa fenêtre, puis reconnecte la pédale.', 'ok');
+    b.remove();
+  };
+  const b = h('div', { class: 'upd-banner' }, icon('bolt'),
+    h('span', {}, fw ? `Firmware ${short(r.fw)} disponible pour ta pédale (actuel : ${short(U.info && U.info.fw)}).`
+                     : `Nouvelle version de l’app TBBR : ${r.tag}.`),
+    h('button', { class: 'btn primary sm upd-go', onclick: go }, fw ? (desk ? 'Mettre à jour la pédale' : 'Télécharger') : 'Télécharger'),
+    h('button', { class: 'icon-btn', title: 'Plus tard', onclick: () => b.remove() }, icon('close')));
+  document.body.append(b);
+}
+
 function toast(msg, type = '') {
   const t = h('div', { class: 'toast ' + type }, msg);
   $('#toasts').append(t);
