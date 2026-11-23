@@ -89,8 +89,8 @@ static void fmt_val(char *o, const struct param_def *pd, float v)
 {
     if (pd->type == 1) { int k = (int)v; scpy(o, (k >= 0 && k < pd->nopt) ? pd->opt[k] : "\xE2\x80\x94"); return; }
     if (pd->type == 2) { scpy(o, v != 0 ? "ON" : "OFF"); return; }
-    if (pd->type == 3) { const char *n = proto_ir_name((int)v); scpy(o, n ? n : "Vide"); return; }
-    if (pd->type == 4) { const char *n = proto_nam_name((int)v); scpy(o, n ? n : "Vide"); return; }
+    if (pd->type == 3) { const char *n = proto_ir_name((int)v); scpy(o, n ? n : "Empty"); return; }
+    if (pd->type == 4) { const char *n = proto_nam_name((int)v); scpy(o, n ? n : "Empty"); return; }
     {
         const char *u = pd->unit;
         char *p = o;
@@ -215,7 +215,7 @@ static void chain(void)
     if (!nu) {
         float y = top + availH / 2;
         wire_h(4, W - 4, y);
-        gfx_text(&F_sans14, Q4(W / 2), Q4(y - 14), C_TX3, 255, "Preset vide", 1);
+        gfx_text(&F_sans14, Q4(W / 2), Q4(y - 14), C_TX3, 255, "Empty preset", 1);
         return;
     }
     for (k = 0; k < nu; k++) { n += u[k].n; if (u[k].n > maxW) maxW = u[k].n; if (u[k].par) hasPar = 1; }
@@ -320,7 +320,7 @@ static void block_page(void)
     }
     { char *p = b; p = fmt_num(p, (float)(U.pidx + 1), 0, 0); *p++ = '/'; fmt_num(p, (float)np, 0, 0); }
     gfx_text(&F_mono11, Q4(10), Q4(H - 8), C_TX3, 255, b, 0);
-    gfx_text(&F_mono11, Q4(W - 10), Q4(H - 8), U.editing ? CAT_RGB[cat] : C_TX3, 255, U.editing ? "\xE2\x97\x86 R\xC3\x89GLAGE" : "PARA \xE2\x9F\xB3", 2);
+    gfx_text(&F_mono11, Q4(W - 10), Q4(H - 8), U.editing ? CAT_RGB[cat] : C_TX3, 255, U.editing ? "\xE2\x97\x86 EDIT" : "PARA \xE2\x9F\xB3", 2);
 }
 
 /* ---------------- gestion des blocs (ajouter / déplacer / supprimer) ---------------- */
@@ -356,12 +356,12 @@ static void menu_screen(const char *title, const char *sub, const char *const *i
 
 static void action_page(void)
 {
-    static const char *const items[4] = { "+ Ajouter un bloc", "D\xC3\xA9placer", "Supprimer", "Annuler" };
+    static const char *const items[4] = { "+ Add block", "Move", "Delete", "Cancel" };
     int m, on, cat; char sub[32], *p;
     if (!engine_get(U.lane, U.col, &m, &on)) { go_home(); return; }
     cat = MODEL_DEFS[m].cat;
-    p = scpy(sub, "GESTION \xC2\xB7 "); p = scpy(p, KEY_NAMES[U.key]); *p++ = ' '; *p++ = "AB"[U.lane]; *p++ = (char)('1' + U.col); *p = 0;
-    menu_screen(MODEL_NAMES[m], sub, items, 0, 4, U.menu_sel, CAT_RGB[cat], "PARA : choisir \xC2\xB7 appui : OK");
+    p = scpy(sub, "MANAGE \xC2\xB7 "); p = scpy(p, KEY_NAMES[U.key]); *p++ = ' '; *p++ = "AB"[U.lane]; *p++ = (char)('1' + U.col); *p = 0;
+    menu_screen(MODEL_NAMES[m], sub, items, 0, 4, U.menu_sel, CAT_RGB[cat], "PARA: select \xC2\xB7 press: OK");
 }
 
 static void add_page(void)
@@ -370,17 +370,17 @@ static void add_page(void)
     char sub[40], *p;
     if (n <= 0) { go_home(); return; }
     for (i = 0; i < n && i < M_COUNT; i++) { m = key_model_at(U.add_key, i); items[i] = MODEL_NAMES[m]; vals[i] = MODEL_DEFS[m].dsp; }
-    p = scpy(sub, KEY_NAMES[U.add_key]); p = scpy(p, " \xC2\xB7 choisir un mod\xC3\xA8le"); *p = 0;
-    menu_screen("AJOUTER UN BLOC", sub, items, vals, n, U.menu_sel, CAT_RGB[MODEL_DEFS[key_model_at(U.add_key, 0)].cat], "PARA : choisir \xC2\xB7 appui : ajouter");
+    p = scpy(sub, KEY_NAMES[U.add_key]); p = scpy(p, " \xC2\xB7 choose a model"); *p = 0;
+    menu_screen("ADD BLOCK", sub, items, vals, n, U.menu_sel, CAT_RGB[MODEL_DEFS[key_model_at(U.add_key, 0)].cat], "PARA: select \xC2\xB7 press: add");
 }
 
 static void confirm_page(void)
 {
-    static const char *const items[2] = { "Oui", "Non" };
+    static const char *const items[2] = { "Yes", "No" };
     int m, on; char sub[40], *p;
     if (!engine_get(U.lane, U.col, &m, &on)) { go_home(); return; }
-    p = scpy(sub, "Supprimer "); p = scpy(p, MODEL_NAMES[m]); p = scpy(p, " ?"); *p = 0;
-    menu_screen("SUPPRIMER CE BLOC", sub, items, 0, 2, U.menu_sel, C_BAD, "PARA : choisir \xC2\xB7 appui : OK");
+    p = scpy(sub, "Delete "); p = scpy(p, MODEL_NAMES[m]); p = scpy(p, " ?"); *p = 0;
+    menu_screen("DELETE BLOCK", sub, items, 0, 2, U.menu_sel, C_BAD, "PARA: select \xC2\xB7 press: OK");
 }
 
 static void move_page(void)
@@ -391,7 +391,7 @@ static void move_page(void)
     gfx_rrect(0, Q4(H - 46), Q4(W), Q4(46), 0, C_BAR, 246);
     gfx_rrect(0, Q4(H - 46), Q4(W), Q4(1), 0, C_LINE, 255);
     gfx_text_fit(&F_bold15, Q4(10), Q4(H - 27), C_TX, MODEL_NAMES[m], Q4(W - 20), 0);
-    gfx_text_fit(&F_mono11, Q4(10), Q4(H - 10), CAT_RGB[MODEL_DEFS[m].cat], "PARA : d\xC3\xA9placer \xC2\xB7 appui : terminer", Q4(W - 20), 0);
+    gfx_text_fit(&F_mono11, Q4(10), Q4(H - 10), CAT_RGB[MODEL_DEFS[m].cat], "PARA: move \xC2\xB7 press: finish", Q4(W - 20), 0);
 }
 
 /* ---------------- écrans superposés ---------------- */
@@ -453,7 +453,7 @@ static void tuner_screen(void)
         o[0] = (char)('0' + U.tuner_oct); o[1] = 0;
         gfx_text(&F_bold100, Q4(cx), Q4(138), col, 255, NOTE_N[U.tuner_note], 1);
         gfx_text(&F_bold30, Q4(cx) + wn / 2, Q4(138 - 56), C_TX2, 255, o, 0);
-    } else gfx_text(&F_sans18, Q4(cx), Q4(118), C_TX3, 255, "Joue une corde", 1);
+    } else gfx_text(&F_sans18, Q4(cx), Q4(118), C_TX3, 255, "Play a string", 1);
     gfx_rrect(Q4(cx - span / 2), Q4(barY), Q4(span), Q4(5), Q4(2.5f), 0x1d2228, 255);
     for (c = -50; c <= 50; c += 10) {
         float tx = cx + c / 50.0f * span / 2;
@@ -480,19 +480,19 @@ static void save_screen(void)
     int cur = U.save_slot == proto_preset_index(), full = proto_slot_name(U.save_slot, nm);
     gfx_begin(C_BG);
     top_bar();
-    gfx_text(&F_mono12, Q4(cx), Q4(60), C_TX3, 255, "SAUVEGARDER DANS", 1);
+    gfx_text(&F_mono12, Q4(cx), Q4(60), C_TX3, 255, "SAVE TO", 1);
     preset_label(lab, U.save_slot);
     gfx_rrect(Q4(cx - 46), Q4(92), Q4(92), Q4(58), Q4(12), cur ? C_ACC : C_WARN, 40);
     gfx_rrect_stroke(Q4(cx - 46), Q4(92), Q4(92), Q4(58), Q4(12), Q4(2), cur ? C_ACC : C_WARN, 255);
     gfx_text(&F_bold30, Q4(cx), Q4(132), cur ? C_ACC : C_WARN, 255, lab, 1);   /* (F_bold100 n'a que les lettres des notes) */
-    if (cur) gfx_text_fit(&F_sans14, Q4(cx), Q4(180), C_TX2, "preset en cours", Q4(220), 1);
+    if (cur) gfx_text_fit(&F_sans14, Q4(cx), Q4(180), C_TX2, "current preset", Q4(220), 1);
     else if (full) {
         static char t[40];
-        char *p = scpy(t, "remplace \xC2\xAB "); p = scpy(p, nm); scpy(p, " \xC2\xBB");
+        char *p = scpy(t, "overwrites \xC2\xAB "); p = scpy(p, nm); scpy(p, " \xC2\xBB");
         gfx_text_fit(&F_sans14, Q4(cx), Q4(180), C_WARN, t, Q4(220), 1);
-    } else gfx_text_fit(&F_sans14, Q4(cx), Q4(180), C_TX2, "emplacement vide", Q4(220), 1);
-    gfx_text_fit(&F_sans14, Q4(cx), Q4(214), C_TX3, "PARA : choisir \xC2\xB7 appui : OK", Q4(230), 1);
-    gfx_text_fit(&F_sans14, Q4(cx), Q4(232), C_TX3, "HOME : annuler", Q4(230), 1);
+    } else gfx_text_fit(&F_sans14, Q4(cx), Q4(180), C_TX2, "empty slot", Q4(220), 1);
+    gfx_text_fit(&F_sans14, Q4(cx), Q4(214), C_TX3, "PARA: select \xC2\xB7 press: OK", Q4(230), 1);
+    gfx_text_fit(&F_sans14, Q4(cx), Q4(232), C_TX3, "HOME: cancel", Q4(230), 1);
 }
 void ui_save_open(void) { U.view = V_SAVE; U.save_slot = proto_preset_index(); U.dirty = 1; }
 void ui_save_close(void) { if (U.view == V_SAVE) go_home(); }
@@ -501,8 +501,8 @@ static void save_do(void)
     static char msg[24];
     int i = U.save_slot;
     go_home();
-    if (proto_save_slot(i) == 0) { char lab[4], *p; preset_label(lab, i); p = scpy(msg, "Sauv\xC3\xA9 dans "); scpy(p, lab); flash_msg(msg); }
-    else flash_msg("\xC3\x89" "chec de la sauvegarde");
+    if (proto_save_slot(i) == 0) { char lab[4], *p; preset_label(lab, i); p = scpy(msg, "Saved to "); scpy(p, lab); flash_msg(msg); }
+    else flash_msg("Save failed");
     U.ov_until = U.ms + 1500;
 }
 
@@ -564,8 +564,8 @@ int ui_tap_led(void)
 static void go_home(void) { U.view = V_HOME; U.editing = 0; U.cursor = -1; U.dirty = 1; }
 static void flash_msg(const char *t) { U.msg = t; U.overlay = 3; U.ov_until = U.ms + 900; U.dirty = 1; }
 /* budget DSP : preset ou bloc refusé, ou surcharge détectée (effets coupés) */
-void ui_msg_dsp(void) { flash_msg("DSP insuffisant"); U.ov_until = U.ms + 2000; }
-void ui_msg_overload(void) { flash_msg("Surcharge DSP"); U.ov_until = U.ms + 3000; }
+void ui_msg_dsp(void) { flash_msg("Insufficient DSP"); U.ov_until = U.ms + 2000; }
+void ui_msg_overload(void) { flash_msg("DSP overload"); U.ov_until = U.ms + 3000; }
 void ui_key(int k)                                  /* 0 HOME, 1 FX .. 6 CAB */
 {
     int ol[16], oc[16], n = order(ol, oc), i, cur = -1, list[16], nl = 0, m, on;
@@ -682,13 +682,13 @@ void ui_para_press(void)
     if (U.view == V_ADD) {
         int mid = key_model_at(U.add_key, U.menu_sel), l = 0, c = 0, r;
         if (mid < 0) { go_home(); return; }
-        if (!first_free_slot(&l, &c)) { flash_msg("Grille pleine"); U.ov_until = U.ms + 2000; return; }
+        if (!first_free_slot(&l, &c)) { flash_msg("Grid full"); U.ov_until = U.ms + 2000; return; }
         r = engine_block_set(l, c, mid);
         if (r == 0) {
             U.view = V_BLOCK; U.lane = l; U.col = c; U.key = U.add_key; U.pidx = 0; U.editing = 0;
             proto_notify_structure();
-        } else if (r == -2) { flash_msg("DSP insuffisant"); U.ov_until = U.ms + 2000; }
-        else flash_msg("Ajout impossible");
+        } else if (r == -2) { flash_msg("Insufficient DSP"); U.ov_until = U.ms + 2000; }
+        else flash_msg("Cannot add");
         U.dirty = 1; return;
     }
     if (U.view == V_CONFIRM) {
@@ -722,7 +722,7 @@ void ui_battery(int pct) { if (pct < 0) pct = 0; if (pct > 100) pct = 100; if (p
 void ui_usb(int on) { if (on != usb_on) { usb_on = on; U.dirty = 1; } }
 void ui_bt_set(int on, int paired) { int s = on ? (paired ? 2 : 1) : 0; if (s != bt_state) { bt_state = s; U.dirty = 1; } }
 int ui_bt_on(void) { return bt_state != 0; }
-void ui_msg_bt(int on) { flash_msg(on ? "Bluetooth activé" : "Bluetooth coupé"); }
+void ui_msg_bt(int on) { flash_msg(on ? "Bluetooth on" : "Bluetooth off"); }
 void tuner_reset(void);
 void ui_tuner(int on) { if (on && U.view != V_TUNER) { tuner_reset(); U.tuner_level = 0; } U.view = on ? V_TUNER : V_HOME; U.dirty = 1; }
 int ui_tuner_on(void) { return U.view == V_TUNER; }

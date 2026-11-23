@@ -40,6 +40,7 @@ static const u8 *big_p;                                              /* grosse r
 static u32 saved_mods;                                               /* engine_mods() au dernier chargement / sauvegarde */
 static void notify_preset(int i, int need);
 static void copy_name(char *dst, const char *s, int n, int max);
+static void scene_name_fix(char *s);
 static int strl(const char *s) { int n = 0; while (s[n]) n++; return n; }
 static char scene_names[CAT_SCENES][17];                             /* noms des scènes du preset en cours */
 /* footswitchs (définis plus bas, après le lecteur JSON) */
@@ -238,7 +239,7 @@ static int apply_preset_json(const char *txt, u32 len)
     engine_clear();
     engine_load_begin();                                             /* mémoire des délais allouée à la fin (engine.c) */
     preset_level = 0; preset_rgb = 0x9aa3ad; copy_name(preset_name, "Preset", 6, 24);
-    for (i = 0; i < CAT_SCENES; i++) { static const char *const SN[CAT_SCENES] = { "Rythme", "Lead", "Clean", "Solo", "Ambiance", "Scène F", "Scène G", "Scène H" }; copy_name(scene_names[i], SN[i], strl(SN[i]), 17); }
+    for (i = 0; i < CAT_SCENES; i++) { static const char *const SN[CAT_SCENES] = { "Rhythm", "Lead", "Clean", "Solo", "Ambience", "Scene F", "Scene G", "Scene H" }; copy_name(scene_names[i], SN[i], strl(SN[i]), 17); }
     fs_cfg_clear();                                                  /* actions stomp : celles du nouveau preset */
     while (peek() == '"') {
         str(&s, &n); eat(':');
@@ -273,7 +274,7 @@ static int apply_preset_json(const char *txt, u32 len)
                         }
                         eat(']');
                     } else if (key_is(s, n, "n") && sc < CAT_SCENES) {
-                        if (str(&s, &n)) copy_name(scene_names[sc], s, n, 17);
+                        if (str(&s, &n)) { copy_name(scene_names[sc], s, n, 17); scene_name_fix(scene_names[sc]); }
                     } else skip();
                     eat(',');
                 }
@@ -395,6 +396,16 @@ static int meta_save(void)
     return storage_write(META_ADDR, (const u8 *)META, sizeof(struct meta));
 }
 static void copy_name(char *dst, const char *s, int n, int max) { int i; for (i = 0; i < n && i < max - 1; i++) dst[i] = s[i]; dst[i] = 0; }
+/* anciens presets : noms de scènes français -> anglais, pour que la pédale reste 100 % anglaise */
+static int txt_eq(const char *a, const char *b) { while (*a && *a == *b) { a++; b++; } return *a == *b; }
+static void scene_name_fix(char *s)
+{
+    if (txt_eq(s, "Rythme")) copy_name(s, "Rhythm", 6, 17);
+    else if (txt_eq(s, "Ambiance")) copy_name(s, "Ambience", 8, 17);
+    else if (txt_eq(s, "Scène F")) copy_name(s, "Scene F", 7, 17);
+    else if (txt_eq(s, "Scène G")) copy_name(s, "Scene G", 7, 17);
+    else if (txt_eq(s, "Scène H")) copy_name(s, "Scene H", 7, 17);
+}
 
 /* ---------------- export de l'état RÉEL du preset en cours (la pédale est la référence) ----------------
  * Même format compact que l'app (compactPreset d'app.js), relu par apply_preset_json : tout réglage fait en direct

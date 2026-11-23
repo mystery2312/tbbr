@@ -5,7 +5,7 @@
 
 const COLS = 8, LANE_LETTERS = 'AB', SCENES = 8, BANKS = 20, PER_BANK = 4, PRESETS = BANKS * PER_BANK, IR_SLOTS = 32, NAM_SLOTS = 16;
 const SCENE_LETTERS = 'ABCDEFGH';
-const SCENE_NAMES = ['Rythme', 'Lead', 'Clean', 'Solo', 'Ambiance', 'Scène F', 'Scène G', 'Scène H'];
+const SCENE_NAMES = ['Rhythm', 'Lead', 'Clean', 'Solo', 'Ambience', 'Scene F', 'Scene G', 'Scene H'];
 const PRESET_COLORS = ['#ff4d4d', '#ff9f1a', '#f5d90a', '#3ddc84', '#2fd6c5', '#3aa0ff', '#b06cff', '#ff5fb0', '#9aa3ad'];
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
