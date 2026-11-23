@@ -2375,8 +2375,11 @@ async function reloadFactoryPresets() {
   pedalSync();
 }
 async function factoryReset() {
-  if (!await confirmBox('Réinitialisation usine ?', 'Tous les presets, réglages globaux, IR utilisateur et captures NAM seront effacés, dans l’app et sur la pédale si elle est connectée. Fais une sauvegarde avant.', 'Tout effacer')) return;
-  send(CMD.FACTORY_RESET, [0x5A]);
+  if (!await confirmBox('Réinitialisation usine ?', 'Tous les presets, réglages globaux, IR utilisateur et captures NAM seront effacés, dans l’app et sur la pédale si elle est connectée. Le firmware TBBR et les baffles d’usine ne sont pas touchés. Fais une sauvegarde avant.', 'Tout effacer')) return;
+  if (connected()) {
+    const ok = await pedalCmd(CMD.FACTORY_RESET, [0x5A], 30000);
+    if (!ok) return toast('La pédale n’a pas confirmé la réinitialisation. Vérifie l’USB et réessaie.', 'err');
+  }
   const gatt = S.globals.gatt, baud = S.globals.baud;
   S = freshState();
   idb.clear().catch(() => {});
@@ -2385,6 +2388,7 @@ async function factoryReset() {
   persist();
   selectPreset(0);
   toast('Réinitialisation effectuée', 'ok');
+  if (connected()) pedalSync();
 }
 
 /* =========================================================

@@ -17,6 +17,16 @@ $appHash = (Get-FileHash (Join-Path $res 'app.bin') -Algorithm SHA256).Hash.ToLo
 
 $py = Join-Path $root 'venv\Scripts\python.exe'
 if (-not (Test-Path $py)) { throw "venv introuvable : $py" }
+
+# Garde-fou : le JavaScript inline de l'interface doit être syntaxiquement valide (sinon page vide).
+$uiHtml = Get-Content (Join-Path $res 'ui\index.html') -Raw
+$uiScript = [regex]::Match($uiHtml, '(?s)<script>(.*)</script>')
+if (-not $uiScript.Success) { throw "ui/index.html : script inline introuvable" }
+$uiCheck = Join-Path $env:TEMP 'tbbr_installer_ui_check.js'
+[IO.File]::WriteAllText($uiCheck, $uiScript.Groups[1].Value, (New-Object Text.UTF8Encoding($false)))
+& node --check $uiCheck
+if ($LASTEXITCODE) { throw "ui/index.html : syntaxe JavaScript invalide" }
+
 Push-Location $here
 try {
     & $py -m PyInstaller --noconfirm --clean --onefile --windowed `

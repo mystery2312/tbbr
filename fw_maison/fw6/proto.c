@@ -10,6 +10,7 @@ typedef unsigned char u8;
 #include "factory_presets.h"
 
 int usb_midi_send_sysex(const u8 *m, u32 n);
+void wdt_clear(void);
 extern const char *const FW_VERSION_STR;
 int engine_nam_c1_pct(void);                                         /* moitié avant du NAM : % du 2e cœur (engine.c) */
 void engine_load_begin(void), engine_load_end(void);
@@ -564,6 +565,34 @@ static int factory_reload(void)
     if (preset_load(preset_index) != 0) preset_init(0);
     return n;
 }
+/* commande FACTORY_RESET [0x5A] : remise à zéro complète des données TBBR.
+   Efface les 80 presets, les IR utilisateur et les captures NAM, remet les réglages
+   globaux par défaut et réinstalle la banque d'usine. Le firmware et les cabs
+   d'usine (zone séparée) ne sont jamais touchés. */
+static int factory_wipe(void)
+{
+    int i, k, err = 0;
+    for (i = 0; i < CAT_PRESETS; i++) { if (storage_erase(preset_addr(i))) err = 1; wdt_clear(); }
+    for (i = 0; i < CAT_IR_SLOTS; i++) {
+        META->ir[i].valid = 0; META->ir[i].len = 0; META->ir[i].name[0] = 0;
+    }
+    for (i = 0; i < CAT_NAM_SLOTS; i++) {
+        META->nam[i].valid = 0; META->nam[i].size = 0; META->nam[i].crc = 0; META->nam[i].name[0] = 0;
+    }
+    META->last_preset = 0;
+    META->pad = META_FS_DEFAULT | 1u | 0x10000u | (FACTORY_BANK << 18);
+    proto_set_fs_mode_raw(0);
+    fs_cfg_clear();
+    tempo_bpm = 120;
+    engine_clear();
+    for (k = 0; k < FACTORY_PRESET_COUNT; k++) { if (factory_store(k, k) != 0) err = 1; wdt_clear(); }
+    if (preset_load(0) != 0) { preset_init(0); err = 1; }
+    preset_index = 0;
+    saved_mods = engine_mods();
+    in_gate_apply();
+    if (meta_save()) err = 1;
+    return err ? -1 : 0;
+}
 void proto_boot(void)
 {
     meta_load();
@@ -768,8 +797,12 @@ static void dispatch(u32 cmd, const u8 *pl, u32 n)
             if (meta_save() == 0) { engine_nam_changed(slot); ack(cmd); } else nak(cmd);
         } else nak(cmd);
         break;
-    case C_FACTORY_RESET:                                             /* [1] : recharger les presets d'usine (voir factory_reload) */
-        if (n >= 1 && pl[0] == 1 && !big_p) { int w = factory_reload(); ack(cmd); notify_preset(preset_index, 2); (void)w; } else nak(cmd);
+    case C_FACTORY_RESET:                                             /* [1] : recharger la banque d'usine ; [0x5A] : tout réinitialiser */
+        if (n >= 1 && !big_p && pl[0] == 1) {
+            int w = factory_reload(); ack(cmd); notify_preset(preset_index, 2); (void)w;
+        } else if (n >= 1 && !big_p && pl[0] == 0x5A) {
+            if (factory_wipe() == 0) { ack(cmd); notify_preset(preset_index, 2); } else nak(cmd);
+        } else nak(cmd);
         break;
     case C_FW_BEGIN: nak(cmd); break;                                 /* mise à jour par l'app : l'installateur passe par UBOOT */
     case C_FW_CHUNK: case C_FW_END: break;

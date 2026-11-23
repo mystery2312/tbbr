@@ -1276,7 +1276,10 @@ class WebApp:
 
     def window_loop(self, url):
         edge = find_edge()
-        profile = CONFIG_DIR / "ui-profile"
+        # Profil Edge neuf à chaque lancement : sinon une ancienne fenêtre « app » du même
+        # profil peut être réutilisée et garder une URL morte (page vide).
+        profile = Path(tempfile.gettempdir()) / ("tbbr-installer-ui-" + str(os.getpid()))
+        shutil.rmtree(profile, ignore_errors=True)
         if not edge:
             import webbrowser
             webbrowser.open(url)
@@ -1299,6 +1302,7 @@ class WebApp:
             if not self.busy:
                 break
             time.sleep(0.5)                                           # fenêtre fermée pendant une écriture : on la rouvre
+        shutil.rmtree(profile, ignore_errors=True)
         self.main_q.put(None)
 
     def run(self):
