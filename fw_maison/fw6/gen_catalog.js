@@ -28,14 +28,32 @@ L.push('};');
 /* métadonnées pour l'écran (page de bloc, ecran.js) : noms, unités, bornes, pas, type, options */
 const cstr = s => '"' + String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
 const ptype = p => p.type === 'select' ? 1 : p.type === 'bool' ? 2 : p.type === 'ir' ? 3 : p.type === 'nam' ? 4 : 0;
+/* Le catalogue de l'app reste bilingue via i18n ; le firmware, lui, est 100 % anglais. */
+const PARAM_EN = {
+  'Attaque': 'Attack', 'Baffle': 'Mic', 'Canal': 'Channel', 'Canaux': 'Channels',
+  'Demi-tons': 'Semitones', 'Détune': 'Detune', 'Entrée': 'Input', 'Étages': 'Stages',
+  'Forme': 'Shape', 'Gamme': 'Scale', 'Intervalle': 'Interval', 'Largeur': 'Width',
+  'Niveau': 'Level', 'Normaliser': 'Normalize', 'Over Drive': 'Overdrive',
+  'Profondeur': 'Depth', 'Redresseur': 'Rectifier', 'Ressorts': 'Springs',
+  'Seuil': 'Threshold', 'Sortie': 'Output', 'Tonalité': 'Key', 'Usure': 'Wear',
+  'Vitesse': 'Speed'
+};
+const OPT_EN = {
+  '1x12 fermé': '1x12 closed', '1x12 ouvert': '1x12 open',
+  '2x12 fermé': '2x12 closed', '2x12 mi-ouvert': '2x12 half-open', '2x12 ouvert': '2x12 open',
+  '4x10 ouvert': '4x10 open', '4x12 fermé': '4x12 closed',
+  'Dorien': 'Dorian', 'Majeure': 'Major', 'Mineure': 'Minor', 'Mixo': 'Mixolydian'
+};
+const enName = s => PARAM_EN[s] || s;
+const enOpt = s => OPT_EN[s] || s;
 L.push('struct param_def { const char *name, *unit; float min, max, step; unsigned char type, nopt; const char *const *opt; };');
 const optArrays = [];
-MODELS.forEach(m => m.params.forEach(p => { if (p.type === 'select') optArrays.push(`static const char *const OPT_${cid(m.id)}_${cid(p.id)}[] = { ${p.options.map(cstr).join(', ')} };`); }));
+MODELS.forEach(m => m.params.forEach(p => { if (p.type === 'select') optArrays.push(`static const char *const OPT_${cid(m.id)}_${cid(p.id)}[] = { ${p.options.map(o => cstr(enOpt(o))).join(', ')} };`); }));
 L.push(...optArrays);
 L.push('static const struct param_def PARAM_DEFS[M_COUNT][MAX_PARAMS] = {');
 MODELS.forEach(m => {
   const fl = v => (Number.isInteger(v) ? v + '.0' : String(v)) + 'f';
-  const row = m.params.map(p => `{ ${cstr(p.name)}, ${cstr(p.unit || '')}, ${fl(p.min ?? 0)}, ${fl(p.max ?? (p.type === 'select' ? p.options.length - 1 : 1))}, ${fl(p.step ?? 1)}, ${ptype(p)}, ${p.type === 'select' ? p.options.length : 0}, ${p.type === 'select' ? `OPT_${cid(m.id)}_${cid(p.id)}` : '0'} }`);
+  const row = m.params.map(p => `{ ${cstr(enName(p.name))}, ${cstr(p.unit || '')}, ${fl(p.min ?? 0)}, ${fl(p.max ?? (p.type === 'select' ? p.options.length - 1 : 1))}, ${fl(p.step ?? 1)}, ${ptype(p)}, ${p.type === 'select' ? p.options.length : 0}, ${p.type === 'select' ? `OPT_${cid(m.id)}_${cid(p.id)}` : '0'} }`);
   L.push(`  { ${row.join(', ') || '{0}'} },`);
 });
 L.push('};');

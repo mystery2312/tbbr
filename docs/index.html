@@ -266,7 +266,7 @@ footer p + p { margin-top: 6px; }
             <circle cx="66" cy="44" r="4"/><circle cx="160" cy="34" r="4"/><circle cx="214" cy="78" r="4"/><circle cx="300" cy="60" r="4"/>
           </g>
           <g fill="#19d3ff"><circle cx="112" cy="84" r="2" class="blink"/><circle cx="262" cy="52" r="2" class="blink" style="animation-delay:.7s"/></g>
-          <text x="18" y="16">NAM · A2 LITE</text><text x="292" y="16">48 kHz</text>
+          <text x="18" y="16">NAM · A2 LITE</text><text x="292" y="16">48.1 kHz</text>
         </svg></div>
         <h3 data-t="NAM A2 Lite natif|Native NAM A2 Lite"></h3><p data-t="Charge tes captures .nam telles quelles. Le réseau tourne en temps réel sur les deux cœurs de la puce.|Load your .nam captures as they are. The network runs in real time on both cores of the chip."></p>
       </div>
@@ -352,7 +352,7 @@ footer p + p { margin-top: 6px; }
         <p class="lead" data-t="TBBR joue les captures NAM A2 Lite directement dans la BlackBox. Un vrai ampli, un vrai baffle, un vrai pédalier capturés en réseau de neurones — pas un modèle générique. Tu charges un .nam, tu le joues, sans ordinateur.|TBBR plays A2 Lite NAM captures directly inside the BlackBox. A real amp, cab and pedalboard captured as a neural network — not a generic model. Load a .nam file, play it, no computer needed."></p>
         <div class="nam-stats">
           <div class="n"><b>16</b><span data-t="captures NAM|NAM captures"></span></div>
-          <div class="n"><b>48</b><span data-t="kHz · 128 samples|kHz · 128 samples"></span></div>
+          <div class="n"><b>48.1</b><span data-t="kHz · 128 samples|kHz · 128 samples"></span></div>
           <div class="n"><b>2.7</b><span data-t="ms de latence|ms latency"></span></div>
         </div>
         <a class="btn" href="doc.html#nam"><svg class="ic"><use href="#i-doc"/></svg><span data-t="Comprendre le NAM|How NAM works"></span></a>
@@ -400,24 +400,26 @@ footer p + p { margin-top: 6px; }
       <div class="compare-col">
         <h3 data-t="Firmware M-VAVE d'origine|Stock M-VAVE firmware"></h3>
         <ul>
-          <li data-t="Amplis et effets modélisés|Modeled amps and effects"></li>
-          <li data-t="Chaîne d'effets fixe|Fixed effects chain"></li>
-          <li data-t="Pas de captures NAM|No NAM captures"></li>
-          <li data-t="Mises à jour avec M-UPGRADE|Updates with M-UPGRADE"></li>
+          <li data-t="Captures NAM converties (non natif)|NAM captures converted (not native)"></li>
+          <li data-t="Chaîne d'effets linéaire|Linear effects chain"></li>
+          <li data-t="6 blocs max|6 blocks max"></li>
+          <li data-t="Pas de blocs de disto|No distortion blocks"></li>
           <li data-t="Firmware fermé|Closed firmware"></li>
+          <li data-t="Design simple|Simple design"></li>
+          <li data-t="44 kHz|44 kHz"></li>
         </ul>
       </div>
       <div class="compare-arrow" aria-hidden="true">→</div>
       <div class="compare-col new">
         <h3>TBBR</h3>
         <ul>
-          <li data-t="Captures NAM A2 Lite natives|Native A2 Lite NAM captures"></li>
-          <li data-t="Grille 2 × 8, sections parallèles, 8 scènes|2 × 8 grid, parallel sections, 8 scenes"></li>
-          <li data-t="11 IR d'usine + 32 slots utilisateur|11 factory IRs + 32 user slots"></li>
-          <li data-t="Ajouter, déplacer et supprimer les blocs sur la pédale|Add, move and delete blocks on the pedal"></li>
-          <li data-t="Éditeur Windows + Android, USB MIDI|Windows + Android editor, USB MIDI"></li>
-          <li data-t="Sauvegarde/restauration et mises à jour vérifiées|Verified backup/restore and updates"></li>
-          <li data-t="Open source, GPL-3.0|Open source, GPL-3.0"></li>
+          <li data-t="NAM A2 Lite natif|Native A2 Lite NAM"></li>
+          <li data-t="Chaîne d'effets parallèle possible|Parallel effects chain possible"></li>
+          <li data-t="Nombre de blocs selon le DSP|Block count depends on DSP"></li>
+          <li data-t="Blocs disto, pitch et EQ|Distortion, pitch and EQ blocks"></li>
+          <li data-t="Firmware open source|Open-source firmware"></li>
+          <li data-t="Neural design|Neural design"></li>
+          <li data-t="48,1 kHz|48.1 kHz"></li>
         </ul>
       </div>
     </div>
@@ -431,7 +433,7 @@ footer p + p { margin-top: 6px; }
       <div class="card">
         <div class="stat"><b class="big">396</b><span class="unit">MHz</span><span class="mini" data-t="2 cœurs|2 cores"></span></div>
         <div class="spark"><i style="--h:.32;--i:1"></i><i style="--h:.55;--i:2"></i><i style="--h:.42;--i:3"></i><i style="--h:.8;--i:4"></i><i style="--h:.62;--i:5"></i><i style="--h:.95;--i:6"></i><i style="--h:.48;--i:7"></i><i style="--h:.7;--i:8"></i></div>
-        <h3 data-t="AC791N double cœur · 396 MHz|AC791N dual-core · 396 MHz"></h3><p data-t="Audio 48 kHz par blocs de 128 échantillons. Le réseau NAM est réparti sur les deux cœurs, avec un bloc de latence.|48 kHz audio in 128-sample blocks. The NAM network is split across both cores, with one block of latency."></p>
+        <h3 data-t="AC791N double cœur · 396 MHz|AC791N dual-core · 396 MHz"></h3><p data-t="Audio 48.1 kHz par blocs de 128 échantillons. Le réseau NAM est réparti sur les deux cœurs, avec un bloc de latence.|48.1 kHz audio in 128-sample blocks. The NAM network is split across both cores, with one block of latency."></p>
       </div>
       <div class="card">
         <div class="stat"><b class="big">80</b><span class="unit" data-t="presets|presets"></span><span class="mini" data-t="8 scènes|8 scenes"></span></div>
@@ -529,6 +531,7 @@ footer p + p { margin-top: 6px; }
   <section id="changelog">
     <h2 data-t="Journal des versions|Changelog"></h2>
     <ul class="changelog">
+      <li><b>0.9.4</b><span data-t="Firmware 100 % anglais (paramètres et options inclus), comparatif M-VAVE/TBBR corrigé, 48,1 kHz.|Firmware 100% English (including parameters and options), corrected M-VAVE/TBBR comparison, 48.1 kHz."></span></li>
       <li><b>0.9.3</b><span data-t="Firmware entièrement en anglais, refonte du site (NAM, liste des effets, comparaison), nouveaux boutons de téléchargement.|Firmware entirely in English, site redesign (NAM, effects list, comparison), new download buttons."></span></li>
       <li><b>0.9.2</b><span data-t="Installateur corrigé (fenêtre vide), réinitialisation usine complète sur la pédale, firmware fw6 0.10.|Fixed installer (blank window), full factory reset on the pedal, fw6 0.10 firmware."></span></li>
       <li><b>0.9.1</b><span data-t="fw6 0.9 : ajouter, déplacer et supprimer des blocs sur la pédale, LED HOME tap tempo. Anglais par défaut, traduction complétée, mises à jour automatiques de l'app Android, catégorie Utilitaire retirée.|fw6 0.9: add, move and delete blocks on the pedal, HOME LED tap tempo. English by default, completed translation, automatic Android app updates, Utility category removed."></span></li>
