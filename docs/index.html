@@ -118,15 +118,16 @@ h2::before { content: ""; display: block; width: 26px; height: 2px; border-radiu
 .mf svg { width: 22px; height: 22px; fill: none; stroke: var(--c); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .mf b { width: 100%; text-align: center; font-size: 7.5px; line-height: 1.15; color: var(--tx); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mf small { font: 700 6.5px var(--mono); color: var(--c); letter-spacing: .08em; }
-.mini-chain { position: absolute; left: 10px; right: 10px; top: 25px; display: flex; align-items: center; gap: 4px; }
-.mio { width: 20px; height: 20px; flex: none; border: 1px solid #2d323a; border-radius: 50%; display: grid; place-items: center; color: var(--tx3); font: 700 5.5px var(--mono); }
-.mblk { flex: 1; min-width: 0; max-width: 52px; aspect-ratio: 1; border: 1.5px solid var(--c); border-radius: 7px; background: #0b0e12; background: linear-gradient(180deg, color-mix(in srgb, var(--c) 15%, #0b0e12), #0b0e12); display: grid; place-items: center; position: relative; }
-.mblk svg { width: 20px; height: 20px; fill: none; stroke: var(--c); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.mblk .mdot { position: absolute; top: -3px; right: -2px; width: 6px; height: 6px; border-radius: 50%; background: var(--c); box-shadow: 0 0 7px var(--c); }
-.mblk.sel { outline: 1px solid #fff; outline-offset: 1px; }
-.mini-lane { position: absolute; left: 10px; right: 10px; top: 79px; display: flex; align-items: center; gap: 4px; }
-.mini-lane span { width: 20px; flex: none; text-align: center; font: 700 6px var(--mono); color: var(--tx3); }
-.mini-lane i { flex: 1; height: 3px; border-radius: 2px; background: #262c34; }
+.mini-grid2 { position: absolute; left: 10px; right: 10px; top: 22px; display: flex; flex-direction: column; gap: 4px; }
+.g2row { display: flex; align-items: center; gap: 3px; height: 34px; }
+.g2lane { width: 12px; flex: none; text-align: center; font: 700 6.5px var(--mono); color: var(--tx3); }
+.g2cell { flex: 1; min-width: 0; height: 34px; border: 1px solid #242932; border-radius: 4px; background: #0a0c0f; display: grid; place-items: center; position: relative; }
+.g2cell.b { border-color: var(--c); background: #0b0e12; background: linear-gradient(180deg, color-mix(in srgb, var(--c) 18%, #0b0e12), #0b0e12); }
+.g2cell svg { width: 18px; height: 18px; fill: none; stroke: var(--c); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.g2cell .mdot { position: absolute; top: -3px; right: -2px; width: 6px; height: 6px; border-radius: 50%; background: var(--c); box-shadow: 0 0 7px var(--c); }
+.g2cell.sel { outline: 1px solid #fff; outline-offset: 1px; }
+.g2parallel { position: absolute; left: 15px; top: 22px; width: calc((100% - 33px) / 4 + 3px); height: 72px; border: 1px solid rgba(25, 211, 255, .5); border-radius: 7px; pointer-events: none; }
+.g2parallel::after { content: "A/B"; position: absolute; right: -13px; top: 50%; transform: translateY(-50%); font: 700 6px var(--mono); color: var(--acc); background: #0b0e12; padding: 2px 2px; }
 .mini-scenes { display: flex; align-items: center; gap: 5px; font: 700 7px var(--mono); color: var(--tx3); }
 .mini-scenes span { width: 13px; height: 13px; border-radius: 50%; border: 1px solid #2d323a; display: grid; place-items: center; }
 .mini-scenes span.on { color: #001a22; background: var(--acc); border-color: var(--acc); }
@@ -321,17 +322,23 @@ footer p + p { margin-top: 6px; }
       </div>
       <div class="card">
         <div class="illus" data-no-i18n>
-          <div class="mock-label"><span>APP · GRID VIEW</span><span>SCENE A</span></div>
-          <div class="mini-chain">
-            <span class="mio">IN</span>
-            <div class="mblk" style="--c:#ff9f1a"><i class="mdot"></i><svg viewBox="0 0 24 24"><path d="M13 2L5 13h6l-1 9 8-12h-6z"/></svg></div>
-            <div class="mblk" style="--c:#ff4d4d"><i class="mdot"></i><svg viewBox="0 0 24 24"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10h19M5 13.5h14M5 16h14"/><circle cx="6" cy="7.5" r=".9"/><circle cx="9.5" cy="7.5" r=".9"/><circle cx="13" cy="7.5" r=".9"/></svg></div>
-            <div class="mblk" style="--c:#c98a55"><i class="mdot"></i><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="3"/><circle cx="15.5" cy="8.5" r="3"/><circle cx="8.5" cy="15.5" r="3"/><circle cx="15.5" cy="15.5" r="3"/></svg></div>
-            <div class="mblk sel" style="--c:#3aa0ff"><i class="mdot"></i><svg viewBox="0 0 24 24"><path d="M4 5v14M9 7.5v9M14 9.5v5M19 11v2"/></svg></div>
-            <div class="mblk" style="--c:#2fd6c5"><i class="mdot"></i><svg viewBox="0 0 24 24"><path d="M2 21V10l10-7 10 7v11"/><path d="M8 21v-6a4 4 0 0 1 8 0v6M2 21h20"/></svg></div>
-            <span class="mio">OUT</span>
+          <div class="mock-label"><span>APP · 2 × 8 GRID</span><span>DUAL AMP PARALLEL</span></div>
+          <div class="mini-grid2">
+            <div class="g2row">
+              <span class="g2lane">A</span>
+              <div class="g2cell b sel" style="--c:#ff4d4d"><i class="mdot"></i><svg viewBox="0 0 24 24"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10h19M5 13.5h14M5 16h14"/><circle cx="6" cy="7.5" r=".9"/><circle cx="9.5" cy="7.5" r=".9"/><circle cx="13" cy="7.5" r=".9"/></svg></div>
+              <div class="g2cell b" style="--c:#c98a55"><i class="mdot"></i><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="3"/><circle cx="15.5" cy="8.5" r="3"/><circle cx="8.5" cy="15.5" r="3"/><circle cx="15.5" cy="15.5" r="3"/></svg></div>
+              <div class="g2cell b" style="--c:#2fd6c5"><i class="mdot"></i><svg viewBox="0 0 24 24"><path d="M2 21V10l10-7 10 7v11"/><path d="M8 21v-6a4 4 0 0 1 8 0v6M2 21h20"/></svg></div>
+              <div class="g2cell"></div><div class="g2cell"></div><div class="g2cell"></div><div class="g2cell"></div><div class="g2cell"></div>
+            </div>
+            <div class="g2row">
+              <span class="g2lane">B</span>
+              <div class="g2cell b" style="--c:#ff4d4d"><i class="mdot"></i><svg viewBox="0 0 24 24"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10h19M5 13.5h14M5 16h14"/><circle cx="6" cy="7.5" r=".9"/><circle cx="9.5" cy="7.5" r=".9"/><circle cx="13" cy="7.5" r=".9"/></svg></div>
+              <div class="g2cell b" style="--c:#c98a55"><i class="mdot"></i><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="3"/><circle cx="15.5" cy="8.5" r="3"/><circle cx="8.5" cy="15.5" r="3"/><circle cx="15.5" cy="15.5" r="3"/></svg></div>
+              <div class="g2cell"></div><div class="g2cell"></div><div class="g2cell"></div><div class="g2cell"></div><div class="g2cell"></div><div class="g2cell"></div>
+            </div>
           </div>
-          <div class="mini-lane"><span>B</span><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="g2parallel" aria-hidden="true"></div>
           <div class="mini-scenes grid-scenes"><span class="on">A</span><span>B</span><span>C</span><span>D</span><span>E</span><span>F</span><span>G</span><span>H</span></div>
         </div>
         <h3 data-t="Grille 2 × 8 et scènes|2 × 8 grid and scenes"></h3><p data-t="Chaînes en série ou en parallèle, 8 scènes par preset, footswitchs configurables. Ajoute, déplace et supprime les blocs directement sur la pédale.|Serial or parallel chains, 8 scenes per preset, configurable footswitches. Add, move and delete blocks directly on the pedal."></p>
