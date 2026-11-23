@@ -68,7 +68,7 @@ isa_probe:
 	[r12+64] = r2
 	r9 = r9 - r11
 	[r12+68] = r9
-	// 10 : rep r2 { MAC } avec r2 = 4 (comme UltraRig) : accumulateur et r2 final
+	// 10 : rep r2 { MAC } avec r2 = 4 : accumulateur et r2 final
 	r10 = r1
 	r1_r0 = 0
 	r6 = 1

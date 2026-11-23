@@ -1,5 +1,5 @@
 /* a2l.c : moteur NAM A2 Lite au format « A2L1 » (poids int16, Q par étage, activations 32 bits).
- * Format produit par nam2a2l1.py (approche inspirée de l'A2L1 d'UltraRig, réimplémentée) :
+ * Format produit par nam2a2l1.py (réseau A2 Lite en int16) :
  *   en-tête A2L1 + couches (K, dilatation, Q z/x3, coefficients int16, biais int64) + tête + CRC32.
  * Le moteur reprend la structure de nam.c (historiques linéaires, bloc de 128) mais lit des poids int16
  * et applique un décalage par étage ; l'entrée/sortie reste en Q23 comme le reste du moteur.

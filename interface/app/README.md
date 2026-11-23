@@ -175,7 +175,7 @@ L'écran ne montre que l'essentiel :
 - **Chaîne** : mêmes tuiles-icônes que l'éditeur, bypass en gris.
   - Elle s'affiche **comme du texte** : quand une ligne est pleine, le câble revient à gauche sur la ligne suivante, en serpentin.
   - L'écran prend le moins de lignes possible (3 au maximum) tant que les tuiles font au moins 36 px.
-  - **Chaque section parallèle est une seule unité** : ses deux chemins sont empilés dans la ligne, entre un crochet de split/merge (logique inspirée de l'écran du CFW Ultra Rig). Une section n'est jamais coupée entre deux lignes.
+  - **Chaque section parallèle est une seule unité** : ses deux chemins sont empilés dans la ligne, entre un crochet de split/merge. Une section n'est jamais coupée entre deux lignes.
   - Seules les colonnes occupées sont affichées.
 - Pas de barre du bas.
 

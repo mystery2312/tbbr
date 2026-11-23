@@ -1132,7 +1132,7 @@ void fw_main(void)
     RB[RB_STAGE] = 4;
     usb_midi_init();
     RB[RB_STAGE] = 5;
-    /* 360 MHz (SPL) -> 396 MHz, comme UltraRig (clock.c). APRÈS l'init audio/USB : passé avant audio_start(), l'entrée
+    /* 360 MHz (SPL) -> 396 MHz (clock.c). APRÈS l'init audio/USB : passé avant audio_start(), l'entrée
        guitare arrivait sur l'autre canal du mot stéréo (temporisations par boucles plus courtes) -> plus de son. */
     *(volatile u32 *)0x1C72000u = 0;                                 /* MB->alive (core1.c) : le 2e cœur n'est pas encore lancé */
     { int clock_set_mhz(u32 mhz); clock_set_mhz(FW_MHZ); }

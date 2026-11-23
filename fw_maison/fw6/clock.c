@@ -1,8 +1,7 @@
 /* clock.c : fréquence du processeur (PLL2).
  *
  * Mesuré sur la pédale : PLL2_CON1 (0x119AC) = 0x0750310C au démarrage (SPL d'usine) ; les 12 bits bas N = 268 donnent
- * F = (N + 2) * 4 / 3 MHz = 360 MHz (confirmé par les micro-mesures). Le firmware UltraRig de la BlackBox tourne à 396 MHz
- * (N = 295) avec le même SPL.
+ * F = (N + 2) * 4 / 3 MHz = 360 MHz (confirmé par les micro-mesures). TBBR tourne à 396 MHz (N = 295) avec le même SPL.
  *
  * Changement : tout le code ci-dessous est en RAM, car la flash (XIP par le SFC) est suspendue pendant la transition.
  *   1. le 2e cœur est garé dans une boucle en RAM ;

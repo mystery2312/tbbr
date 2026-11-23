@@ -341,6 +341,7 @@ function render() {
     mvave: ['acc', T('BlackBox M-VAVE connectée', 'BlackBox M-VAVE connected'), T('Firmware M-VAVE d\'origine. Fais d\'abord la sauvegarde, puis installe TBBR.', 'Original M-VAVE firmware. Back up first, then install TBBR.')],
     uboot: ['acc', T('Pédale en mode mise à jour', 'Pedal in update mode'), T('Mode UBOOT : prête pour sauvegarde, installation ou restauration.', 'UBOOT mode: ready to back up, install or restore.')],
   }[d.kind || 'search'];
+  if (d.needV19) { DV[0] = 'bad'; DV[1] = T('BlackBox M-VAVE : version non prise en charge', 'BlackBox M-VAVE: unsupported version'); DV[2] = T('Installe d''abord le firmware officiel V19 avec M-UPGRADE, puis reviens ici. Voir la documentation (bouton ci-dessous).', 'First install the official V19 firmware with M-UPGRADE, then come back. See the documentation (button below).'); }
   $('#devDot').className = 'dot ' + DV[0]; $('#devTitle').textContent = DV[1]; $('#devSub').textContent = DV[2];
   const chips = [];
   if (d.fw) chips.push(`<span class="chip">${T('Installé', 'Installed')} <b>${esc(d.fw)}</b></span>`);
@@ -348,6 +349,7 @@ function render() {
   if (S.update === 'available') chips.push(`<span class="chip acc">${T('Mise à jour disponible', 'Update available')} · ${esc(fwShort(d.fw))} → ${esc(fwShort(e.fw))}</span>`);
   else if (S.update === 'current') chips.push(`<span class="chip ok">${T('À jour', 'Up to date')}</span>`);
   else if (S.update === 'newer') chips.push(`<span class="chip warn">${T('Pédale plus récente que l\'installateur', 'Pedal newer than this installer')}</span>`);
+  if (d.needV19) chips.push(`<a class="chip warn" href="https://mystery2312.github.io/tbbr/doc.html#v19" target="_blank" style="text-decoration:none">${T('Comment installer la V19', 'How to install V19')} →</a>`);
   if (d.battery != null) chips.push(`<span class="chip">${T('Batterie', 'Battery')} <b>${d.battery} %</b></span>`);
   $('#devChips').innerHTML = chips.join('');
   /* pédale : touches FX..CAB en chenillard pendant une opération, écran allumé si la pédale répond */
@@ -389,8 +391,8 @@ function render() {
     : T('Le firmware TBBR est inclus : aucun fichier à chercher. L\'image est construite depuis TA sauvegarde.', 'The TBBR firmware is bundled: nothing to look for. The image is built from YOUR backup.');
 
   const present = d.kind && d.kind !== 'none' && d.kind !== 'search';
-  $('#bBackup').disabled = busy || !present;
-  $('#bInstall').disabled = busy || !present || !b.ok;
+  $('#bBackup').disabled = busy || !present || !!d.needV19;
+  $('#bInstall').disabled = busy || !present || !b.ok || !!d.needV19;
   $('#bRestore').disabled = busy || !present || !b.ok;
   $('#bChooseBk').disabled = busy; $('#bDetect').disabled = busy; $('#bOpen').disabled = !b.dir;
   document.querySelectorAll('#lang button').forEach(x => x.disabled = busy);

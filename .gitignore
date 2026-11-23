@@ -1,5 +1,5 @@
 # LISTE BLANCHE : tout est ignoré sauf ce qui est explicitement autorisé ci-dessous.
-# Jamais dans ce dépôt : sauvegardes de pédales, firmwares M-VAVE, fichiers UltraRig, désassemblages, notes privées (save.md).
+# Jamais dans ce dépôt : sauvegardes de pédales, firmwares M-VAVE, fichiers de projets tiers, désassemblages, notes privées (save.md).
 /*
 !/.gitignore
 !/README.md
@@ -12,6 +12,7 @@
 !/interface/
 !/installer/
 !/electron/
+!/android/
 
 !/fw_maison/
 /fw_maison/*
@@ -53,3 +54,14 @@ node_modules/
 /installer/resources/VERSION.txt
 /electron/dist/
 /electron/dist_next/
+
+# app Android : copies et sorties (la clé de signature est HORS du dépôt)
+/android/app/src/main/assets/
+/android/app/build/
+/android/build/
+/android/.gradle/
+/android/dist/
+/android/local.properties
+*.jks
+*.keystore
+*.pass

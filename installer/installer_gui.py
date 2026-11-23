@@ -85,6 +85,20 @@ def backup_kind(path):
 
 
 # ---------------------------------------------------------------- opérations communes (GUI + CLI)
+# Depuis le firmware M-VAVE, l'accès à la flash ne marche qu'en V19 (en 022/023, la pédale part dans un mode de
+# récupération sans accès à la flash) : il faut d'abord réinstaller la V19 officielle avec M-UPGRADE.
+NEED_V19 = ("Ta pédale n'est pas en firmware M-VAVE V19. Installe d'abord la V19 officielle avec M-UPGRADE "
+            "(voir la documentation : https://mystery2312.github.io/tbbr/doc.html#v19), puis relance.\n\n"
+            "Your pedal is not on M-VAVE firmware V19. First install the official V19 with M-UPGRADE "
+            "(see the documentation: https://mystery2312.github.io/tbbr/doc.html#v19), then try again.")
+
+
+def mvave_version(name):
+    import re as _re
+    m = _re.search(r"_0*(\d+)", name or "")
+    return int(m.group(1)) if m else None
+
+
 def enter_uboot():
     if bb_tool.find_uboot(verbose=False):
         return
@@ -96,8 +110,10 @@ def enter_uboot():
         print("Pédale M-VAVE détectée : passage en mode UBOOT…")
         name = bb_tool.identify()
         print("identité :", name)
-        if not name.startswith("BlackBox"):
+        if not name or not name.startswith("BlackBox"):
             raise RuntimeError("La pédale ne répond pas comme une BlackBox (" + repr(name) + ").")
+        if mvave_version(name) != 19:
+            raise RuntimeError(NEED_V19)
         bb_tool.midi_exchange(bb_tool.SOFT_KEY, wait=0.7, port="USB-Midi")
     else:
         raise RuntimeError("Aucune pédale détectée. Branche l'USB, allume la pédale, puis réessaie.")
@@ -966,7 +982,17 @@ class WebApp:
             else:
                 dev.update(fw=old.get("fw"), battery=old.get("battery"))
         elif "USB-Midi" in outs:
-            dev = {"kind": "mvave", "fw": "M-VAVE"}
+            old = self.device
+            if old.get("kind") == "mvave" and old.get("fw") and not query_info:
+                dev = dict(old)
+            else:
+                name = None
+                try:
+                    name = bb_tool.identify()
+                except Exception:
+                    pass
+                v = mvave_version(name)
+                dev = {"kind": "mvave", "fw": ("M-VAVE V%02d" % v) if v else "M-VAVE", "needV19": v is not None and v != 19}
         else:
             dev = {"kind": "none"}
         with self.lock:

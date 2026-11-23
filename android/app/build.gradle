@@ -1,0 +1,42 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Signature de publication : clé hors du dépôt, indiquée par build_apk.ps1 (variables d'environnement).
+def ks = System.getenv('TBBR_KEYSTORE')
+
+android {
+    namespace 'com.tbbr.blackbox'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.tbbr.blackbox'
+        minSdk 24
+        targetSdk 35
+        versionCode = Integer.parseInt(System.getenv('TBBR_VERSION_CODE') ?: '1')
+        versionName = (System.getenv('TBBR_VERSION_NAME') ?: '0.0.0')
+    }
+
+    signingConfigs {
+        release {
+            if (ks) {
+                storeFile file(ks)
+                storePassword System.getenv('TBBR_KEYSTORE_PASS')
+                keyAlias 'tbbr'
+                keyPassword System.getenv('TBBR_KEYSTORE_PASS')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (ks) signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

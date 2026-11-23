@@ -23,7 +23,7 @@
   - aucun pilote (Windows, macOS, Android, iOS) ; **WebMIDI marche dans Chrome Android**, Web Serial non ;
   - la trame est transportée dans un SysEx : `F0 7D 42 58 70 <trame codée 7 bits> F7` (7D = identifiant « non commercial » ; 7 bits : un octet d'en-tête par groupe de 7, bit k = bit 7 de l'octet k) ;
   - nouveau transport `MidiTransport` dans `app/js/transport.js` (choix « USB » de l'app) ; `SerialTransport` reste disponible pour plus tard (interface CDC à ajouter au firmware si besoin, le SDK l'a).
-- **Bluetooth LE** : la puce l'a (UltraRig l'utilise), pas encore fait dans le firmware. Les UUID de la maquette restent des hypothèses.
+- **Bluetooth LE** : la puce l'a, pas encore fait dans le firmware. Les UUID de la maquette restent des hypothèses.
 - Les commandes propres au firmware (mise à jour, stockage, diagnostic : `F0 7D 42 58 <01..7E> … F7`) restent à côté, sur le même port.
 
 ## 3. Limites → place en flash

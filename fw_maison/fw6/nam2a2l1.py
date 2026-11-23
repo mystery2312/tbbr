@@ -1,5 +1,5 @@
 r"""nam2a2l1.py <A2.nam> [sortie.a2l1] : convertit un NAM A2 Lite en binaire A2L1 (poids int16, Q par étage).
-Approche inspirée de l'A2L1 d'UltraRig (nam2chip.js), réimplémentée indépendamment :
+Convertisseur indépendant .nam (A2 Lite) -> A2L1 :
   1. lit le sous-modèle Lite (3 canaux) et le réseau WaveNet ;
   2. passe une excitation de calibration en float et mesure le max |.| de chaque étage ;
   3. choisit les Q (étages), quantifie les poids en int16 et les biais en int64 ;

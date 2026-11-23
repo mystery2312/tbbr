@@ -262,7 +262,7 @@ function waitAck(cmd, ms = 4000) {
 function ackArrived(cmd, ok) { const i = ackWaiters.findIndex(w => w.cmd === cmd); if (i < 0) return false; ackWaiters.splice(i, 1)[0].res(ok); return true; }
 
 /* =========================================================
- * La pédale est la référence (comme UltraRig / M-EFCS) : ses presets, IR et NAM sont dans sa flash ;
+ * La pédale est la référence (comme M-EFCS) : ses presets, IR et NAM sont dans sa flash ;
  * l'app lit ce qu'elle contient (PRESET_LIST, PRESET_GET), modifie en direct et demande la sauvegarde (PRESET_SAVE).
  * Grosses réponses : trames DATA [type, index, morceau, nb morceaux, données], réassemblées ici.
  * ========================================================= */
