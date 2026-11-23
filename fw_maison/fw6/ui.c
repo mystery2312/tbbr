@@ -12,6 +12,8 @@ u32 proto_preset_rgb(void);
 int proto_preset_index(void);
 const char *proto_ir_name(int s);
 const char *proto_nam_name(int s);
+u32 proto_tempo(void);
+void proto_notify_structure(void);
 
 /* couleurs de ecran.js (C) */
 #define C_BG   0x0b0d10
@@ -28,7 +30,7 @@ const char *proto_nam_name(int s);
 #define W 240
 #define H 240
 
-enum { V_HOME, V_BLOCK, V_TUNER, V_SAVE };
+enum { V_HOME, V_BLOCK, V_TUNER, V_SAVE, V_ACTION, V_ADD, V_CONFIRM, V_MOVE };
 int proto_dirty(void); int proto_save_slot(int i); int proto_slot_name(int i, char *o);
 static struct {
     int view, cursor, lane, col, key, pidx, editing;
@@ -39,13 +41,15 @@ static struct {
     int dirty, ms;
     int last_index;
     int save_slot, last_dirty;             /* écran SAUVEGARDER : emplacement visé ; dernier état « modifié » affiché */
+    int menu_sel, add_key;                 /* gestion des blocs : ligne choisie, famille à ajouter */
+    int prev_lane, prev_col, prev_key, prev_was_block;   /* bloc affiché avant l'appui (maintien = gérer ce bloc) */
 } U = { V_HOME, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0.0f, 0, 0, 0, 0.0f, 1, 0, -1, 0, 0 };
 
 /* familles des touches (KEY_CATS) : FX AMP MOD DLY REV CAB */
 static int key_has_cat(int key, int cat)
 {
     switch (key) {
-    case 1: return cat == CAT_DYN || cat == CAT_DRIVE || cat == CAT_PITCH || cat == CAT_EQ || cat == CAT_UTIL;
+    case 1: return cat == CAT_DYN || cat == CAT_DRIVE || cat == CAT_PITCH || cat == CAT_EQ;   /* Utilitaire masqué */
     case 2: return cat == CAT_AMP;
     case 3: return cat == CAT_MOD;
     case 4: return cat == CAT_DELAY;
@@ -319,6 +323,77 @@ static void block_page(void)
     gfx_text(&F_mono11, Q4(W - 10), Q4(H - 8), U.editing ? CAT_RGB[cat] : C_TX3, 255, U.editing ? "\xE2\x97\x86 R\xC3\x89GLAGE" : "PARA \xE2\x9F\xB3", 2);
 }
 
+/* ---------------- gestion des blocs (ajouter / déplacer / supprimer) ---------------- */
+static void go_home(void);
+static int key_model_count(int k);
+static int key_model_at(int k, int idx);
+static const char *const KEY_NAMES[7] = { "HOME", "FX", "AMP", "MOD", "DLY", "REV", "CAB" };
+
+/* liste plein écran : titre, sous-titre, lignes, valeur à droite (DSP), pied de page */
+static void menu_screen(const char *title, const char *sub, const char *const *items, const int *vals, int n, int sel, u32 rgb, const char *hint)
+{
+    int HEAD = 44, ROW = 32, vis = (H - HEAD - 22) / ROW, start, k;
+    if (sel < 0) sel = 0; if (sel >= n) sel = n ? n - 1 : 0;
+    start = sel - vis / 2; if (start > n - vis) start = n - vis; if (start < 0) start = 0;
+    gfx_rrect(0, 0, Q4(W), Q4(HEAD), 0, rgb, 41);
+    gfx_rrect(0, Q4(HEAD - 1), Q4(W), Q4(1), 0, rgb, 128);
+    gfx_text_fit(&F_bold15, Q4(12), Q4(21), C_TX, title, Q4(W - 24), 0);
+    gfx_text_fit(&F_mono11, Q4(12), Q4(37), rgb, sub, Q4(W - 24), 0);
+    for (k = 0; k < vis && start + k < n; k++) {
+        int i = start + k, y = HEAD + 4 + k * ROW, on = i == sel;
+        if (on) {
+            gfx_rrect(Q4(4), Q4(y), Q4(W - 8), Q4(ROW - 4), Q4(8), rgb, 46);
+            gfx_rrect_stroke(Q4(4), Q4(y), Q4(W - 8), Q4(ROW - 4), Q4(8), Q4(1.2f), rgb, 160);
+        }
+        gfx_text_fit(&F_sans14, Q4(13), Q4(y + 20), on ? C_TX : C_TX2, items[i], Q4(vals ? W - 76 : W - 26), 0);
+        if (vals) {
+            char b[8], *p = fmt_num(b, (float)vals[i], 0, 0); scpy(p, "%");
+            gfx_text(&F_mono12, Q4(W - 13), Q4(y + 20), on ? C_TX : C_TX3, 255, b, 2);
+        }
+    }
+    gfx_text_fit(&F_mono11, Q4(10), Q4(H - 7), C_TX3, hint, Q4(W - 20), 0);
+}
+
+static void action_page(void)
+{
+    static const char *const items[4] = { "+ Ajouter un bloc", "D\xC3\xA9placer", "Supprimer", "Annuler" };
+    int m, on, cat; char sub[32], *p;
+    if (!engine_get(U.lane, U.col, &m, &on)) { go_home(); return; }
+    cat = MODEL_DEFS[m].cat;
+    p = scpy(sub, "GESTION \xC2\xB7 "); p = scpy(p, KEY_NAMES[U.key]); *p++ = ' '; *p++ = "AB"[U.lane]; *p++ = (char)('1' + U.col); *p = 0;
+    menu_screen(MODEL_NAMES[m], sub, items, 0, 4, U.menu_sel, CAT_RGB[cat], "PARA : choisir \xC2\xB7 appui : OK");
+}
+
+static void add_page(void)
+{
+    static const char *items[M_COUNT]; int vals[M_COUNT], n = key_model_count(U.add_key), i, m;
+    char sub[40], *p;
+    if (n <= 0) { go_home(); return; }
+    for (i = 0; i < n && i < M_COUNT; i++) { m = key_model_at(U.add_key, i); items[i] = MODEL_NAMES[m]; vals[i] = MODEL_DEFS[m].dsp; }
+    p = scpy(sub, KEY_NAMES[U.add_key]); p = scpy(p, " \xC2\xB7 choisir un mod\xC3\xA8le"); *p = 0;
+    menu_screen("AJOUTER UN BLOC", sub, items, vals, n, U.menu_sel, CAT_RGB[MODEL_DEFS[key_model_at(U.add_key, 0)].cat], "PARA : choisir \xC2\xB7 appui : ajouter");
+}
+
+static void confirm_page(void)
+{
+    static const char *const items[2] = { "Oui", "Non" };
+    int m, on; char sub[40], *p;
+    if (!engine_get(U.lane, U.col, &m, &on)) { go_home(); return; }
+    p = scpy(sub, "Supprimer "); p = scpy(p, MODEL_NAMES[m]); p = scpy(p, " ?"); *p = 0;
+    menu_screen("SUPPRIMER CE BLOC", sub, items, 0, 2, U.menu_sel, C_BAD, "PARA : choisir \xC2\xB7 appui : OK");
+}
+
+static void move_page(void)
+{
+    int m, on;
+    if (!engine_get(U.lane, U.col, &m, &on)) { go_home(); return; }
+    chain(); top_bar();
+    gfx_rrect(0, Q4(H - 46), Q4(W), Q4(46), 0, C_BAR, 246);
+    gfx_rrect(0, Q4(H - 46), Q4(W), Q4(1), 0, C_LINE, 255);
+    gfx_text_fit(&F_bold15, Q4(10), Q4(H - 27), C_TX, MODEL_NAMES[m], Q4(W - 20), 0);
+    gfx_text_fit(&F_mono11, Q4(10), Q4(H - 10), CAT_RGB[MODEL_DEFS[m].cat], "PARA : d\xC3\xA9placer \xC2\xB7 appui : terminer", Q4(W - 20), 0);
+}
+
 /* ---------------- écrans superposés ---------------- */
 static void preset_overlay(void)
 {
@@ -460,7 +535,12 @@ void ui_build(void)
     if (U.view == V_TUNER) { tuner_screen(); U.dirty = 0; return; }
     if (U.view == V_SAVE) { save_screen(); U.dirty = 0; return; }
     gfx_begin(C_BG);
-    if (U.view == V_BLOCK) block_page(); else { chain(); top_bar(); }
+    if (U.view == V_BLOCK) block_page();
+    else if (U.view == V_ACTION) action_page();
+    else if (U.view == V_ADD) add_page();
+    else if (U.view == V_CONFIRM) confirm_page();
+    else if (U.view == V_MOVE) move_page();
+    else { chain(); top_bar(); }
     if (U.overlay && U.ms < U.ov_until) {
         if (U.overlay == 1) preset_overlay(); else if (U.overlay == 2) master_overlay(); else msg_overlay();
     } else U.overlay = 0;
@@ -468,8 +548,17 @@ void ui_build(void)
 }
 int ui_dirty(void) { return U.dirty; }
 void ui_touch(void) { U.dirty = 1; }
-/* LED des touches (bit 0 = HOME .. 6 = CAB) : la touche de la page affichée, comme ecran.js */
-u32 ui_leds(void) { return U.view == V_BLOCK ? (1u << U.key) : 1u; }
+/* LED des touches FX..CAB (bits 1..6) : la touche de la page affichée, comme ecran.js.
+   La LED HOME (bit 0) est le tap tempo, gérée par ui_tap_led(). */
+u32 ui_leds(void) { return U.view == V_BLOCK ? (1u << U.key) : 0u; }
+int ui_tap_led(void)
+{
+    u32 bpm = proto_tempo(), per, phase;
+    if (bpm < 40) bpm = 40; if (bpm > 250) bpm = 250;
+    per = 60000u / bpm;
+    phase = (u32)(U.ms < 0 ? 0 : U.ms) % per;
+    return phase < 80;                                                /* flash de 80 ms sur chaque temps */
+}
 
 /* ---------------- commandes ---------------- */
 static void go_home(void) { U.view = V_HOME; U.editing = 0; U.cursor = -1; U.dirty = 1; }
@@ -482,18 +571,56 @@ void ui_key(int k)                                  /* 0 HOME, 1 FX .. 6 CAB */
     int ol[16], oc[16], n = order(ol, oc), i, cur = -1, list[16], nl = 0, m, on;
     if (U.view == V_TUNER) { U.view = V_HOME; }
     if (U.view == V_SAVE) { go_home(); return; }                 /* toute touche annule la sauvegarde */
+    if (U.view == V_MOVE) { proto_notify_structure(); U.view = V_BLOCK; }   /* termine le déplacement */
+    else if (U.view == V_ACTION || U.view == V_ADD || U.view == V_CONFIRM) U.view = V_BLOCK;
     if (k == 0) { go_home(); return; }
+    U.prev_was_block = U.view == V_BLOCK; U.prev_lane = U.lane; U.prev_col = U.col; U.prev_key = U.key;
     for (i = 0; i < n; i++) { engine_get(ol[i], oc[i], &m, &on); if (key_has_cat(k, MODEL_DEFS[m].cat)) list[nl++] = i; }
-    if (!nl) {
-        static char msg[20]; static const char *const KN[7] = { "HOME", "FX", "AMP", "MOD", "DLY", "REV", "CAB" };
-        char *p = scpy(msg, "Aucun bloc "); scpy(p, KN[k]);
-        flash_msg(msg); return;
+    if (!nl) {                                                  /* famille vide : on ouvre directement l'ajout */
+        U.view = V_ADD; U.add_key = k; U.key = k; U.menu_sel = 0; U.dirty = 1; return;
     }
     if (U.view == V_BLOCK && U.key == k) for (i = 0; i < nl; i++) if (ol[list[i]] == U.lane && oc[list[i]] == U.col) cur = i;
     i = list[(cur + 1) % nl];
     U.view = V_BLOCK; U.lane = ol[i]; U.col = oc[i]; U.key = k; U.pidx = 0; U.editing = 0; U.dirty = 1;
 }
+/* maintien d'une touche FX..CAB : gérer le bloc affiché (ajouter / déplacer / supprimer) */
+void ui_key_hold(int k)
+{
+    int m, on;
+    if (k < 1 || k > 6 || U.view != V_BLOCK || U.key != k) return;
+    /* si l'appui vient de faire défiler la famille, on revient au bloc qui était affiché avant */
+    if (U.prev_was_block && U.prev_key == k && engine_get(U.prev_lane, U.prev_col, &m, &on) && key_has_cat(k, MODEL_DEFS[m].cat)) {
+        U.lane = U.prev_lane; U.col = U.prev_col;
+    }
+    U.view = V_ACTION; U.menu_sel = 0; U.dirty = 1;
+}
 static int key_of_cat(int cat) { int k; for (k = 1; k <= 6; k++) if (key_has_cat(k, cat)) return k; return 1; }
+/* modèles proposés par une touche (les blocs « utilitaire » restent lisibles mais ne sont plus proposés) */
+static int key_model_count(int k)
+{
+    int m, n = 0;
+    for (m = 0; m < M_COUNT; m++) if (MODEL_DEFS[m].cat != CAT_UTIL && key_has_cat(k, MODEL_DEFS[m].cat)) n++;
+    return n;
+}
+static int key_model_at(int k, int idx)
+{
+    int m, n = 0;
+    for (m = 0; m < M_COUNT; m++) if (MODEL_DEFS[m].cat != CAT_UTIL && key_has_cat(k, MODEL_DEFS[m].cat)) {
+        if (n == idx) return m;
+        n++;
+    }
+    return -1;
+}
+/* premier emplacement libre : on ajoute après le dernier bloc de la rangée A, sinon un trou de A, sinon B */
+static int first_free_slot(int *lane, int *col)
+{
+    int c, m, on, last = -1;
+    for (c = 0; c < CAT_COLS; c++) if (engine_get(0, c, &m, &on)) last = c;
+    for (c = last + 1; c < CAT_COLS; c++) if (!engine_get(0, c, &m, &on)) { *lane = 0; *col = c; return 1; }
+    for (c = 0; c < CAT_COLS; c++) if (!engine_get(0, c, &m, &on)) { *lane = 0; *col = c; return 1; }
+    for (c = 0; c < CAT_COLS; c++) if (!engine_get(1, c, &m, &on)) { *lane = 1; *col = c; return 1; }
+    return 0;
+}
 static float step_param(const struct param_def *pd, float v, int d)
 {
     if (pd->type == 2) return v != 0 ? 0 : 1;
@@ -516,6 +643,18 @@ void ui_para_turn(int d)
     int ol[16], oc[16], n = order(ol, oc), m, on;
     if (U.view == V_TUNER) return;
     if (U.view == V_SAVE) { U.save_slot = (U.save_slot + d + 80) % 80; U.dirty = 1; return; }
+    if (U.view == V_ACTION) { U.menu_sel = (U.menu_sel + d + 4) % 4; U.dirty = 1; return; }
+    if (U.view == V_ADD) {
+        int nn = key_model_count(U.add_key);
+        if (nn > 0) U.menu_sel = (U.menu_sel + d + nn) % nn;
+        U.dirty = 1; return;
+    }
+    if (U.view == V_CONFIRM) { U.menu_sel = (U.menu_sel + d + 2) % 2; U.dirty = 1; return; }
+    if (U.view == V_MOVE) {
+        int nc = U.col + d;
+        if (nc >= 0 && nc < CAT_COLS && engine_block_move(U.lane, U.col, U.lane, nc) == 0) U.col = nc;
+        U.dirty = 1; return;
+    }
     if (U.view == V_HOME) {
         if (!n) return;
         U.cursor = U.cursor < 0 ? (d > 0 ? 0 : n - 1) : (U.cursor + d + n) % n;
@@ -533,6 +672,34 @@ void ui_para_press(void)
     int ol[16], oc[16], n = order(ol, oc), m, on;
     if (U.view == V_TUNER) { go_home(); return; }
     if (U.view == V_SAVE) { save_do(); return; }
+    if (U.view == V_ACTION) {
+        if (U.menu_sel == 0) { U.view = V_ADD; U.add_key = U.key; U.menu_sel = 0; }
+        else if (U.menu_sel == 1) { U.view = V_MOVE; U.menu_sel = 0; }
+        else if (U.menu_sel == 2) { U.view = V_CONFIRM; U.menu_sel = 1; }   /* « Non » par défaut */
+        else U.view = V_BLOCK;
+        U.dirty = 1; return;
+    }
+    if (U.view == V_ADD) {
+        int mid = key_model_at(U.add_key, U.menu_sel), l = 0, c = 0, r;
+        if (mid < 0) { go_home(); return; }
+        if (!first_free_slot(&l, &c)) { flash_msg("Grille pleine"); U.ov_until = U.ms + 2000; return; }
+        r = engine_block_set(l, c, mid);
+        if (r == 0) {
+            U.view = V_BLOCK; U.lane = l; U.col = c; U.key = U.add_key; U.pidx = 0; U.editing = 0;
+            proto_notify_structure();
+        } else if (r == -2) { flash_msg("DSP insuffisant"); U.ov_until = U.ms + 2000; }
+        else flash_msg("Ajout impossible");
+        U.dirty = 1; return;
+    }
+    if (U.view == V_CONFIRM) {
+        if (U.menu_sel == 0) {
+            engine_block_clear(U.lane, U.col);
+            proto_notify_structure();
+            go_home();
+        } else U.view = V_ACTION;
+        U.dirty = 1; return;
+    }
+    if (U.view == V_MOVE) { proto_notify_structure(); U.view = V_BLOCK; U.dirty = 1; return; }
     if (U.view == V_HOME) {
         if (U.cursor >= 0 && U.cursor < n) {
             engine_get(ol[U.cursor], oc[U.cursor], &m, &on);
@@ -568,6 +735,8 @@ void ui_tick(int ms)
     if (proto_dirty() != U.last_dirty) { U.last_dirty = proto_dirty(); U.dirty = 1; }   /* « * » du preset modifié */
     if (proto_preset_index() != U.last_index) {
         if (U.last_index >= 0) { U.overlay = 1; U.ov_until = ms + 900; }
-        U.last_index = proto_preset_index(); if (U.view == V_BLOCK) go_home(); U.dirty = 1;
+        U.last_index = proto_preset_index();
+        if (U.view == V_BLOCK || U.view == V_ACTION || U.view == V_ADD || U.view == V_CONFIRM || U.view == V_MOVE) go_home();
+        U.dirty = 1;
     }
 }

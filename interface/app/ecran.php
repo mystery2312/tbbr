@@ -13,7 +13,7 @@ function asset(string $path): string
     return htmlspecialchars($path . '?v=' . (is_file($file) ? filemtime($file) : '0'));
 }
 ?><!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -55,7 +55,7 @@ function asset(string $path): string
     </div>
     <div class="ruler" id="ruler" title="Règle de 10 cm : vérifie avec une vraie règle"></div>
     <div class="caps"><small id="capL"></small><small id="capR"></small></div>
-    <p class="hint">Clavier : ← → footswitchs · ↑ ↓ tourner PARA · Entrée appuyer PARA · H HOME. Ouvre l’éditeur dans un autre onglet : l’écran suit chaque modification, et ce que tu règles ici remonte dans l’éditeur.</p>
+    <p class="hint">Clavier : ← → footswitchs · ↑ ↓ tourner PARA · Entrée appuyer PARA · H HOME. Maintiens une touche FX..CAB : ajouter, déplacer ou supprimer un bloc. Ouvre l’éditeur dans un autre onglet : l’écran suit chaque modification, et ce que tu règles ici remonte dans l’éditeur.</p>
   </main>
 
   <div class="calib" id="calib" hidden>

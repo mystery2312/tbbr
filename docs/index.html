@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TBBR — The Big Black Rig</title>
-<meta name="description" content="Firmware libre pour la M-VAVE BlackBox : NAM A2 Lite natif, IR, amplis et pédales modélisés, éditeur et flasher.">
+<meta name="description" content="Open firmware for the M-VAVE BlackBox: native NAM A2 Lite, cab IRs, modeled amps and pedals, editor and installer.">
 <link rel="icon" href="sim/icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -69,6 +69,13 @@ h2 { font-size: 24px; font-weight: 800; letter-spacing: -.01em; margin-bottom: 6
 .steps .card h3 { margin-top: 2px; }
 .note { margin-top: 16px; display: flex; gap: 10px; padding: 12px 14px; border-radius: 10px; background: rgba(255, 176, 32, .07); border: 1px solid rgba(255, 176, 32, .35); color: #ffd08a; font-size: 13px; }
 .note .ic { color: var(--warn); }
+details.faq { margin: 8px 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+details.faq summary { cursor: pointer; font-weight: 700; color: var(--tx); }
+details.faq summary::marker { color: var(--acc); }
+details.faq p { margin-top: 8px; color: var(--tx2); font-size: 14px; }
+.changelog { list-style: none; margin: 10px 0 0; padding: 0; }
+.changelog li { padding: 10px 0; border-bottom: 1px solid var(--line); color: var(--tx2); font-size: 14px; }
+.changelog b { display: inline-block; min-width: 64px; color: var(--acc); font: 700 12.5px var(--mono); }
 .exp { margin: 0 0 8px; display: flex; gap: 14px; align-items: flex-start; padding: 16px 18px; border-radius: 14px; background: rgba(255, 176, 32, .07); border: 1px solid rgba(255, 176, 32, .45); }
 .exp .ic { width: 24px; height: 24px; color: var(--warn); margin-top: 2px; }
 .exp b { display: block; color: #ffd08a; font-size: 15px; margin-bottom: 4px; }
@@ -81,6 +88,7 @@ footer p + p { margin-top: 6px; }
 <body>
 <svg width="0" height="0" style="position:absolute">
   <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></symbol>
+<symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M10 5h4M11 19h2"/></symbol>
   <symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h7"/></symbol>
   <symbol id="i-git" viewBox="0 0 24 24"><path d="M9 19c-4 1.5-4-2-6-2m12 4v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12 12 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></symbol>
   <symbol id="i-nam" viewBox="0 0 24 24"><path d="M3 12h3l3-7 4 14 3-7h5"/></symbol>
@@ -94,7 +102,7 @@ footer p + p { margin-top: 6px; }
 
 <header><div class="wrap top">
   <div class="brand"><svg viewBox="0 0 32 32"><rect x="2" y="7" width="28" height="18" rx="4"/><circle cx="10" cy="19" r="3"/><circle cx="22" cy="19" r="3"/><path d="M7 12h18"/></svg><span>BIG<b>BLACK</b>RIG</span></div>
-  <nav><a href="#features" data-t="Fonctions|Features"></a><a href="#install" data-t="Installer|Install"></a><a href="#update" data-t="Mises à jour|Updates"></a><a href="doc.html" data-t="Documentation|Documentation"></a><a href="https://github.com/mystery2312/tbbr">GitHub</a></nav>
+  <nav><a href="#features" data-t="Fonctions|Features"></a><a href="#specs" data-t="Sous le capot|Under the hood"></a><a href="#compat" data-t="Compatibilité|Compatibility"></a><a href="#install" data-t="Installer|Install"></a><a href="#update" data-t="Mises à jour|Updates"></a><a href="#faq" data-t="FAQ|FAQ"></a><a href="doc.html" data-t="Documentation|Documentation"></a><a href="https://github.com/mystery2312/tbbr">GitHub</a></nav>
   <div class="seg" id="lang"><button data-l="fr">FR</button><button data-l="en">EN</button></div>
 </div></header>
 
@@ -106,9 +114,10 @@ footer p + p { margin-top: 6px; }
       <p class="lead" data-t="TBBR remplace le firmware de la M-VAVE BlackBox : captures NAM jouées nativement, IR de baffle, amplis et pédales modélisés, 80 presets dans la pédale, et un éditeur clair sur PC Windows et Android.|TBBR replaces the M-VAVE BlackBox firmware: NAM captures played natively, cab IRs, modeled amps and pedals, 80 presets stored in the pedal, and a clean editor on Windows PC and Android."></p>
       <div class="cta">
         <a class="btn primary" href="https://github.com/mystery2312/tbbr/releases/latest/download/BlackBox_TBBR_App.exe"><svg class="ic"><use href="#i-down"/></svg><span data-t="Télécharger pour Windows|Download for Windows"></span></a>
+        <a class="btn" href="https://github.com/mystery2312/tbbr/releases/latest/download/TBBR_Android.apk"><svg class="ic"><use href="#i-phone"/></svg><span data-t="Télécharger l'APK Android|Download the Android APK"></span></a>
         <a class="btn" href="doc.html"><svg class="ic"><use href="#i-doc"/></svg><span data-t="Documentation|Documentation"></span></a>
       </div>
-      <div class="meta"><span data-t="Version|Version"></span> <b id="ver">…</b> · <span data-t="Windows 10/11 · Android (éditeur) · gratuit et open source (GPL-3.0)|Windows 10/11 · Android (editor) · free and open source (GPL-3.0)"></span> · <a href="https://github.com/mystery2312/tbbr/releases/latest/download/TBBR_Android.apk" data-t="APK Android|Android APK"></a></div>
+      <div class="meta"><span data-t="Version|Version"></span> <b id="ver">…</b> · <span data-t="Windows 10/11 · Android (éditeur) · gratuit et open source (GPL-3.0)|Windows 10/11 · Android (editor) · free and open source (GPL-3.0)"></span></div>
     </div>
     <div class="pedal">
       <iframe src="sim/ecran.html?embed" title="Simulation du firmware TBBR" loading="eager"></iframe>
@@ -125,9 +134,33 @@ footer p + p { margin-top: 6px; }
       <div class="card"><svg class="ic"><use href="#i-nam"/></svg><h3 data-t="NAM A2 Lite natif|Native NAM A2 Lite"></h3><p data-t="Charge tes captures .nam telles quelles. Le réseau tourne en temps réel sur les deux cœurs de la puce.|Load your .nam captures as they are. The network runs in real time on both cores of the chip."></p></div>
       <div class="card"><svg class="ic"><use href="#i-cab"/></svg><h3 data-t="IR de baffle|Cab IRs"></h3><p data-t="11 baffles d'usine en vraies IR (4x12 V30, 2x12, 1x12, 4x10), plus 32 emplacements pour tes propres IR (.wav).|11 factory cabinets as real IRs (4x12 V30, 2x12, 1x12, 4x10), plus 32 slots for your own IRs (.wav)."></p></div>
       <div class="card"><svg class="ic"><use href="#i-amp"/></svg><h3 data-t="Amplis et pédales|Amps and pedals"></h3><p data-t="Overdrives, distos, fuzz, amplis clean à high gain, modulations, délais, réverbes, accordeur.|Overdrives, distortions, fuzz, clean to high-gain amps, modulation, delays, reverbs, tuner."></p></div>
-      <div class="card"><svg class="ic"><use href="#i-grid"/></svg><h3 data-t="Grille 2 × 8 et scènes|2 × 8 grid and scenes"></h3><p data-t="Chaînes en série ou en parallèle, 8 scènes par preset, footswitchs configurables.|Serial or parallel chains, 8 scenes per preset, configurable footswitches."></p></div>
+      <div class="card"><svg class="ic"><use href="#i-grid"/></svg><h3 data-t="Grille 2 × 8 et scènes|2 × 8 grid and scenes"></h3><p data-t="Chaînes en série ou en parallèle, 8 scènes par preset, footswitchs configurables. Ajoute, déplace et supprime les blocs directement sur la pédale.|Serial or parallel chains, 8 scenes per preset, configurable footswitches. Add, move and delete blocks directly on the pedal."></p></div>
       <div class="card"><svg class="ic"><use href="#i-save"/></svg><h3 data-t="80 presets dans la pédale|80 presets in the pedal"></h3><p data-t="La pédale garde tout : presets, IR, captures, réglages. L'éditeur lit ce qu'elle contient.|The pedal keeps everything: presets, IRs, captures, settings. The editor reads what it holds."></p></div>
       <div class="card"><svg class="ic"><use href="#i-bolt"/></svg><h3 data-t="Mises à jour en un clic|One-click updates"></h3><p data-t="L'app prévient quand une nouvelle version sort et met la pédale à jour, presets conservés.|The app tells you when a new version is out and updates the pedal, presets kept."></p></div>
+    </div>
+  </section>
+
+  <section id="specs">
+    <h2 data-t="Sous le capot|Under the hood"></h2>
+    <p class="sub" data-t="Ce qui tourne réellement dans la pédale, sans ordinateur.|What actually runs inside the pedal, without a computer."></p>
+    <div class="grid">
+      <div class="card"><h3 data-t="AC791N double cœur · 396 MHz|AC791N dual-core · 396 MHz"></h3><p data-t="Audio 48 kHz par blocs de 128 échantillons. Le réseau NAM est réparti sur les deux cœurs, avec un bloc de latence.|48 kHz audio in 128-sample blocks. The NAM network is split across both cores, with one block of latency."></p></div>
+      <div class="card"><h3 data-t="80 presets · 8 scènes|80 presets · 8 scenes"></h3><p data-t="Chaque preset garde ses blocs, ses réglages et huit scènes. Les presets se suivent de 01 à 80, sans banques.|Each preset keeps its blocks, settings and eight scenes. Presets run from 01 to 80, with no banks."></p></div>
+      <div class="card"><h3 data-t="32 slots IR · 16 slots NAM|32 IR slots · 16 NAM slots"></h3><p data-t="IR jusqu'à 2 048 points, captures NAM A2 Lite jusqu'à 8 Ko. Tout est stocké dans la flash de la pédale.|IRs up to 2,048 points, A2 Lite NAM captures up to 8 KB. Everything is stored in the pedal's flash."></p></div>
+      <div class="card"><h3 data-t="Grille 2 × 8|2 × 8 grid"></h3><p data-t="Deux rangées de huit emplacements : chaînes en série, sections parallèles avec balance A/B, huit scènes par preset.|Two rows of eight slots: serial chains, parallel sections with A/B balance, eight scenes per preset."></p></div>
+      <div class="card"><h3 data-t="USB MIDI classe compatible|Class-compliant USB MIDI"></h3><p data-t="Pas de pilote : Windows, macOS et Android voient la pédale comme un périphérique MIDI USB.|Driverless: Windows, macOS and Android see the pedal as a USB MIDI device."></p></div>
+      <div class="card"><h3 data-t="Mises à jour récupérables|Recovery-safe updates"></h3><p data-t="Le bootloader n'est jamais modifié. Chaque secteur écrit est relu, et la sauvegarde complète permet de revenir au firmware M-VAVE.|The bootloader is never modified. Every written sector is read back, and the full backup lets you return to the M-VAVE firmware."></p></div>
+    </div>
+  </section>
+
+  <section id="compat">
+    <h2 data-t="Compatibilité|Compatibility"></h2>
+    <p class="sub" data-t="Ce qu'il faut pour installer et utiliser TBBR.|What you need to install and use TBBR."></p>
+    <div class="grid">
+      <div class="card"><h3 data-t="Pédale|Pedal"></h3><p data-t="M-VAVE BlackBox avec le firmware officiel V19 avant l'installation. Les versions 022 et 023 doivent d'abord repasser en V19 avec M-UPGRADE.|M-VAVE BlackBox running official V19 firmware before installation. Versions 022 and 023 must first go back to V19 with M-UPGRADE."></p></div>
+      <div class="card"><h3 data-t="Windows|Windows"></h3><p data-t="Windows 10 ou 11. L'app de bureau est portable : un seul exe, rien à installer.|Windows 10 or 11. The desktop app is portable: a single exe, nothing to install."></p></div>
+      <div class="card"><h3 data-t="Android|Android"></h3><p data-t="Android 7 ou plus, avec un câble ou adaptateur USB OTG. L'app Android édite la pédale et vérifie ses mises à jour au lancement ; elle ne flashe pas le firmware.|Android 7 or newer, with a USB OTG cable or adapter. The Android app edits the pedal and checks for its own updates on launch; it does not flash firmware."></p></div>
+      <div class="card"><h3 data-t="Connexion|Connection"></h3><p data-t="USB MIDI pour l'édition et les mises à jour. L'éditeur Bluetooth n'est pas encore disponible : utilise l'USB.|USB MIDI for editing and updates. The Bluetooth editor is not available yet: use USB."></p></div>
     </div>
   </section>
 
@@ -149,8 +182,29 @@ footer p + p { margin-top: 6px; }
     <div class="grid">
       <div class="card"><h3 data-t="Dans l'app|In the app"></h3><p data-t="Quand une version sort, un bandeau « Mettre à jour la pédale » apparaît dès que la pédale est connectée. Un clic : l'installateur s'ouvre et fait le reste.|When a version comes out, an \"Update the pedal\" banner appears as soon as the pedal is connected. One click: the installer opens and does the rest."></p></div>
       <div class="card"><h3 data-t="À la main|By hand"></h3><p data-h="Chaque <a href='https://github.com/mystery2312/tbbr/releases'>release</a> contient un petit fichier <code>.tbbr</code> : glisse-le dans l'installateur.|Every <a href='https://github.com/mystery2312/tbbr/releases'>release</a> contains a small <code>.tbbr</code> file: drop it into the installer."></p></div>
-      <div class="card"><h3 data-t="Sur Android|On Android"></h3><p data-h="L'<a href='https://github.com/mystery2312/tbbr/releases/latest/download/TBBR_Android.apk'>app Android</a> édite la pédale par un câble USB OTG. L'installation et les mises à jour du firmware se font depuis un PC Windows.|The <a href='https://github.com/mystery2312/tbbr/releases/latest/download/TBBR_Android.apk'>Android app</a> edits the pedal over a USB OTG cable. Firmware installation and updates are done from a Windows PC."></p></div>
+      <div class="card"><h3 data-t="Sur Android|On Android"></h3><p data-h="L'<a href='https://github.com/mystery2312/tbbr/releases/latest/download/TBBR_Android.apk'>app Android</a> vérifie les mises à jour au lancement et propose l'APK : un clic pour télécharger, Android installe par-dessus l'ancienne version. Le firmware se met à jour depuis un PC Windows.|The <a href='https://github.com/mystery2312/tbbr/releases/latest/download/TBBR_Android.apk'>Android app</a> checks for updates on launch and offers the APK: one click to download, Android installs it over the previous version. Firmware updates run from a Windows PC."></p></div>
     </div>
+  </section>
+
+  <section id="faq">
+    <h2 data-t="Questions fréquentes|Frequently asked questions"></h2>
+    <p class="sub" data-h="Les réponses courtes ; la documentation complète est dans <a href='doc.html'>doc.html</a>.|Short answers; the full documentation is in <a href='doc.html'>doc.html</a>."></p>
+    <details class="faq"><summary data-t="TBBR modifie-t-il le bootloader ?|Does TBBR modify the bootloader?"></summary><p data-t="Non. Le SPL/bootloader n'est jamais écrit. TBBR ne remplace que la zone application, et chaque secteur est relu après écriture.|No. The SPL/bootloader is never written. TBBR only replaces the application area, and every sector is read back after writing."></p></details>
+    <details class="faq"><summary data-t="Puis-je revenir au firmware M-VAVE ?|Can I go back to the M-VAVE firmware?"></summary><p data-t="Oui, avec l'installateur et ta sauvegarde complète (Restaurer). Tu peux ensuite remettre la dernière version officielle avec M-UPGRADE.|Yes, with the installer and your full backup (Restore). You can then reinstall the latest official version with M-UPGRADE."></p></details>
+    <details class="faq"><summary data-t="Les presets sont-ils conservés pendant une mise à jour ?|Are presets kept during an update?"></summary><p data-t="Oui. Une mise à jour ne réécrit que la zone application ; les presets, IR et captures NAM restent dans la pédale.|Yes. An update only rewrites the application area; presets, IRs and NAM captures stay in the pedal."></p></details>
+    <details class="faq"><summary data-t="Faut-il l'ordinateur pour jouer ?|Do I need a computer to play?"></summary><p data-t="Non. Une fois TBBR installé, tous les effets, presets et scènes tournent dans la pédale. L'ordinateur sert à éditer et à mettre à jour.|No. Once TBBR is installed, all effects, presets and scenes run inside the pedal. The computer is only for editing and updating."></p></details>
+    <details class="faq"><summary data-t="Quelles captures NAM sont acceptées ?|Which NAM captures are supported?"></summary><p data-t="Les fichiers .nam en architecture A2, joués par le sous-modèle Lite. Les autres architectures sont refusées avec la raison.|.nam files using the A2 architecture, played by the Lite sub-model. Other architectures are rejected with the reason."></p></details>
+    <details class="faq"><summary data-t="L'app Android peut-elle flasher le firmware ?|Can the Android app flash the firmware?"></summary><p data-t="Non. Android édite la pédale en USB OTG, mais le flash du firmware demande un PC Windows et l'installateur.|No. Android edits the pedal over USB OTG, but firmware flashing requires a Windows PC and the installer."></p></details>
+  </section>
+
+  <section id="changelog">
+    <h2 data-t="Journal des versions|Changelog"></h2>
+    <ul class="changelog">
+      <li><b>0.9.1</b><span data-t="fw6 0.9 : ajouter, déplacer et supprimer des blocs sur la pédale, LED HOME tap tempo. Anglais par défaut, traduction complétée, mises à jour automatiques de l'app Android, catégorie Utilitaire retirée.|fw6 0.9: add, move and delete blocks on the pedal, HOME LED tap tempo. English by default, completed translation, automatic Android app updates, Utility category removed."></span></li>
+      <li><b>0.9.0</b><span data-t="App Android standalone, documentation complète FR/EN, APK dans les releases, contrôle V19 dans l'installateur.|Standalone Android app, complete FR/EN documentation, APK in releases, V19 check in the installer."></span></li>
+      <li><b>0.8.0</b><span data-t="Baffles d'usine en vraies IR, presets d'usine refaits, mode Preset par défaut.|Factory cabinets as real IRs, reworked factory presets, Preset mode by default."></span></li>
+      <li><b>0.7.0</b><span data-t="Première version publique : NAM A2 Lite natif, éditeur de bureau, installateur et paquets .tbbr.|First public release: native NAM A2 Lite, desktop editor, installer and .tbbr packages."></span></li>
+    </ul>
   </section>
 </main>
 
@@ -161,14 +215,20 @@ footer p + p { margin-top: 6px; }
 
 <script>
 'use strict';
-let lang = 'fr';
-try { const s = localStorage.getItem('tbbr.lang'); lang = s || (navigator.language || '').toLowerCase().startsWith('fr') ? (s || 'fr') : 'en'; } catch (e) { /* stockage indisponible */ }
+let lang = 'en';
+try { const s = localStorage.getItem('tbbr.lang'); if (s === 'fr' || s === 'en') lang = s; } catch (e) { /* stockage indisponible */ }
+const META = {
+  en: { title: 'TBBR — The Big Black Rig', desc: 'Open firmware for the M-VAVE BlackBox: native NAM A2 Lite, cab IRs, modeled amps and pedals, editor and installer.' },
+  fr: { title: 'TBBR — The Big Black Rig', desc: 'Firmware libre pour la M-VAVE BlackBox : NAM A2 Lite natif, IR, amplis et pédales modélisés, éditeur et flasher.' }
+};
 function apply() {
   document.documentElement.lang = lang;
   const pick = v => { const p = v.split('|'); return lang === 'en' ? (p[1] ?? p[0]) : p[0]; };
   document.querySelectorAll('[data-t]').forEach(el => { el.textContent = pick(el.dataset.t); });
   document.querySelectorAll('[data-h]').forEach(el => { el.innerHTML = pick(el.dataset.h); });
   document.querySelectorAll('#lang button').forEach(b => b.classList.toggle('on', b.dataset.l === lang));
+  const m = META[lang]; document.title = m.title;
+  const d = document.querySelector('meta[name="description"]'); if (d) d.setAttribute('content', m.desc);
 }
 document.getElementById('lang').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; lang = b.dataset.l; try { localStorage.setItem('tbbr.lang', lang); } catch (x) { /* ignoré */ } apply(); const f = document.querySelector('.pedal iframe'); if (f) f.src = f.src; });
 apply();

@@ -47,7 +47,7 @@ enum { RB_MAGIC = 0, RB_BOOTS, RB_STAGE, RB_HALVES, RB_EXIT, RB_OVERRUNS, RB_TIM
        RB_LADDER, RB_FXMASK, RB_DRAW, RB_SPINBASE, RB_LOADNOW, RB_LOADMAX };
 #define RB_OVERLOADS 20                         /* nombre de coupures pour surcharge (RB[17..19] déjà pris) */
 #define FW_MAGIC 0x46573452u                    /* "R4WF" */
-#define FW_VERSION "TBBR fw6 0.8"
+#define FW_VERSION "TBBR fw6 0.9"
 #define FW_MHZ 396                                      /* horloge processeur (clock.c) */
 #include "catalog.h"
 #include "engine.h"
@@ -90,6 +90,7 @@ struct st {
     u32 batt_pct, batt_mv, batt_raw;
     /* USB / Bluetooth */
     u32 usb, sof_last, sof_stable, bt_on, bt_paired, hold_home;
+    u32 hold_cat; s32 hold_cat_key;              /* maintien d'une touche FX..CAB = gestion des blocs */
     /* écran */
     u32 dirty, drawing, pix, d_fx, d_bypass, d_bar, d_load;
 };
@@ -266,7 +267,8 @@ static void lcd_init(void)
 /* ---------------- écran : rendu de ui.c (portage de ecran.js), envoyé ligne par ligne dans le temps libre ---------------- */
 #include "gfx.h"
 void ui_build(void); int ui_dirty(void); void ui_touch(void); u32 ui_leds(void);
-void ui_key(int k); void ui_para_turn(int d); void ui_para_press(void); void ui_para_hold(void);
+void ui_key(int k); void ui_key_hold(int k); void ui_para_turn(int d); void ui_para_press(void); void ui_para_hold(void);
+int ui_tap_led(void);
 void ui_master(float db); void ui_tuner(int on); int ui_tuner_on(void); void ui_tick(int ms);
 void ui_battery(int pct);
 void ui_usb(int on); void ui_bt_set(int on, int paired); int ui_bt_on(void); void ui_msg_bt(int on);
@@ -723,6 +725,14 @@ static void housekeeping(u32 pk)
     /* touches HOME FX AMP MOD DLY REV CAB : pages (ecran.js) */
     if (ev & (1u << B_HOME)) ui_key(0);
     for (e = 0; e < E_N; e++) if (ev & (1u << e)) ui_key((int)e + 1);
+    {   /* maintien d'une touche FX..CAB (~0,6 s) : ajouter / déplacer / supprimer le bloc affiché */
+        int hk = -1;
+        for (e = 0; e < E_N; e++) if (S->bstate[e]) { hk = (int)e + 1; break; }
+        if (hk > 0) {
+            if (S->hold_cat_key != hk) { S->hold_cat_key = hk; S->hold_cat = 0; }
+            if (++S->hold_cat == HOLD_PARA) ui_key_hold(hk);
+        } else { S->hold_cat_key = -1; S->hold_cat = 0; }
+    }
     if (S->bstate[B_HOME]) {                                         /* HOME tenu ~0,6 s = SAUVEGARDER ; tenu 3 s = Bluetooth on/off */
         void ui_save_open(void), ui_save_close(void);
         ++S->hold_home;
@@ -748,7 +758,11 @@ static void housekeeping(u32 pk)
         led_pk = 0;
         if (lv < shown - 1) lv = shown - 1;
         shown = lv;
-        hc595_write(ui_leds() | (((1u << lv) - 1u) << 1));
+        {   /* LED HOME = tap tempo (battement à la noire) */
+            u32 leds = ui_leds() | (((1u << lv) - 1u) << 1);
+            if (ui_tap_led()) leds |= 1u;
+            hc595_write(leds);
+        }
     }
 }
 /* charge : spin = tours de boucle à vide pendant un bloc (blocs sans dessin d'écran seulement) ; référence mesurée au démarrage */

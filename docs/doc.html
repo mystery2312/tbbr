@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TBBR — Documentation</title>
-<meta name="description" content="Documentation de TBBR, firmware libre pour la M-VAVE BlackBox : installation, mise à jour, utilisation, dépannage.">
+<meta name="description" content="TBBR documentation: open firmware for the M-VAVE BlackBox — installation, updates, usage, troubleshooting.">
 <link rel="icon" href="sim/icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -56,6 +56,13 @@ kbd { border-bottom-width: 2px; }
 .box.warn b:first-child { color: #ffd08a; }
 .box.bad { background: rgba(255, 77, 77, .07); border-color: rgba(255, 77, 77, .45); }
 .box.ok { background: rgba(61, 220, 132, .06); border-color: rgba(61, 220, 132, .4); }
+details.faq { margin: 8px 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+details.faq summary { cursor: pointer; font-weight: 700; color: var(--tx); }
+details.faq summary::marker { color: var(--acc); }
+details.faq p { margin-top: 8px; color: var(--tx2); font-size: 14px; }
+.changelog { list-style: none; margin: 10px 0 0; padding: 0; }
+.changelog li { padding: 10px 0; border-bottom: 1px solid var(--line); color: var(--tx2); font-size: 14px; }
+.changelog b { display: inline-block; min-width: 64px; color: var(--acc); font: 700 12.5px var(--mono); }
 table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }
 th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
 th { color: var(--tx2); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; }
@@ -142,7 +149,7 @@ footer { border-top: 1px solid var(--line); padding: 26px 16px 40px; color: var(
 <table>
   <tr><th>Commande</th><th>Action</th></tr>
   <tr><td><kbd>HOME</kbd></td><td>Écran d'accueil (chaîne du preset). <b>Maintenu 0,6 s</b> : sauvegarder le preset (tourner <kbd>PARA</kbd> pour choisir l'emplacement 01–80, appuyer pour sauver, une autre touche pour annuler).</td></tr>
-  <tr><td><kbd>FX</kbd> <kbd>AMP</kbd> <kbd>MOD</kbd> <kbd>DLY</kbd> <kbd>REV</kbd> <kbd>CAB</kbd></td><td>Page du bloc de cette famille dans le preset. Les LED montrent la page affichée et servent de vu-mètre de sortie.</td></tr>
+  <tr><td><kbd>FX</kbd> <kbd>AMP</kbd> <kbd>MOD</kbd> <kbd>DLY</kbd> <kbd>REV</kbd> <kbd>CAB</kbd></td><td>Page du bloc de cette famille dans le preset. <b>Maintenue 0,6 s</b> : menu du bloc (<b>ajouter</b>, <b>déplacer</b>, <b>supprimer</b>). Une famille vide ouvre directement l'ajout. Les LED montrent la page affichée et servent de vu-mètre de sortie ; la LED <kbd>HOME</kbd> bat le tap tempo.</td></tr>
   <tr><td><kbd>PARA</kbd></td><td><b>Tourner</b> : choisir / régler (sens horaire = suivant). <b>Appuyer</b> : entrer / valider. <b>Maintenir 0,6 s</b> : activer ou couper (bypass) le bloc sélectionné.</td></tr>
   <tr><td><kbd>MASTER</kbd></td><td>Volume de sortie (−60 à +6 dB), affiché à l'écran pendant le réglage.</td></tr>
   <tr><td>Footswitchs</td><td>Selon le mode (voir ci-dessous). <b>Les deux ensemble</b> : accordeur (la sortie est coupée pendant l'accordage).</td></tr>
@@ -158,6 +165,8 @@ footer { border-top: 1px solid var(--line); padding: 26px 16px 40px; color: var(
 <p>Le mode se choisit dans l'app (vue Contrôles) et la pédale le mémorise.</p>
 <h3>Presets et scènes</h3>
 <p>La pédale garde <b>80 presets</b> (01 à 80), dont 20 presets d'usine. Chaque preset a <b>8 scènes</b> : une scène mémorise quels blocs sont actifs et leurs réglages, pour changer de son sans changer de preset.</p>
+<h3>Ajouter, déplacer, supprimer un bloc</h3>
+<p>Tout se fait sur la pédale, sans ordinateur. <b>Maintiens une touche FX / AMP / MOD / DLY / REV / CAB</b> pour ouvrir le menu du bloc affiché : <b>+ Ajouter un bloc</b>, <b>Déplacer</b> ou <b>Supprimer</b>. Tourne <b>PARA</b> pour choisir l'action et appuie pour valider ; <b>HOME</b> annule. Dans l'ajout, choisis le modèle avec PARA puis appuie : le bloc va dans la première case libre (après la rangée A, puis dans un trou de A, puis en B). En déplacement, PARA fait glisser le bloc à gauche ou à droite ; appuie pour terminer. La suppression demande une confirmation <b>Oui / Non</b> (Non par défaut). Les réglages et les 8 scènes suivent le bloc. Le preset devient « modifié » : maintiens HOME pour le sauvegarder.</p>
 
 <h2 id="app">L'éditeur (app de bureau)</h2>
 <h3>Connexion</h3>
@@ -197,6 +206,7 @@ footer { border-top: 1px solid var(--line); padding: 26px 16px 40px; color: var(
 <ul>
   <li>Télécharge <a href="https://github.com/mystery2312/tbbr/releases/latest/download/TBBR_Android.apk">TBBR_Android.apk</a> sur ton téléphone ou ta tablette (Android 7 ou plus récent) et autorise l'installation d'applications de cette source quand Android le demande.</li>
   <li>Branche la pédale avec un <b>câble ou adaptateur USB OTG</b>. L'app trouve la pédale en USB MIDI ; c'est le même éditeur que sur PC.</li>
+  <li>L'app <b>vérifie ses mises à jour</b> au lancement (puis toutes les 6 h) : si une version plus récente existe, elle propose de télécharger l'APK et Android l'installe par-dessus l'ancienne. Autorise « installer des applications inconnues » pour TBBR la première fois.</li>
   <li>L'app Android <b>ne peut pas installer ni mettre à jour le firmware</b> : utilise un PC Windows pour cela.</li>
 </ul>
 
@@ -216,6 +226,43 @@ footer { border-top: 1px solid var(--line); padding: 26px 16px 40px; color: var(
 <h2 id="credits">Licences et crédits</h2>
 <p>Le code de TBBR est publié sous licence <a href="https://github.com/mystery2312/tbbr/blob/main/LICENSE">GPL-3.0</a>. Composants tiers : pilotes du SDK JieLi AC79 (Apache-2.0), jl-uboot-tool (MIT), polices Inter et JetBrains Mono (SIL OFL 1.1), IR Jester's Brutal Pack de Jester Dyne Productions (CC0), <b>IR: Darwin's Cat, darwinscat.com</b> (CC BY 4.0, tronquées et normalisées). Détails : <a href="https://github.com/mystery2312/tbbr/blob/main/THIRD_PARTY.md">THIRD_PARTY.md</a>.</p>
 <p>M-VAVE et BlackBox sont des marques de leurs propriétaires. Les noms d'amplis et de pédales cités servent uniquement à décrire le son visé.</p>
+
+<h2 id="specs">Spécifications</h2>
+<table>
+  <tr><th>Élément</th><th>Détail</th></tr>
+  <tr><td>Processeur</td><td>JieLi <b>AC791N</b>, 2 cœurs, <b>396 MHz</b> (360 MHz d'origine).</td></tr>
+  <tr><td>Audio</td><td><b>48 kHz</b>, blocs de 128 échantillons. Le réseau NAM est réparti sur les deux cœurs.</td></tr>
+  <tr><td>NAM</td><td>Captures <b>A2 Lite</b>, <b>16 slots × 8 Ko</b>. Un seul bloc NAM par preset, latence d'un bloc (2,7 ms).</td></tr>
+  <tr><td>Presets / scènes</td><td><b>80 presets</b> (01 à 80, sans banques), <b>8 scènes</b>, grille <b>2 × 8</b>, sections parallèles avec balance A/B.</td></tr>
+  <tr><td>IR</td><td><b>32 slots × 2 048 points</b>, plus 11 baffles d'usine en vraies réponses impulsionnelles.</td></tr>
+  <tr><td>Stockage</td><td>Tout est dans la flash de la pédale : presets, IR, captures NAM et réglages. La sauvegarde complète fait 1 Mio.</td></tr>
+  <tr><td>Éditeurs</td><td>App Windows portable (10/11) et app Android (7+ en USB OTG).</td></tr>
+  <tr><td>Mise à jour</td><td>Windows uniquement, par l'installateur. Le bootloader/SPL n'est jamais modifié.</td></tr>
+</table>
+
+<h2 id="compat">Compatibilité</h2>
+<table>
+  <tr><th>Plateforme</th><th>Support</th></tr>
+  <tr><td>Pédale</td><td>M-VAVE BlackBox avec firmware officiel <b>V19</b>. Les versions 022/023 doivent d'abord repasser en V19 avec M-UPGRADE.</td></tr>
+  <tr><td>Windows</td><td>Windows 10 et 11, app portable (un seul exe).</td></tr>
+  <tr><td>Android</td><td>Android 7 ou plus, câble/adaptateur USB OTG. Édition seulement : le flash du firmware demande un PC Windows.</td></tr>
+  <tr><td>Connexion</td><td>USB MIDI classe compatible. L'éditeur Bluetooth n'est pas encore disponible.</td></tr>
+</table>
+
+<h2 id="faq">FAQ</h2>
+<details class="faq"><summary>TBBR modifie-t-il le bootloader ?</summary><p>Non. Le SPL/bootloader n'est jamais écrit. TBBR remplace uniquement la zone application, et chaque secteur est relu après écriture.</p></details>
+<details class="faq"><summary>Puis-je revenir au firmware M-VAVE ?</summary><p>Oui : installateur → <b>Restaurer</b> avec ta sauvegarde complète. Tu peux ensuite remettre la dernière version officielle avec M-UPGRADE.</p></details>
+<details class="faq"><summary>Les presets sont-ils conservés pendant une mise à jour ?</summary><p>Oui. Une mise à jour ne réécrit que la zone application ; les presets, IR et captures NAM restent dans la pédale.</p></details>
+<details class="faq"><summary>Faut-il un ordinateur pour jouer ?</summary><p>Non. Une fois TBBR installé, tous les effets, presets et scènes tournent dans la pédale. L'ordinateur sert à éditer et à mettre à jour.</p></details>
+<details class="faq"><summary>Quelles captures NAM sont acceptées ?</summary><p>Les fichiers <code>.nam</code> en architecture <b>A2</b>, joués par le sous-modèle Lite. Les autres architectures sont refusées avec la raison.</p></details>
+
+<h2 id="changelog">Journal des versions</h2>
+<ul class="changelog">
+  <li><b>0.9.1</b>fw6 0.9 : ajouter, déplacer et supprimer des blocs sur la pédale, LED HOME tap tempo. Anglais par défaut, traduction complétée, mises à jour automatiques de l'app Android, catégorie Utilitaire retirée.</li>
+  <li><b>0.9.0</b>App Android standalone, documentation complète FR/EN, APK dans les releases, contrôle V19 dans l'installateur.</li>
+  <li><b>0.8.0</b>Baffles d'usine en vraies IR, presets d'usine refaits, mode Preset par défaut.</li>
+  <li><b>0.7.0</b>Première version publique : NAM A2 Lite natif, éditeur de bureau, installateur et paquets <code>.tbbr</code>.</li>
+</ul>
 </div>
 
 <!-- ===================================================================== ENGLISH -->
@@ -278,7 +325,7 @@ footer { border-top: 1px solid var(--line); padding: 26px 16px 40px; color: var(
 <table>
   <tr><th>Control</th><th>Action</th></tr>
   <tr><td><kbd>HOME</kbd></td><td>Home screen (preset chain). <b>Held 0.6 s</b>: save the preset (turn <kbd>PARA</kbd> to choose slot 01–80, press to save, any other key to cancel).</td></tr>
-  <tr><td><kbd>FX</kbd> <kbd>AMP</kbd> <kbd>MOD</kbd> <kbd>DLY</kbd> <kbd>REV</kbd> <kbd>CAB</kbd></td><td>Page of the block of that family in the preset. The LEDs show the current page and act as an output level meter.</td></tr>
+  <tr><td><kbd>FX</kbd> <kbd>AMP</kbd> <kbd>MOD</kbd> <kbd>DLY</kbd> <kbd>REV</kbd> <kbd>CAB</kbd></td><td>Page of the block of that family in the preset. <b>Held 0.6 s</b>: block menu (<b>add</b>, <b>move</b>, <b>delete</b>). An empty family opens the add screen directly. The LEDs show the current page and act as an output level meter; the <kbd>HOME</kbd> LED blinks the tap tempo.</td></tr>
   <tr><td><kbd>PARA</kbd></td><td><b>Turn</b>: select / adjust (clockwise = next). <b>Press</b>: enter / confirm. <b>Hold 0.6 s</b>: switch the selected block on or off (bypass).</td></tr>
   <tr><td><kbd>MASTER</kbd></td><td>Output volume (−60 to +6 dB), shown on screen while turning.</td></tr>
   <tr><td>Footswitches</td><td>Depending on the mode (see below). <b>Both together</b>: tuner (the output is muted while tuning).</td></tr>
@@ -294,6 +341,8 @@ footer { border-top: 1px solid var(--line); padding: 26px 16px 40px; color: var(
 <p>The mode is chosen in the app (Controls view) and remembered by the pedal.</p>
 <h3>Presets and scenes</h3>
 <p>The pedal stores <b>80 presets</b> (01 to 80), including 20 factory presets. Each preset has <b>8 scenes</b>: a scene remembers which blocks are on and their settings, to change sound without changing preset.</p>
+<h3>Add, move or delete a block</h3>
+<p>Everything happens on the pedal, no computer needed. <b>Hold an FX / AMP / MOD / DLY / REV / CAB key</b> to open the menu for the displayed block: <b>+ Add a block</b>, <b>Move</b> or <b>Delete</b>. Turn <b>PARA</b> to choose and press to confirm; <b>HOME</b> cancels. When adding, choose the model with PARA and press: the block goes to the first free slot (after lane A, then a gap in A, then lane B). When moving, PARA slides the block left or right; press to finish. Deleting asks for <b>Yes / No</b> confirmation (No by default). Settings and the 8 scenes follow the block. The preset becomes “modified”: hold HOME to save it.</p>
 
 <h2 id="app-en">The editor (desktop app)</h2>
 <h3>Connection</h3>
@@ -333,6 +382,7 @@ footer { border-top: 1px solid var(--line); padding: 26px 16px 40px; color: var(
 <ul>
   <li>Download <a href="https://github.com/mystery2312/tbbr/releases/latest/download/TBBR_Android.apk">TBBR_Android.apk</a> on your phone or tablet (Android 7 or newer) and allow installing apps from this source when Android asks.</li>
   <li>Connect the pedal with a <b>USB OTG cable or adapter</b>. The app finds the pedal over USB MIDI; it is the same editor as on PC.</li>
+  <li>The app <b>checks for its own updates</b> on launch (then every 6 hours): when a newer version exists it offers the APK and Android installs it over the previous one. Allow “install unknown apps” for TBBR the first time.</li>
   <li>The Android app <b>cannot install or update the firmware</b>: use a Windows PC for that.</li>
 </ul>
 
@@ -352,6 +402,43 @@ footer { border-top: 1px solid var(--line); padding: 26px 16px 40px; color: var(
 <h2 id="credits-en">Licenses and credits</h2>
 <p>TBBR's code is released under the <a href="https://github.com/mystery2312/tbbr/blob/main/LICENSE">GPL-3.0</a> license. Third-party components: JieLi AC79 SDK drivers (Apache-2.0), jl-uboot-tool (MIT), Inter and JetBrains Mono fonts (SIL OFL 1.1), Jester's Brutal Pack IRs by Jester Dyne Productions (CC0), <b>IR: Darwin's Cat, darwinscat.com</b> (CC BY 4.0, truncated and normalized). Details: <a href="https://github.com/mystery2312/tbbr/blob/main/THIRD_PARTY.md">THIRD_PARTY.md</a>.</p>
 <p>M-VAVE and BlackBox are trademarks of their owners. Amp and pedal names are only used to describe the intended sound.</p>
+
+<h2 id="specs-en">Specifications</h2>
+<table>
+  <tr><th>Item</th><th>Detail</th></tr>
+  <tr><td>Processor</td><td>JieLi <b>AC791N</b>, 2 cores, <b>396 MHz</b> (360 MHz stock).</td></tr>
+  <tr><td>Audio</td><td><b>48 kHz</b>, 128-sample blocks. The NAM network is split across both cores.</td></tr>
+  <tr><td>NAM</td><td><b>A2 Lite</b> captures, <b>16 slots × 8 KB</b>. One NAM block per preset, one block of latency (2.7 ms).</td></tr>
+  <tr><td>Presets / scenes</td><td><b>80 presets</b> (01 to 80, no banks), <b>8 scenes</b>, <b>2 × 8</b> grid, parallel sections with A/B balance.</td></tr>
+  <tr><td>IR</td><td><b>32 slots × 2,048 points</b>, plus 11 factory cabinets as real impulse responses.</td></tr>
+  <tr><td>Storage</td><td>Everything lives in the pedal's flash: presets, IRs, NAM captures and settings. A full backup is 1 MiB.</td></tr>
+  <tr><td>Editors</td><td>Portable Windows app (10/11) and Android app (7+ over USB OTG).</td></tr>
+  <tr><td>Updates</td><td>Windows only, through the installer. The bootloader/SPL is never modified.</td></tr>
+</table>
+
+<h2 id="compat-en">Compatibility</h2>
+<table>
+  <tr><th>Platform</th><th>Support</th></tr>
+  <tr><td>Pedal</td><td>M-VAVE BlackBox running official <b>V19</b> firmware. Versions 022/023 must first go back to V19 with M-UPGRADE.</td></tr>
+  <tr><td>Windows</td><td>Windows 10 and 11, portable app (a single exe).</td></tr>
+  <tr><td>Android</td><td>Android 7 or newer, USB OTG cable/adapter. Editing only: firmware flashing requires a Windows PC.</td></tr>
+  <tr><td>Connection</td><td>Class-compliant USB MIDI. The Bluetooth editor is not available yet.</td></tr>
+</table>
+
+<h2 id="faq-en">FAQ</h2>
+<details class="faq"><summary>Does TBBR modify the bootloader?</summary><p>No. The SPL/bootloader is never written. TBBR only replaces the application area, and every sector is read back after writing.</p></details>
+<details class="faq"><summary>Can I go back to the M-VAVE firmware?</summary><p>Yes: installer → <b>Restore</b> with your full backup. You can then reinstall the latest official version with M-UPGRADE.</p></details>
+<details class="faq"><summary>Are presets kept during an update?</summary><p>Yes. An update only rewrites the application area; presets, IRs and NAM captures stay in the pedal.</p></details>
+<details class="faq"><summary>Do I need a computer to play?</summary><p>No. Once TBBR is installed, all effects, presets and scenes run inside the pedal. The computer is only used for editing and updating.</p></details>
+<details class="faq"><summary>Which NAM captures are supported?</summary><p><code>.nam</code> files using the <b>A2</b> architecture, played by the Lite sub-model. Other architectures are rejected with the reason.</p></details>
+
+<h2 id="changelog-en">Changelog</h2>
+<ul class="changelog">
+  <li><b>0.9.1</b>fw6 0.9: add, move and delete blocks on the pedal, HOME LED tap tempo. English by default, completed translation, automatic Android app updates, Utility category removed.</li>
+  <li><b>0.9.0</b>Standalone Android app, complete FR/EN documentation, APK in releases, V19 check in the installer.</li>
+  <li><b>0.8.0</b>Factory cabinets as real IRs, reworked factory presets, Preset mode by default.</li>
+  <li><b>0.7.0</b>First public release: native NAM A2 Lite, desktop editor, installer and <code>.tbbr</code> packages.</li>
+</ul>
 </div>
 
 </main>
@@ -361,20 +448,31 @@ footer { border-top: 1px solid var(--line); padding: 26px 16px 40px; color: var(
 <script src="sim/js/data.js"></script>
 <script>
 'use strict';
-let lang = 'fr';
-try { const s = localStorage.getItem('tbbr.lang'); lang = s || ((navigator.language || '').toLowerCase().startsWith('fr') ? 'fr' : 'en'); } catch (e) { /* stockage indisponible */ }
+let lang = 'en';
+try { const s = localStorage.getItem('tbbr.lang'); if (s === 'fr' || s === 'en') lang = s; } catch (e) { /* stockage indisponible */ }
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const CAT_EN = { dyn: 'Dynamics', drive: 'Overdrive', amp: 'Amp', cab: 'Cab / IR', eq: 'EQ', mod: 'Modulation', pitch: 'Pitch', delay: 'Delay', reverb: 'Reverb', util: 'Utility' };
+const PARAM_EN = {
+  'Seuil': 'Threshold', 'Profondeur': 'Depth', 'Attaque': 'Attack', 'Niveau': 'Level',
+  'Entrée': 'Input', 'Sortie': 'Output', 'Canal': 'Channel', 'Canaux': 'Channels',
+  'Redresseur': 'Rectifier', 'Étages': 'Stages', 'Forme': 'Shape', 'Vitesse': 'Speed',
+  'Demi-tons': 'Semitones', 'Détune': 'Detune', 'Tonalité': 'Key', 'Gamme': 'Scale',
+  'Intervalle': 'Interval', 'Usure': 'Wear', 'Largeur': 'Width', 'Ressorts': 'Springs',
+  'Micro': 'Mic', 'Over Drive': 'Overdrive', 'Normaliser': 'Normalize'
+};
 /* liste des blocs, générée depuis le catalogue (sim/js/data.js) : toujours à jour */
 function models(fr) {
   if (typeof MODELS === 'undefined') return '';
-  const catName = c => (CATS[c] && CATS[c].name) || c;
+  const catName = c => fr ? ((CATS[c] && CATS[c].name) || c) : (CAT_EN[c] || c);
+  const pn = p => fr ? p.name : (PARAM_EN[p.name] || p.name);
   const out = [];
   Object.keys(CATS).forEach(c => {
+    if (c === 'util') return;                                  /* catégorie Utilitaire masquée */
     const list = MODELS.filter(m => m.cat === c);
     if (!list.length) return;
     out.push(`<div class="cat">${esc(catName(c))}</div><div class="models">`);
     list.forEach(m => {
-      const ps = m.params.map(p => p.name).join(' · ');
+      const ps = m.params.map(pn).join(' · ');
       out.push(`<div class="mc" style="--c:${(CATS[c] && CATS[c].color) || '#19d3ff'}"><b>${esc(m.name)}</b><span class="k">${esc(m.id)} · ${fr ? 'coût' : 'cost'} ${m.dsp} %</span><div class="p">${esc(ps)}</div></div>`);
     });
     out.push('</div>');
@@ -385,9 +483,15 @@ function toc() {
   const box = document.querySelector(document.documentElement.lang === 'en' ? 'main > .en' : 'main > .fr');
   document.getElementById('toc').innerHTML = [...box.querySelectorAll('h2[id]')].map(h => `<a href="#${h.id}">${esc(h.textContent)}</a>`).join('');
 }
+const META = {
+  en: { title: 'TBBR — Documentation', desc: 'TBBR documentation: open firmware for the M-VAVE BlackBox — installation, updates, usage, troubleshooting.' },
+  fr: { title: 'TBBR — Documentation', desc: 'Documentation de TBBR, firmware libre pour la M-VAVE BlackBox : installation, mise à jour, utilisation, dépannage.' }
+};
 function apply() {
   document.documentElement.lang = lang;
   document.querySelectorAll('#lang button').forEach(b => b.classList.toggle('on', b.dataset.l === lang));
+  const m = META[lang]; document.title = m.title;
+  const d = document.querySelector('meta[name="description"]'); if (d) d.setAttribute('content', m.desc);
   toc();
 }
 document.getElementById('lang').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; lang = b.dataset.l; try { localStorage.setItem('tbbr.lang', lang); } catch (x) { /* ignoré */ } apply(); });

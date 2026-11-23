@@ -883,6 +883,9 @@ static void notify(u32 cmd, const u8 *b, u32 n) { if (host_ok) send_frame(cmd, b
 void proto_notify_bypass(int lane, int col, int on) { u8 b[3]; b[0] = (u8)lane; b[1] = (u8)col; b[2] = (u8)(on != 0); notify(C_BYPASS, b, 3); }
 static void notify_scene(void) { u8 b = (u8)engine_scene(); notify(C_SCENE_SELECT, &b, 1); }
 static void notify_preset(int i, int need) { u8 b[2]; b[0] = (u8)i; b[1] = (u8)need; notify(C_PRESET_SELECT, b, 2); }
+/* structure du preset changée depuis la façade (ajout / suppression / déplacement de bloc) :
+   l'app relit le preset courant, sans le renvoyer. */
+void proto_notify_structure(void) { notify_preset(preset_index, 1); }
 void proto_notify_bt(int state)                                      /* prévient l'app d'un changement fait sur la pédale */
 {
     if (!host_ok) return;

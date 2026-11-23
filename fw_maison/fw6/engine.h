@@ -3,6 +3,7 @@
 void engine_clear(void);
 int engine_block_set(int lane, int col, int model);
 void engine_block_clear(int lane, int col);
+int engine_block_move(int lane1, int col1, int lane2, int col2);
 int engine_param(int lane, int col, int idx, float v);
 int engine_bypass(int lane, int col, int on);
 void engine_scene_store(int sc, int lane, int col, int on, const float *p, int n);

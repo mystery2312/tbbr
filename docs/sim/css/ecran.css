@@ -35,6 +35,9 @@ main { display: flex; flex-direction: column; align-items: center; gap: 16px; pa
 .keys button { width: calc(12 * var(--mm)); height: calc(5.6 * var(--mm)); border-radius: calc(1 * var(--mm)); background: linear-gradient(#3c4047, #25282d); box-shadow: 0 calc(.5 * var(--mm)) 0 #0b0c0e, inset 0 1px 0 rgba(255, 255, 255, .12); font: 700 calc(1.9 * var(--mm)) 'JetBrains Mono', monospace; color: #d7dbe0; }
 .keys button:active { transform: translateY(calc(.3 * var(--mm))); box-shadow: 0 calc(.2 * var(--mm)) 0 #0b0c0e; }
 .keys button.on { color: var(--acc); box-shadow: 0 calc(.5 * var(--mm)) 0 #0b0c0e, inset 0 0 0 1px rgba(25, 211, 255, .6); }
+.keys button[data-k="HOME"] { position: relative; }
+.keys button[data-k="HOME"]::after { content: ""; position: absolute; top: 14%; right: 9%; width: calc(.8 * var(--mm)); height: calc(.8 * var(--mm)); border-radius: 50%; background: #2a2f37; box-shadow: inset 0 0 0 1px #000; }
+.keys button[data-k="HOME"].tap::after { background: var(--acc); box-shadow: 0 0 calc(1.2 * var(--mm)) var(--acc); }
 .led { top: calc(68 * var(--mm)); width: calc(2.2 * var(--mm)); height: calc(2.2 * var(--mm)); border-radius: 50%; background: #2a2f37; border: 1px solid #000; }
 .ledl { left: calc(20.9 * var(--mm)); }
 .ledr { left: calc(89.9 * var(--mm)); }

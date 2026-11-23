@@ -3,6 +3,8 @@
 
     <!-- recherche de mise à jour (GitHub) et liens externes -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- installation de l'APK mis à jour, téléchargé depuis GitHub Releases -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- MIDI : la pédale se branche en USB (OTG) ; le service MIDI d'Android gère les appareils USB MIDI -->
     <uses-feature android:name="android.software.midi" android:required="true" />
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />

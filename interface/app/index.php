@@ -13,7 +13,7 @@ function asset(string $path): string
     return htmlspecialchars($path . '?v=' . (is_file($file) ? filemtime($file) : '0'));
 }
 ?><!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">

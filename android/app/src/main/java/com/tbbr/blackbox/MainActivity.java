@@ -1,13 +1,20 @@
 package com.tbbr.blackbox;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.app.DownloadManager;
+import android.content.BroadcastReceiver;
 import android.content.ContentValues;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.provider.Settings;
 import android.util.Base64;
 import android.view.View;
 import android.view.WindowManager;
@@ -21,10 +28,17 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 
 /**
  * BlackBox TBBR pour Android : l'éditeur (interface/app, copié dans les assets) dans une WebView, servi depuis
@@ -35,11 +49,17 @@ import java.io.OutputStream;
 public class MainActivity extends Activity {
     static final String HOST = "appassets.androidplatform.net";
     static final String START = "https://" + HOST + "/app/index.html";
+    static final String API = "https://api.github.com/repos/mystery2312/tbbr/releases/latest";
     private static final int PICK_FILE = 41;
+    private static final long CHECK_EVERY = 6 * 60 * 60 * 1000L;      // 6 h entre deux vérifications
 
     private WebView web;
     private MidiBridge midi;
     private ValueCallback<Uri[]> pending;
+    private long updateDownload = -1;
+    private String pendingUrl, pendingTag;
+    private Uri pendingApk;
+    private BroadcastReceiver downloadDone;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -106,7 +126,179 @@ public class MainActivity extends Activity {
             }
         });
 
+        registerDownloadReceiver();
         if (state != null) web.restoreState(state); else web.loadUrl(START);
+        checkUpdates(false);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        /* Retour de « installer des applis inconnues » : reprend le téléchargement ou l'installation. */
+        if (pendingUrl != null && canInstallPackages()) {
+            String url = pendingUrl, tag = pendingTag;
+            pendingUrl = null; pendingTag = null;
+            startDownload(url, tag);
+        }
+        if (pendingApk != null && canInstallPackages()) {
+            Uri apk = pendingApk; pendingApk = null;
+            installApk(apk);
+        }
+        checkUpdates(false);
+    }
+
+    /* ---------------- mises à jour de l'app Android (GitHub Releases) ---------------- */
+
+    String appVersion() {
+        try { return getPackageManager().getPackageInfo(getPackageName(), 0).versionName; }
+        catch (Exception e) { return "0.0.0"; }
+    }
+
+    void checkUpdates(boolean force) {
+        SharedPreferences p = getSharedPreferences("tbbr", MODE_PRIVATE);
+        long now = System.currentTimeMillis();
+        if (!force && now - p.getLong("lastCheck", 0) < CHECK_EVERY) return;
+        p.edit().putLong("lastCheck", now).apply();
+        new Thread(() -> {
+            HttpURLConnection c = null;
+            try {
+                c = (HttpURLConnection) new URL(API).openConnection();
+                c.setConnectTimeout(8000);
+                c.setReadTimeout(8000);
+                c.setRequestProperty("Accept", "application/vnd.github+json");
+                c.setRequestProperty("User-Agent", "TBBR-Android");
+                if (c.getResponseCode() != 200) return;
+                StringBuilder sb = new StringBuilder();
+                try (BufferedReader r = new BufferedReader(new InputStreamReader(c.getInputStream(), "UTF-8"))) {
+                    String line;
+                    while ((line = r.readLine()) != null) sb.append(line);
+                }
+                JSONObject j = new JSONObject(sb.toString());
+                String tag = j.optString("tag_name", "").replaceFirst("^[vV]", "");
+                if (!newerVersion(tag, appVersion())) return;
+                JSONArray assets = j.optJSONArray("assets");
+                if (assets == null) return;
+                String url = null;
+                for (int i = 0; i < assets.length(); i++) {
+                    JSONObject a = assets.optJSONObject(i);
+                    if (a != null && "TBBR_Android.apk".equalsIgnoreCase(a.optString("name"))) {
+                        url = a.optString("browser_download_url", null);
+                        break;
+                    }
+                }
+                if (url == null || url.isEmpty()) return;
+                final String fTag = tag, fUrl = url;
+                runOnUiThread(() -> showUpdateDialog(fTag, fUrl));
+            } catch (Exception e) {
+                /* hors ligne ou API indisponible : pas de message, l'app reste utilisable */
+            } finally {
+                if (c != null) c.disconnect();
+            }
+        }, "tbbr-update").start();
+    }
+
+    static boolean newerVersion(String remote, String local) {
+        int[] a = versionParts(remote), b = versionParts(local);
+        for (int i = 0; i < 3; i++) if (a[i] != b[i]) return a[i] > b[i];
+        return false;
+    }
+
+    static int[] versionParts(String s) {
+        int[] v = new int[3];
+        String[] p = String.valueOf(s == null ? "" : s).replaceAll("^[^0-9]*", "").split("\\.");
+        for (int i = 0; i < 3 && i < p.length; i++) {
+            try { v[i] = Integer.parseInt(p[i].replaceAll("[^0-9].*$", "")); }
+            catch (Exception e) { v[i] = 0; }
+        }
+        return v;
+    }
+
+    void showUpdateDialog(String tag, String url) {
+        if (isFinishing() || isDestroyed()) return;
+        new AlertDialog.Builder(this)
+            .setTitle("TBBR update")
+            .setMessage("Version " + tag + " is available (installed: " + appVersion() + ").\n\nDownload and install the APK? Your presets and pedal settings are kept.")
+            .setPositiveButton("Download", (d, w) -> requestDownload(url, tag))
+            .setNegativeButton("Later", null)
+            .show();
+    }
+
+    void requestDownload(String url, String tag) {
+        if (!canInstallPackages()) {
+            pendingUrl = url; pendingTag = tag;
+            Toast.makeText(this, "Allow TBBR to install unknown apps, then come back: the download starts automatically.", Toast.LENGTH_LONG).show();
+            openInstallSettings();
+            return;
+        }
+        startDownload(url, tag);
+    }
+
+    void startDownload(String url, String tag) {
+        try {
+            DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+            DownloadManager.Request r = new DownloadManager.Request(Uri.parse(url));
+            r.setTitle("TBBR " + tag);
+            r.setDescription("Downloading the Android app update…");
+            r.setMimeType("application/vnd.android.package-archive");
+            r.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            r.setDestinationInExternalFilesDir(this, Environment.DIRECTORY_DOWNLOADS, "TBBR_Android_" + tag + ".apk");
+            updateDownload = dm.enqueue(r);
+            Toast.makeText(this, "Downloading TBBR " + tag + "…", Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            Toast.makeText(this, "Download failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    boolean canInstallPackages() {
+        return Build.VERSION.SDK_INT < 26 || getPackageManager().canRequestPackageInstalls();
+    }
+
+    void openInstallSettings() {
+        try {
+            Intent i = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + getPackageName()));
+            startActivity(i);
+        } catch (Exception e) {
+            try { startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)); }
+            catch (Exception ignored) { }
+        }
+    }
+
+    void installApk(Uri apk) {
+        try {
+            Intent i = new Intent(Intent.ACTION_VIEW);
+            i.setDataAndType(apk, "application/vnd.android.package-archive");
+            i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(i);
+        } catch (Exception e) {
+            Toast.makeText(this, "Cannot open the installer: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    void registerDownloadReceiver() {
+        downloadDone = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (!DownloadManager.ACTION_DOWNLOAD_COMPLETE.equals(intent.getAction())) return;
+                long id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1);
+                if (updateDownload < 0 || id != updateDownload) return;
+                updateDownload = -1;
+                DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+                Uri apk = dm.getUriForDownloadedFile(id);
+                if (apk == null) {
+                    Toast.makeText(MainActivity.this, "Download failed.", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                if (canInstallPackages()) installApk(apk);
+                else {
+                    pendingApk = apk;
+                    Toast.makeText(MainActivity.this, "Allow TBBR to install unknown apps, then come back: installation starts automatically.", Toast.LENGTH_LONG).show();
+                    openInstallSettings();
+                }
+            }
+        };
+        IntentFilter f = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
+        if (Build.VERSION.SDK_INT >= 33) registerReceiver(downloadDone, f, Context.RECEIVER_EXPORTED);
+        else registerReceiver(downloadDone, f);
     }
 
     static String mime(String p) {
@@ -153,6 +345,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (downloadDone != null) { try { unregisterReceiver(downloadDone); } catch (Exception ignored) { } downloadDone = null; }
         if (midi != null) midi.closeAll();
         super.onDestroy();
     }
@@ -163,9 +356,11 @@ public class MainActivity extends Activity {
         public void openExternal(String url) { runOnUiThread(() -> MainActivity.this.openExternal(url)); }
 
         @JavascriptInterface
-        public String version() {
-            try { return getPackageManager().getPackageInfo(getPackageName(), 0).versionName; } catch (Exception e) { return "?"; }
-        }
+        public String version() { return appVersion(); }
+
+        /** Vérifie les mises à jour de l'app Android (résultat : dialogue natif). */
+        @JavascriptInterface
+        public void checkUpdate() { runOnUiThread(() -> checkUpdates(true)); }
 
         /** Enregistre un fichier exporté (base64) dans Téléchargements ; renvoie le chemin affiché ou "" en cas d'échec. */
         @JavascriptInterface

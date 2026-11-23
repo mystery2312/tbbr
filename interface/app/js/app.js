@@ -1188,6 +1188,7 @@ function renderLibrary() {
   lib.textContent = '';
   lib.append(h('div', { class: 'lib-hint' }, 'Glisse un bloc sur une case de la grille (une case occupée est remplacée). Un simple clic l’ajoute dans la case sélectionnée ou la première libre.'));
   for (const [cat, cd] of Object.entries(CATS)) {
+    if (cat === 'util') continue;                              /* catégorie Utilitaire masquée (blocs conservés pour les anciens presets) */
     const models = MODELS.filter(m => m.cat === cat && (!q || m.name.toLowerCase().includes(q) || cd.name.toLowerCase().includes(q)));
     if (!models.length) continue;
     lib.append(h('div', { class: 'lib-cat', '--c': cd.color }, h('i'), cd.name),
@@ -1230,13 +1231,15 @@ function attachLibDrag(el, mid) {
  * Choix d'un bloc
  * ========================================================= */
 function openPicker(l, c) {
-  const cur = P().lanes[l][c];
-  let cat = cur ? MODEL[cur.model].cat : U.pickCat;
+  const cur = P().lanes[l][c], curCat = cur ? MODEL[cur.model].cat : null;
+  let cat = curCat && curCat !== 'util' ? curCat : (U.pickCat && U.pickCat !== 'util' ? U.pickCat : 'dyn');
   const cats = h('div', { class: 'pk-cats' }), models = h('div', { class: 'pk-models' });
   const draw = () => {
     cats.textContent = ''; models.textContent = '';
-    for (const [id, cd] of Object.entries(CATS))
+    for (const [id, cd] of Object.entries(CATS)) {
+      if (id === 'util') continue;                             /* catégorie Utilitaire masquée */
       cats.append(h('button', { class: 'pk-cat' + (id === cat ? ' on' : ''), '--c': cd.color, onclick: () => { cat = id; U.pickCat = id; draw(); } }, h('i'), cd.name));
+    }
     MODELS.filter(m => m.cat === cat).forEach(m => models.append(
       h('button', { class: 'pk-model', '--c': CATS[m.cat].color, disabled: !fits(m.id, cur && cur.model), title: fits(m.id, cur && cur.model) ? '' : dspRefusal(m.id),
         onclick: () => { if (addBlock(l, c, m.id)) md.close(); } },
@@ -2753,6 +2756,12 @@ if (BC) BC.onmessage = e => {
     if (U.view === 'grid') renderEditor();
   }
   else if (m.type === 'bypass' && findBlock(m.uid)) toggleBypass(m.uid);
+  else if (m.type === 'structure') { // ajout / suppression / déplacement depuis l'écran simulé
+    const lane = clamp(m.lane | 0, 0, 1), col = clamp(m.col | 0, 0, COLS - 1);
+    if (m.op === 'add' && MODEL[m.model]) addBlock(lane, col, m.model);
+    else if (m.op === 'remove') removeBlock(lane, col);
+    else if (m.op === 'move') moveBlock(lane, clamp(m.from | 0, 0, COLS - 1), lane, clamp(m.to | 0, 0, COLS - 1));
+  }
   else if (m.type === 'global' && m.key === 'outLevel' && Number.isFinite(m.v)) { setGlobal('outLevel', clamp(m.v, -60, 6)); if (U.view === 'global') renderGlobal(); }
 };
 const openScreen = () => window.open('ecran.php', 'tbbr-ecran', 'width=640,height=820');

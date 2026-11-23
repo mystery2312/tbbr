@@ -430,6 +430,51 @@
     "HOME : annuler": "HOME: cancel",
     "DSP insuffisant": "Insufficient DSP",
     "Preset trop lourd": "Preset too heavy",
+    "Preset vide": "Empty preset",
+    "Vide": "Empty",
+    "RÉGLAGE": "EDIT",
+    "scène suiv.": "next scene",
+    "scène préc.": "prev scene",
+    "accordeur": "tuner",
+
+    /* page écran (simulation et fenêtre de l'app) */
+    "Écran Blackbox": "Blackbox screen",
+    "Pédale 113 × 109 mm · écran 1,54″ 240 × 240 · synchronisé avec l'éditeur": "Pedal 113 × 109 mm · 1.54″ 240 × 240 screen · synced with the editor",
+    "autonome": "standalone",
+    "éditeur lié": "editor linked",
+    "Taille réelle": "Actual size",
+    "Écran 240 px": "240 px screen",
+    "Diagonale de l'écran de la pédale (1,54″ d'après le manuel)": "Pedal screen diagonal (1.54″ per the manual)",
+    "écran": "screen",
+    "Calibrer": "Calibrate",
+    "Éditeur": "Editor",
+    "Taille estimée :": "Estimated size:",
+    "calibre ton écran": "calibrate your screen",
+    "(avec une carte bancaire) pour une taille exacte.": "(with a bank card) for an exact size.",
+    "Taille physique de la pédale (après calibrage)": "Actual pedal size (after calibration)",
+    "L'écran affiché à 240 × 240 pixels": "The screen shown at 240 × 240 pixels",
+    "MASTER : molette ou glisser": "MASTER: wheel or drag",
+    "PARA : molette ou glisser pour tourner, clic pour appuyer, maintien = bypass du bloc": "PARA: wheel or drag to turn, click to press, hold = block bypass",
+    "Écran de la pédale": "Pedal screen",
+    "Footswitch droit": "Right footswitch",
+    "Appui simultané des deux footswitchs": "Press both footswitches together",
+    "Règle de 10 cm : vérifie avec une vraie règle": "10 cm ruler: check with a real ruler",
+    "Clavier : ← → footswitchs · ↑ ↓ tourner PARA · Entrée appuyer PARA · H HOME. Maintiens une touche FX..CAB : ajouter, déplacer ou supprimer un bloc. Ouvre l'éditeur dans un autre onglet : l'écran suit chaque modification, et ce que tu règles ici remonte dans l'éditeur.": "Keyboard: ← → footswitches · ↑ ↓ turn PARA · Enter press PARA · H HOME. Hold an FX..CAB key: add, move or delete a block. Open the editor in another tab: the screen follows every change, and what you set here goes back to the editor.",
+    "Calibrer la taille réelle": "Calibrate actual size",
+    "Pose une carte bancaire (ou une carte d'identité : 85,6 mm de large) à plat contre l'écran, son bord gauche sur le trait, puis règle jusqu'à ce que le rectangle ait": "Place a bank card (or an ID card: 85.6 mm wide) flat against the screen, its left edge on the line, then adjust until the rectangle is",
+    "exactement": "exactly",
+    "la largeur de la carte.": "the width of the card.",
+    "Valider": "Confirm",
+    "GESTION": "MANAGE",
+    "+ Ajouter un bloc": "+ Add a block",
+    "Déplacer": "Move",
+    "AJOUTER UN BLOC": "ADD A BLOCK",
+    "SUPPRIMER CE BLOC": "DELETE THIS BLOCK",
+    "PARA : choisir · appui : OK": "PARA: select · press: OK",
+    "PARA : choisir · appui : ajouter": "PARA: select · press: add",
+    "PARA : déplacer · appui : terminer": "PARA: move · press: finish",
+    "Grille pleine": "Grid full",
+    "Ajout impossible": "Cannot add block",
 
     /* erreurs / divers */
     "Stockage du navigateur plein : exporte une sauvegarde": "Browser storage full: export a backup",
@@ -465,7 +510,9 @@
     "Tout effacer": "Clear all",
     "Retour": "Back",
     "Suivant": "Next",
-    "Précédent": "Previous"
+    "Précédent": "Previous",
+    "A2 Lite · 16 slots × 8 Ko": "A2 Lite · 16 slots × 8 KB",
+    "Baffles d'usine : IR Jester Dyne Productions (CC0) · IR: Darwin's Cat, darwinscat.com (CC BY 4.0, tronquées et normalisées).": "Factory cabinets: Jester Dyne Productions IRs (CC0) · IR: Darwin's Cat, darwinscat.com (CC BY 4.0, truncated and normalized)."
   };
 
   var PATTERNS = [
@@ -498,8 +545,8 @@
     [/^Preset trop lourd : (\d+) % DSP \(maximum 100\)\. Retire un bloc pour que la pédale puisse le jouer\.$/, function (m) {
       return "Preset too heavy: " + m[1] + "% DSP (max 100). Remove a block so the pedal can play it.";
     }],
-    [/^Connecté via (.+)$/, function (m) { return "Connected via " + m[1]; }],
-    [/^Connecté à (.+) · (.+)$/, function (m) { return "Connected to " + m[1] + " · " + m[2]; }],
+    [/^Connecté via (.+)$/, function (m) { return "Connected via " + translate(m[1]); }],
+    [/^Connecté à (.+) · (.+)$/, function (m) { return "Connected to " + translate(m[1]) + " · " + translate(m[2]); }],
     [/^« (.+) » → slot NAM (\d+)$/, function (m) { return "“" + m[1] + "” → NAM slot " + m[2]; }],
     [/^Envoi de « (.+) » → slot NAM (\d+) \((.+) Ko\)$/, function (m) { return "Sending “" + m[1] + "” → NAM slot " + m[2] + " (" + m[3] + " KB)"; }],
     [/^Capture envoyée dans le slot NAM (\d+)$/, function (m) { return "Capture sent to NAM slot " + m[1]; }],
@@ -537,11 +584,19 @@
     [/^Canal (\d+)$/, function (m) { return "Channel " + m[1]; }],
     [/^ou choisis un fichier — il ira dans le slot (\d+)$/, function (m) { return "or choose a file — it will go into slot " + m[1]; }],
     [/^— il ira dans le slot (\d+)$/, function (m) { return "— it will go into slot " + m[1]; }],
+    [/^(Gauche|Droite) : (.+) · maintien (.+)$/, function (m) {
+      return (m[1] === "Gauche" ? "Left" : "Right") + ": " + translate(m[2]) + " · hold " + translate(m[3]);
+    }],
+    [/^Aucun bloc (.+)$/, function (m) { return "No block " + m[1]; }],
+    [/^scène ([A-H])$/, function (m) { return "scene " + m[1]; }],
     [/^(Gauche|Droite) · (.+)$/, function (m) { return (m[1] === "Gauche" ? "Left" : "Right") + " · " + translate(m[2]); }],
     [/^maintien : (.+)$/, function (m) { return "hold: " + translate(m[1]); }],
     [/^appui : (.+)$/, function (m) { return "press: " + translate(m[1]); }],
     [/^G \+ D : (.+)$/, function (m) { return "G + D: " + translate(m[1]); }],
     [/^(.+) · SCN ([A-H])$/, function (m) { return translate(m[1]) + " · SCN " + m[2]; }],
+    [/^GESTION · (.+)$/, function (m) { return "MANAGE · " + m[1]; }],
+    [/^(.+) · choisir un modèle$/, function (m) { return translate(m[1]) + " · choose a model"; }],
+    [/^Supprimer (.+) \?$/, function (m) { return "Delete " + m[1] + "?"; }],
     [/^(.+) · (.+)$/, function (m) { return translate(m[1]) + " · " + translate(m[2]); }]
   ];
 
@@ -646,7 +701,7 @@
   }
 
   var lang = localStorage.getItem("tbbr.lang");
-  if (lang !== "fr" && lang !== "en") lang = (navigator.language || "fr").toLowerCase().indexOf("fr") === 0 ? "fr" : "en";
+  if (lang !== "fr" && lang !== "en") lang = "en";                 /* défaut : anglais */
 
   function setLang(l) {
     lang = l === "fr" ? "fr" : "en";

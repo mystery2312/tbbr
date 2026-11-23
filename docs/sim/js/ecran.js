@@ -20,10 +20,10 @@ if (EMBED) { document.documentElement.classList.add('embed'); document.body.clas
 const scr = $('#scr');
 scr.setAttribute('viewBox', `0 0 ${W} ${H}`);
 const BC = 'BroadcastChannel' in window ? new BroadcastChannel('tbbr') : null;
-const KEY_CATS = { FX: ['dyn', 'drive', 'pitch', 'eq', 'util'], AMP: ['amp'], MOD: ['mod'], DLY: ['delay'], REV: ['reverb'], CAB: ['cab'] };
+const KEY_CATS = { FX: ['dyn', 'drive', 'pitch', 'eq'], AMP: ['amp'], MOD: ['mod'], DLY: ['delay'], REV: ['reverb'], CAB: ['cab'] };
 
 let S = null, info = { battery: 86 }, lastCur = null, overlay = null, tuner = null, linked = false;
-const ui = { view: 'home', cursor: null, uid: null, key: null, pidx: 0, editing: false };
+const ui = { view: 'home', cursor: null, uid: null, key: null, pidx: 0, editing: false, menu: 0, addKey: null, prevUid: null, prevKey: null, prevWasBlock: false };
 
 /* ---------- État ---------- */
 function load() {
@@ -150,23 +150,87 @@ function act(a) {
 }
 
 /* ---------- Touches et encodeurs ---------- */
-function goHome() { ui.view = 'home'; ui.editing = false; ui.key = null; ui.cursor = null; }
+function goHome() { ui.view = 'home'; ui.editing = false; ui.key = null; ui.cursor = null; ui.menu = 0; }
 function openBlock(uid, key) {
   ui.view = 'block'; ui.uid = uid; ui.key = key; ui.pidx = 0; ui.editing = false;
 }
+const keyOfCat = cat => Object.keys(KEY_CATS).find(k => KEY_CATS[k].includes(cat)) || 'FX';
+const keyModels = k => MODELS.filter(m => m.cat !== 'util' && KEY_CATS[k] && KEY_CATS[k].includes(m.cat));
+
+/* même règle que le firmware : après le dernier bloc de A, sinon un trou de A, sinon B */
+function firstFree(p) {
+  const A = p.lanes[0] || [], B = p.lanes[1] || [];
+  let last = -1;
+  for (let c = 0; c < COLS; c++) if (A[c]) last = c;
+  for (let c = last + 1; c < COLS; c++) if (!A[c]) return { lane: 0, col: c };
+  for (let c = 0; c < COLS; c++) if (!A[c]) return { lane: 0, col: c };
+  for (let c = 0; c < COLS; c++) if (!B[c]) return { lane: 1, col: c };
+  return null;
+}
+function addBlockLocal(mid) {
+  const p = P(), slot = firstFree(p);
+  if (!slot) { flash('Grille pleine'); return false; }
+  if (mid === 'nam' && order(p).some(o => o.b.model === 'nam')) { flash('Un seul NAM par preset'); return false; }
+  const total = order(p).reduce((n, o) => n + MODEL[o.b.model].dsp, 0);
+  if (total + MODEL[mid].dsp > 100) { flash('DSP insuffisant'); return false; }
+  p.lanes[slot.lane] = p.lanes[slot.lane] || [];
+  const b = { uid: uid(), model: mid };
+  p.lanes[slot.lane][slot.col] = b;
+  p.scenes.forEach(s => { s.state[b.uid] = { on: true, p: { ...defaultParams(mid) } }; });
+  openBlock(b.uid, keyOfCat(MODEL[mid].cat));
+  post({ type: 'structure', op: 'add', lane: slot.lane, col: slot.col, model: mid });
+  render();
+  return true;
+}
+function removeBlockLocal(uidv) {
+  const x = order(P()).find(o => o.b.uid === uidv);
+  if (!x) return false;
+  P().lanes[x.lane][x.col] = null;
+  P().scenes.forEach(s => delete s.state[uidv]);
+  post({ type: 'structure', op: 'remove', lane: x.lane, col: x.col });
+  goHome(); render();
+  return true;
+}
+function moveBlockLocal(uidv, d) {
+  const x = order(P()).find(o => o.b.uid === uidv);
+  if (!x) return false;
+  const c2 = x.col + d;
+  if (c2 < 0 || c2 >= COLS) return false;
+  const L = P().lanes[x.lane];
+  [L[x.col], L[c2]] = [L[c2], L[x.col]];
+  post({ type: 'structure', op: 'move', lane: x.lane, from: x.col, to: c2 });
+  render();
+  return true;
+}
 function pressKey(k) {
   if (tuner) closeTuner();
+  if (ui.view === 'move' || ui.view === 'action' || ui.view === 'add' || ui.view === 'confirm') ui.view = 'block';
   if (k === 'HOME') { goHome(); render(); return; }
+  ui.prevWasBlock = ui.view === 'block'; ui.prevUid = ui.uid; ui.prevKey = ui.key;
   const list = order(P()).filter(o => KEY_CATS[k].includes(MODEL[o.b.model].cat));
-  if (!list.length) { flash('Aucun bloc ' + k); return; }
+  if (!list.length) { ui.view = 'add'; ui.addKey = k; ui.key = k; ui.menu = 0; render(); return; }
   /* même touche : bloc suivant de la même famille */
   const cur = ui.view === 'block' && ui.key === k ? list.findIndex(o => o.b.uid === ui.uid) : -1;
   openBlock(list[(cur + 1) % list.length].b.uid, k);
   render();
 }
+/* maintien d'une touche FX..CAB : gérer le bloc affiché (ajouter / déplacer / supprimer) */
+function holdKey(k) {
+  if (ui.view !== 'block' || ui.key !== k) return;
+  if (ui.prevWasBlock && ui.prevKey === k && order(P()).some(o => o.b.uid === ui.prevUid)) ui.uid = ui.prevUid;
+  ui.view = 'action'; ui.menu = 0; ui.editing = false; render();
+}
 function paraTurn(d) {
   if (tuner) return;
   const p = P();
+  if (ui.view === 'action') { ui.menu = (ui.menu + d + 4) % 4; render(); return; }
+  if (ui.view === 'add') {
+    const ms = keyModels(ui.addKey), n = ms.length;
+    if (n) ui.menu = (ui.menu + d + n) % n;
+    render(); return;
+  }
+  if (ui.view === 'confirm') { ui.menu = (ui.menu + d + 2) % 2; render(); return; }
+  if (ui.view === 'move') { moveBlockLocal(ui.uid, d); return; }
   if (ui.view === 'home') {
     const n = order(p).length;
     if (!n) return;
@@ -184,6 +248,24 @@ function paraTurn(d) {
 }
 function paraPress() {
   if (tuner) { closeTuner(); return; }
+  if (ui.view === 'action') {
+    if (ui.menu === 0) { ui.view = 'add'; ui.addKey = ui.key; ui.menu = 0; }
+    else if (ui.menu === 1) ui.view = 'move';
+    else if (ui.menu === 2) { ui.view = 'confirm'; ui.menu = 1; }
+    else ui.view = 'block';
+    render(); return;
+  }
+  if (ui.view === 'add') {
+    const ms = keyModels(ui.addKey), m = ms[ui.menu];
+    if (m) addBlockLocal(m.id);
+    return;
+  }
+  if (ui.view === 'confirm') {
+    if (ui.menu === 0) removeBlockLocal(ui.uid);
+    else { ui.view = 'action'; render(); }
+    return;
+  }
+  if (ui.view === 'move') { ui.view = 'block'; render(); return; }
   if (ui.view === 'home') {
     const o = order(P());
     if (ui.cursor != null && o[ui.cursor]) {
@@ -194,9 +276,10 @@ function paraPress() {
   render();
 }
 function paraHold() {
+  if (ui.view === 'action' || ui.view === 'add' || ui.view === 'confirm' || ui.view === 'move') return;
   const o = order(P());
-  const uid = ui.view === 'block' ? ui.uid : ui.cursor != null && o[ui.cursor] ? o[ui.cursor].b.uid : null;
-  if (uid) { bypassLocal(uid); render(); }
+  const uidv = ui.view === 'block' ? ui.uid : ui.cursor != null && o[ui.cursor] ? o[ui.cursor].b.uid : null;
+  if (uidv) { bypassLocal(uidv); render(); }
 }
 function masterTurn(d) {
   const v = clamp(Math.round(((G().outLevel ?? 0) + d) * 2) / 2, -60, 6);
@@ -345,6 +428,48 @@ function blockPage(p) {
   return out;
 }
 
+function menuPage(title, sub, items, vals, sel, color, hint) {
+  const HEAD = 44, ROW = 32, vis = Math.floor((H - HEAD - 22) / ROW);
+  if (!items.length) return '';
+  sel = clamp(sel, 0, items.length - 1);
+  const start = clamp(sel - Math.floor(vis / 2), 0, Math.max(0, items.length - vis));
+  let out = `<rect width="${W}" height="${HEAD}" fill="${color}" fill-opacity=".16"/><path d="M0 ${HEAD - .5}H${W}" stroke="${color}" stroke-opacity=".5"/>
+    <text x="12" y="21" fill="${C.tx}" font-family="${FONT}" font-size="15" font-weight="800">${esc(fit(title, 15, 800, FONT, W - 24))}</text>
+    <text x="12" y="37" fill="${color}" font-family="${MONO}" font-size="11" font-weight="700">${esc(fit(sub, 11, 700, MONO, W - 24))}</text>`;
+  for (let k = 0; k < vis && start + k < items.length; k++) {
+    const i = start + k, y = HEAD + 4 + k * ROW, on = i === sel;
+    if (on) out += `<rect x="4" y="${y}" width="${W - 8}" height="${ROW - 4}" rx="8" fill="${color}" fill-opacity=".18" stroke="${color}" stroke-opacity=".63" stroke-width="1.2"/>`;
+    out += `<text x="13" y="${y + 20}" fill="${on ? C.tx : C.tx2}" font-family="${FONT}" font-size="14" font-weight="700">${esc(fit(items[i], 14, 700, FONT, vals ? W - 76 : W - 26))}</text>`;
+    if (vals) out += `<text x="${W - 13}" y="${y + 20}" fill="${on ? C.tx : C.tx3}" font-family="${MONO}" font-size="12" font-weight="700" text-anchor="end">${vals[i]}%</text>`;
+  }
+  out += `<text x="10" y="${H - 7}" fill="${C.tx3}" font-family="${MONO}" font-size="11" font-weight="700">${esc(fit(hint, 11, 700, MONO, W - 20))}</text>`;
+  return out;
+}
+function actionPage(p) {
+  const x = order(p).find(o => o.b.uid === ui.uid);
+  if (!x) { goHome(); return home(p); }
+  const m = MODEL[x.b.model], color = CATS[m.cat].color;
+  return menuPage(m.name, `GESTION · ${ui.key} ${'AB'[x.lane]}${x.col + 1}`, ['+ Ajouter un bloc', 'Déplacer', 'Supprimer', 'Annuler'], null, ui.menu, color, 'PARA : choisir · appui : OK');
+}
+function addPage() {
+  const ms = keyModels(ui.addKey);
+  if (!ms.length) { goHome(); return home(P()); }
+  return menuPage('AJOUTER UN BLOC', `${ui.addKey} · choisir un modèle`, ms.map(m => m.name), ms.map(m => m.dsp), ui.menu, CATS[ms[0].cat].color, 'PARA : choisir · appui : ajouter');
+}
+function confirmPage(p) {
+  const x = order(p).find(o => o.b.uid === ui.uid);
+  if (!x) { goHome(); return home(p); }
+  const m = MODEL[x.b.model];
+  return menuPage('SUPPRIMER CE BLOC', `Supprimer ${m.name} ?`, ['Oui', 'Non'], null, ui.menu, C.bad, 'PARA : choisir · appui : OK');
+}
+function movePage(p) {
+  const x = order(p).find(o => o.b.uid === ui.uid);
+  if (!x) { goHome(); return home(p); }
+  const m = MODEL[x.b.model];
+  return home(p) + `<rect x="0" y="${H - 46}" width="${W}" height="46" fill="${C.bar}" fill-opacity=".96"/><path d="M0 ${H - 45.5}H${W}" stroke="${C.line}"/>
+    <text x="10" y="${H - 27}" fill="${C.tx}" font-family="${FONT}" font-size="15" font-weight="800">${esc(fit(m.name, 15, 800, FONT, W - 20))}</text>
+    <text x="10" y="${H - 10}" fill="${CATS[m.cat].color}" font-family="${MONO}" font-size="11" font-weight="700">PARA : déplacer · appui : terminer</text>`;
+}
 function home(p) { return chain(p) + topBar(p); /* écran principal : preset + batterie + chaîne, rien d'autre */ }
 
 function presetOverlay(p) {
@@ -389,7 +514,12 @@ function render() {
   let svg = `<rect width="${W}" height="${H}" fill="${C.bg}"/>`;
   if (tuner) svg += tunerScreen();
   else {
-    svg += ui.view === 'block' ? blockPage(p) : home(p);
+    if (ui.view === 'block') svg += blockPage(p);
+    else if (ui.view === 'action') svg += actionPage(p);
+    else if (ui.view === 'add') svg += addPage();
+    else if (ui.view === 'confirm') svg += confirmPage(p);
+    else if (ui.view === 'move') svg += movePage(p);
+    else svg += home(p);
     if (overlay && performance.now() < overlay.until) svg += overlay.kind === 'preset' ? presetOverlay(p) : overlay.kind === 'master' ? masterOverlay() : msgOverlay(overlay.text);
   }
   scr.innerHTML = svg;
@@ -398,7 +528,8 @@ function render() {
     el.classList.toggle('on', led.on); el.style.setProperty('--c', led.c);
     $(i ? '#capR' : '#capL').textContent = (i ? 'Droite : ' : 'Gauche : ') + label(f.press) + ' · maintien ' + label(f.hold);
   });
-  document.querySelectorAll('#keys button').forEach(b => b.classList.toggle('on', ui.view === 'block' ? b.dataset.k === ui.key : b.dataset.k === 'HOME'));
+  const modal = ['block', 'action', 'add', 'confirm', 'move'].includes(ui.view);
+  document.querySelectorAll('#keys button').forEach(b => b.classList.toggle('on', modal && b.dataset.k === ui.key));
 }
 
 /* ---------- Accordeur simulé ---------- */
@@ -430,7 +561,29 @@ bindFs($('#fsR'), 1);
 $('#fsLR').addEventListener('click', () => act(G().fsCombo || 'tuner'));
 /* les commandes de la façade ne gardent pas le focus (comme de vrais boutons) */
 document.querySelectorAll('.pedal button, .knob').forEach(el => el.addEventListener('mousedown', e => e.preventDefault()));
-$('#keys').addEventListener('click', e => { const b = e.target.closest('button'); if (b) pressKey(b.dataset.k); });
+/* touches : appui court = page suivante ; maintien ~0,55 s = gestion du bloc */
+let keyTimer = 0, keyBtn = null, keyHeld = false;
+$('#keys').addEventListener('pointerdown', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  e.preventDefault();
+  keyBtn = b; keyHeld = false; clearTimeout(keyTimer);
+  try { b.setPointerCapture(e.pointerId); } catch { /* */ }
+  keyTimer = setTimeout(() => {
+    if (!keyBtn) return;
+    keyHeld = true;
+    if (b.dataset.k === 'HOME') pressKey('HOME');
+    else { pressKey(b.dataset.k); holdKey(b.dataset.k); }   /* comme le firmware : l'appui navigue, le maintien ouvre la gestion */
+  }, 550);
+});
+const keyEnd = () => {
+  if (!keyBtn) return;
+  clearTimeout(keyTimer);
+  const b = keyBtn; keyBtn = null;
+  if (!keyHeld) pressKey(b.dataset.k);
+  keyHeld = false;
+};
+$('#keys').addEventListener('pointerup', keyEnd);
+$('#keys').addEventListener('pointercancel', () => { clearTimeout(keyTimer); keyBtn = null; keyHeld = false; });
 
 /* Encodeur rotatif : molette ou glisser vertical (un cran tous les 14 px) ; clic = appui ; maintien = action longue */
 function encoder(el, onTurn, onPress, onHold) {
@@ -528,4 +681,10 @@ if (BC) {
 load();
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(render);
 render();
+/* LED du HOME = tap tempo (comme le firmware) */
+const homeBtn = document.querySelector('#keys button[data-k="HOME"]');
+setInterval(() => {
+  const bpm = clamp(P().tempo || 120, 40, 250);
+  homeBtn.classList.toggle('tap', performance.now() % (60000 / bpm) < 80);
+}, 30);
 })();
