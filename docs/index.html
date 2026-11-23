@@ -112,6 +112,26 @@ h2::before { content: ""; display: block; width: 26px; height: 2px; border-radiu
 .illus .blink { animation: blink 2.4s ease-in-out infinite; }
 .illus .dash { stroke-dasharray: 3 6; animation: dash 6s linear infinite; }
 .illus text { font: 700 9px var(--mono); fill: var(--tx3); letter-spacing: .08em; }
+.mock-label { position: absolute; top: 8px; left: 11px; right: 11px; display: flex; justify-content: space-between; font: 700 8px var(--mono); letter-spacing: .09em; color: var(--tx3); text-transform: uppercase; }
+.mini-fx { position: absolute; left: 10px; right: 10px; top: 24px; bottom: 8px; display: flex; gap: 6px; }
+.mf { flex: 1; min-width: 0; border: 1px solid var(--c); border-radius: 8px; background: #0b0e12; background: linear-gradient(180deg, color-mix(in srgb, var(--c) 14%, #0b0e12), #0b0e12); padding: 7px 5px 5px; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.mf svg { width: 22px; height: 22px; fill: none; stroke: var(--c); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.mf b { width: 100%; text-align: center; font-size: 7.5px; line-height: 1.15; color: var(--tx); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mf small { font: 700 6.5px var(--mono); color: var(--c); letter-spacing: .08em; }
+.mini-grid-wrap { position: absolute; left: 11px; right: 11px; top: 25px; bottom: 7px; display: flex; flex-direction: column; gap: 6px; }
+.mini-grid { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: repeat(2, 1fr); gap: 3px; flex: 1; }
+.mg-cell { border: 1px solid #242932; border-radius: 4px; background: #0a0c0f; min-height: 0; }
+.mg-block { border: 1px solid var(--c); border-radius: 4px; background: color-mix(in srgb, var(--c) 20%, #0a0c0f); color: var(--c); display: grid; place-items: center; font: 700 6.5px var(--mono); letter-spacing: .02em; }
+.mg-block.sel { outline: 1px solid #fff; outline-offset: 1px; }
+.mini-scenes { display: flex; align-items: center; gap: 5px; font: 700 7px var(--mono); color: var(--tx3); }
+.mini-scenes span { width: 13px; height: 13px; border-radius: 50%; border: 1px solid #2d323a; display: grid; place-items: center; }
+.mini-scenes span.on { color: #001a22; background: var(--acc); border-color: var(--acc); }
+.mini-upd { position: absolute; left: 11px; right: 11px; top: 25px; bottom: 10px; display: flex; align-items: center; gap: 9px; padding: 9px 10px; border: 1px solid rgba(25, 211, 255, .45); border-radius: 9px; background: linear-gradient(180deg, #17222a, #11151a); box-shadow: 0 8px 20px rgba(0, 0, 0, .25); }
+.mini-upd .ic { width: 20px; height: 20px; color: var(--acc); flex: none; }
+.mini-upd .ut { flex: 1; min-width: 0; }
+.mini-upd .ut b { display: block; font-size: 8.5px; color: var(--tx); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mini-upd .ut small { display: block; margin-top: 2px; font: 600 7px var(--mono); color: var(--tx3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mini-upd .ub { flex: none; padding: 5px 7px; border-radius: 5px; background: var(--acc); color: #001a22; font: 800 7px var(--mono); text-transform: uppercase; letter-spacing: .04em; }
 .card-ico { width: 42px; height: 42px; border-radius: 11px; display: grid; place-items: center; margin-bottom: 13px; color: var(--acc); background: radial-gradient(circle at 30% 20%, rgba(25, 211, 255, .16), rgba(25, 211, 255, .04)); border: 1px solid rgba(25, 211, 255, .25); }
 .card-ico .ic { width: 22px; height: 22px; }
 .stat { display: flex; align-items: baseline; gap: 7px; margin-bottom: 12px; }
@@ -283,28 +303,28 @@ footer p + p { margin-top: 6px; }
         <h3 data-t="IR de baffle|Cab IRs"></h3><p data-t="11 baffles d'usine en vraies IR (4x12 V30, 2x12, 1x12, 4x10), plus 32 emplacements pour tes propres IR (.wav).|11 factory cabinets as real IRs (4x12 V30, 2x12, 1x12, 4x10), plus 32 slots for your own IRs (.wav)."></p>
       </div>
       <div class="card">
-        <div class="illus" data-no-i18n><svg viewBox="0 0 360 116" aria-hidden="true">
-          <rect x="28" y="22" width="142" height="42" rx="7" fill="#171a1f" stroke="#3a414b"/>
-          <g fill="#19d3ff"><circle cx="46" cy="36" r="3"/><circle cx="62" cy="36" r="3"/><circle cx="78" cy="36" r="3"/></g>
-          <rect x="44" y="76" width="58" height="26" rx="5" fill="#241a10" stroke="#ffb020" class="float"/>
-          <rect x="114" y="76" width="58" height="26" rx="5" fill="#101f1a" stroke="#3ddc84" class="float2"/>
-          <rect x="184" y="76" width="58" height="26" rx="5" fill="#1a1024" stroke="#b06cff" class="float" style="animation-delay:.9s"/>
-          <path d="M74 68v8M144 68v8M214 68v8" stroke="#3a414b" stroke-width="1.4"/>
-          <text x="28" y="16">AMP · DRIVE · MOD</text><text x="296" y="16">fx</text>
-        </svg></div>
+        <div class="illus" data-no-i18n>
+          <div class="mock-label"><span>APP · BLOCK LIBRARY</span><span>45 EFFECTS</span></div>
+          <div class="mini-fx">
+            <div class="mf" style="--c:#ff9f1a"><svg viewBox="0 0 24 24"><path d="M13 2L5 13h6l-1 9 8-12h-6z"/></svg><b>Green Scream 9</b><small>DRV</small></div>
+            <div class="mf" style="--c:#ff4d4d"><svg viewBox="0 0 24 24"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10h19M5 13.5h14M5 16h14"/><circle cx="6" cy="7.5" r=".9"/><circle cx="9.5" cy="7.5" r=".9"/><circle cx="13" cy="7.5" r=".9"/></svg><b>Brit 800 Lead</b><small>AMP</small></div>
+            <div class="mf" style="--c:#b06cff"><svg viewBox="0 0 24 24"><path d="M2 9c2.5-5 5-5 7.5 0s5 5 7.5 0 3.5-3 5-2"/><path d="M2 15c2.5-5 5-5 7.5 0s5 5 7.5 0 3.5-3 5-2" opacity=".55"/></svg><b>Chorus</b><small>MOD</small></div>
+            <div class="mf" style="--c:#3aa0ff"><svg viewBox="0 0 24 24"><path d="M4 5v14M9 7.5v9M14 9.5v5M19 11v2"/></svg><b>Digital Delay</b><small>DLY</small></div>
+          </div>
+        </div>
         <h3 data-t="Amplis et pédales|Amps and pedals"></h3><p data-t="Overdrives, distos, fuzz, amplis clean à high gain, modulations, délais, réverbes, accordeur.|Overdrives, distortions, fuzz, clean to high-gain amps, modulation, delays, reverbs, tuner."></p>
       </div>
       <div class="card">
-        <div class="illus" data-no-i18n><svg viewBox="0 0 360 116" aria-hidden="true">
-          <g fill="#151a20" stroke="#2d323a">
-            <rect x="24" y="38" width="32" height="20" rx="4"/><rect x="64" y="38" width="32" height="20" rx="4"/><rect x="104" y="38" width="32" height="20" rx="4"/><rect x="144" y="38" width="32" height="20" rx="4"/><rect x="184" y="38" width="32" height="20" rx="4"/><rect x="224" y="38" width="32" height="20" rx="4"/><rect x="264" y="38" width="32" height="20" rx="4"/><rect x="304" y="38" width="32" height="20" rx="4"/>
-            <rect x="24" y="72" width="32" height="20" rx="4"/><rect x="64" y="72" width="32" height="20" rx="4"/><rect x="104" y="72" width="32" height="20" rx="4"/><rect x="144" y="72" width="32" height="20" rx="4"/><rect x="184" y="72" width="32" height="20" rx="4"/><rect x="224" y="72" width="32" height="20" rx="4"/><rect x="264" y="72" width="32" height="20" rx="4"/><rect x="304" y="72" width="32" height="20" rx="4"/>
-          </g>
-          <rect x="144" y="38" width="32" height="20" rx="4" fill="#19d3ff" fill-opacity=".22" stroke="#19d3ff" class="blink"/>
-          <rect x="224" y="72" width="32" height="20" rx="4" fill="#3ddc84" fill-opacity=".18" stroke="#3ddc84"/>
-          <path d="M20 62h320" stroke="#19d3ff" stroke-width="1.4" class="dash"/>
-          <text x="24" y="16">2 × 8</text><text x="290" y="16">SCENES</text>
-        </svg></div>
+        <div class="illus" data-no-i18n>
+          <div class="mock-label"><span>APP · 2 × 8 GRID</span><span>SCENE A</span></div>
+          <div class="mini-grid-wrap">
+            <div class="mini-grid">
+              <div class="mg-block" style="--c:#ff9f1a">DRV</div><div class="mg-block" style="--c:#ff4d4d">AMP</div><div class="mg-block" style="--c:#c98a55">CAB</div><div class="mg-block sel" style="--c:#3aa0ff">DLY</div><div class="mg-block" style="--c:#2fd6c5">REV</div><div class="mg-cell"></div><div class="mg-cell"></div><div class="mg-cell"></div>
+              <div class="mg-cell"></div><div class="mg-cell"></div><div class="mg-cell"></div><div class="mg-cell"></div><div class="mg-cell"></div><div class="mg-cell"></div><div class="mg-cell"></div><div class="mg-cell"></div>
+            </div>
+            <div class="mini-scenes"><span class="on">A</span><span>B</span><span>C</span><span>D</span><span>E</span><span>F</span><span>G</span><span>H</span></div>
+          </div>
+        </div>
         <h3 data-t="Grille 2 × 8 et scènes|2 × 8 grid and scenes"></h3><p data-t="Chaînes en série ou en parallèle, 8 scènes par preset, footswitchs configurables. Ajoute, déplace et supprime les blocs directement sur la pédale.|Serial or parallel chains, 8 scenes per preset, configurable footswitches. Add, move and delete blocks directly on the pedal."></p>
       </div>
       <div class="card">
@@ -331,14 +351,14 @@ footer p + p { margin-top: 6px; }
         <h3 data-t="80 presets dans la pédale|80 presets in the pedal"></h3><p data-t="La pédale garde tout : presets, IR, captures, réglages. L'éditeur lit ce qu'elle contient.|The pedal keeps everything: presets, IRs, captures, settings. The editor reads what it holds."></p>
       </div>
       <div class="card">
-        <div class="illus" data-no-i18n><svg viewBox="0 0 360 116" aria-hidden="true">
-          <path d="M92 34h176M100 28h160a8 8 0 0 1 8 8v18a8 8 0 0 1-8 8H100a8 8 0 0 1-8-8V36a8 8 0 0 1 8-8z" fill="#151a20" stroke="#2d323a"/>
-          <path d="M172 58v30" stroke="#19d3ff" stroke-width="2.5" class="float"/>
-          <path d="m160 78 12 12 12-12" fill="none" stroke="#19d3ff" stroke-width="2.5" class="float"/>
-          <rect x="132" y="94" width="96" height="12" rx="4" fill="#171a1f" stroke="#3a414b"/>
-          <g fill="#3ddc84"><circle cx="204" cy="42" r="3" class="blink"/></g>
-          <text x="24" y="16">UPDATE</text><text x="300" y="16">1 CLICK</text>
-        </svg></div>
+        <div class="illus" data-no-i18n>
+          <div class="mock-label"><span>APP · UPDATE</span><span>1 CLICK</span></div>
+          <div class="mini-upd">
+            <svg class="ic" viewBox="0 0 24 24"><use href="#i-bolt"/></svg>
+            <span class="ut"><b>Firmware v0.12 available</b><small>Current: v0.11 · presets kept</small></span>
+            <span class="ub">Update</span>
+          </div>
+        </div>
         <h3 data-t="Mises à jour en un clic|One-click updates"></h3><p data-t="L'app prévient quand une nouvelle version sort et met la pédale à jour, presets conservés.|The app tells you when a new version is out and updates the pedal, presets kept."></p>
       </div>
     </div>
@@ -504,7 +524,7 @@ footer p + p { margin-top: 6px; }
     <div class="grid g3">
       <div class="card">
         <div class="card-ico"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg></div>
-        <h3 data-t="Dans l'app|In the app"></h3><p data-t="Quand une version sort, un bandeau « Mettre à jour la pédale » apparaît dès que la pédale est connectée. Un clic : l'installateur s'ouvre et fait le reste.|When a version comes out, an \"Update the pedal\" banner appears as soon as the pedal is connected. One click: the installer opens and does the rest."></p>
+        <h3 data-t="Dans l'app|In the app"></h3><p data-t="Quand une version sort, un bandeau « Mettre à jour la pédale » apparaît dès que la pédale est connectée. Un clic : l'installateur s'ouvre et fait le reste.|When a version comes out, an “Update the pedal” banner appears as soon as the pedal is connected. One click: the installer opens and does the rest."></p>
       </div>
       <div class="card">
         <div class="card-ico"><svg class="ic" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h7"/></svg></div>
