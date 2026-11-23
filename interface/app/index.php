@@ -99,6 +99,10 @@ function asset(string $path): string
     </nav>
 
     <div class="top-right">
+      <button class="icon-btn lang-btn" id="langBtn" title="Langue / Language" data-no-i18n>FR</button>
+      <div class="batt-pill" id="battPill" hidden title="Batterie de la pédale">
+        <span class="batt-mini"><i id="battFill"></i></span><b id="battVal">—</b>
+      </div>
       <div class="meters" title="Entrée / Sortie"><i id="mIn"></i><i id="mOut"></i></div>
       <div class="dsp-meter" title="Charge DSP du preset"><span>DSP</span><div class="bar"><i id="dspBar"></i></div><b id="dspVal">0%</b></div>
       <button class="icon-btn" id="btnUndo" title="Annuler (Ctrl+Z)"><svg class="ic"><use href="#i-undo"/></svg></button>
@@ -155,6 +159,7 @@ function asset(string $path): string
 
 <script src="<?= asset('js/data.js') ?>"></script>
 <script src="<?= asset('js/transport.js') ?>"></script>
+<script src="<?= asset('js/i18n.js') ?>"></script>
 <script src="<?= asset('js/app.js') ?>"></script>
 </body>
 </html>

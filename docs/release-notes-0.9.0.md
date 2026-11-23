@@ -11,6 +11,9 @@ Le firmware reste **fw6 0.8** (aucun changement audio depuis la 0.8).
   « projet expérimental », procédure V19, installation, mises à jour et retour
   au firmware d’origine. L’éditeur en ligne est retiré : l’app de bureau ou
   l’app Android sont les seuls éditeurs.
+- **Éditeur** : sélecteur **FR/EN** et pourcentage de batterie restaurés dans la
+  barre du haut (ils avaient disparu de la 0.8), mode footswitch **Preset** par
+  défaut.
 - **Installateur** : contrôle de version M-VAVE. Si la pédale n’est pas en V19,
   un message clair renvoie vers la documentation et les boutons d’écriture sont
   désactivés.

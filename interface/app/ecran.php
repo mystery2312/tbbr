@@ -69,6 +69,7 @@ function asset(string $path): string
   </div>
 
 <script src="<?= asset('js/data.js') ?>"></script>
+<script src="<?= asset('js/i18n.js') ?>"></script>
 <script src="<?= asset('js/ecran.js') ?>"></script>
 </body>
 </html>
