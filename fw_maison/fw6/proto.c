@@ -416,6 +416,7 @@ static u32 ex_n, ex_bad;
 static void ex_c(char c) { if (ex_n < EXP_MAX) CUR_JSON[ex_n++] = c; else ex_bad = 1; }
 static void ex_s(const char *s) { while (*s) ex_c(*s++); }
 static void ex_q(const char *s) { ex_c('"'); for (; *s; s++) { if (*s == '"' || *s == '\\') ex_c('\\'); ex_c(*s); } ex_c('"'); }
+static void ex_u(u32 u) { char t[12]; int i = 0; do { t[i++] = (char)('0' + u % 10); u /= 10; } while (u); while (i--) ex_c(t[i]); }
 static void ex_i(s32 v) { char t[12]; int i = 0; u32 u = v < 0 ? (u32)-v : (u32)v; if (v < 0) ex_c('-'); do { t[i++] = (char)('0' + u % 10); u /= 10; } while (u); while (i--) ex_c(t[i]); }
 static void ex_f(float v)                                            /* 3 décimales au plus, zéros inutiles retirés */
 {
@@ -605,6 +606,7 @@ static int factory_wipe(void)
     if (meta_save()) err = 1;
     return err ? -1 : 0;
 }
+static void ir_crc_update(int s);
 void proto_boot(void)
 {
     meta_load();
@@ -633,11 +635,15 @@ void proto_boot(void)
         META->pad = (META->pad & ~(15u << 18)) | (FACTORY_BANK << 18);
         meta_save();
     }
+    { int s; for (s = 0; s < CAT_IR_SLOTS; s++) { ir_crc_update(s); wdt_clear(); } }
     if (META->last_preset < CAT_PRESETS && preset_load((int)META->last_preset) == 0) preset_index = (int)META->last_preset;   /* numéro = emplacement, pas le « i » du JSON */
     else { preset_index = 0; if (preset_load(0) != 0) preset_init(0); }
 }
 /* transferts IR / NAM : écriture au fil des morceaux, validation à la fin */
 static int ir_slot = -1, nam_slot = -1;
+/* CRC32 du contenu de chaque emplacement IR (secteur entier) : calculé au démarrage et à la fin d'un envoi, jamais pendant le jeu */
+static u32 ir_crc[CAT_IR_SLOTS] __attribute__((section(".gfxbss")));
+static void ir_crc_update(int s) { ir_crc[s] = META->ir[s].valid ? crc32b(storage_ptr(IR_BASE + (u32)s * IR_SZ), IR_SZ) : 0; }
 static u32 nam_size, nam_crc;
 static char xfer_name[20];
 static int ir_begin(const char *js, u32 n);
@@ -699,6 +705,11 @@ static u32 list_export(void)
     for (i = 0; i < CAT_IR_SLOTS; i++) { if (i) ex_c(','); ex_q(proto_ir_name(i) ? proto_ir_name(i) : ""); }
     ex_s("],\"nam\":[");
     for (i = 0; i < CAT_NAM_SLOTS; i++) { if (i) ex_c(','); ex_q(proto_nam_name(i) ? proto_nam_name(i) : ""); }
+    /* empreintes (CRC32) : l'app reconnaît une capture / IR déjà présente et ne la renvoie pas (import de preset) */
+    ex_s("],\"namCrc\":[");
+    for (i = 0; i < CAT_NAM_SLOTS; i++) { if (i) ex_c(','); ex_u(META->nam[i].valid ? META->nam[i].crc : 0); }
+    ex_s("],\"irCrc\":[");
+    for (i = 0; i < CAT_IR_SLOTS; i++) { if (i) ex_c(','); ex_u(META->ir[i].valid ? ir_crc[i] : 0); }
     ex_s("]}");
     return ex_bad ? 0 : ex_n;
 }
@@ -782,7 +793,7 @@ static void dispatch(u32 cmd, const u8 *pl, u32 n)
         if (n >= 1 && pl[0] == ir_slot) {
             int slot = ir_slot;
             struct meta_ir *m = &META->ir[slot];
-            m->valid = 1; m->len = 2048; copy_name(m->name, xfer_name, 20, 20);
+            m->valid = 1; m->len = 2048; copy_name(m->name, xfer_name, 20, 20); ir_crc_update(slot);
             ir_slot = -1;
             if (meta_save() == 0) { engine_ir_changed(slot); ack(cmd); } else nak(cmd);
         } else nak(cmd);

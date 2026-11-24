@@ -12,7 +12,7 @@ const read = (...p) => fs.readFileSync(R(...p), 'utf8');
 
 test('syntaxe JavaScript de l\'app, de la simulation et d\'Electron', () => {
   const files = ['interface/app/js/app.js', 'interface/app/js/data.js', 'interface/app/js/transport.js', 'interface/app/js/i18n.js',
-    'interface/app/js/ecran.js', 'electron/main.js', 'electron/preload.js', 'android/web/android-midi.js'].filter(f => fs.existsSync(R(f)));
+    'interface/app/js/ecran.js', 'electron/main.js', 'electron/preload.js', 'electron/updater.js', 'tools/release_manifest.js', 'android/web/android-midi.js'].filter(f => fs.existsSync(R(f)));
   for (const f of files) execFileSync(process.execPath, ['--check', R(f)], { stdio: 'pipe' });
 });
 
@@ -26,7 +26,7 @@ test('script inline de l\'installateur : syntaxe valide (régression 0.9.2 « pa
 test('simulation de l\'écran du site (docs/sim) identique à celle de l\'app', () => {
   for (const f of ['js/data.js', 'js/ecran.js', 'js/i18n.js', 'css/ecran.css']) {
     if (!fs.existsSync(R('docs', 'sim', f))) continue;
-    assert.equal(read('docs', 'sim', f), read('interface', 'app', f), 'docs/sim/' + f + ' : relancer docs/make_site.ps1');
+    assert.ok(read('docs', 'sim', f) === read('interface', 'app', f), 'docs/sim/' + f + ' différent de interface/app : relancer docs/make_site.ps1');
   }
 });
 
@@ -47,4 +47,9 @@ test('dépôt public : aucun fichier privé suivi par git', () => {
   try { files = execFileSync(git, ['ls-files'], { cwd: ROOT, encoding: 'utf8' }).split('\n'); } catch { return; }
   const bad = files.filter(f => /(^|\/)(save\.md|backups\/|tools_ext\/|analysis\/|M-UPGRADE)|\.am2Data$|\.fwsc$|\.jks$|\.pass$/i.test(f));
   assert.deepEqual(bad, []);
+  /* règle de l'utilisateur : le produit de référence n'est cité nulle part (nom reconstitué pour ne pas l'écrire ici) */
+  const name = ['ul', 'tra', ' ?', 'rig'].join('');
+  let hits = '';
+  try { hits = execFileSync(git, ['grep', '-i', '-I', '-l', '-E', name, '--', '.'], { cwd: ROOT, encoding: 'utf8' }); } catch { /* aucun résultat */ }
+  assert.equal(hits.trim(), '', 'fichiers suivis qui citent le produit de référence');
 });

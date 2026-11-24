@@ -1,4 +1,4 @@
-# build_apk.ps1 : construit l'app Android signée (android\dist\TBBR_Android.apk) avec l'éditeur de interface\app.
+﻿# build_apk.ps1 : construit l'app Android signée (android\dist\TBBR_Android.apk) avec l'éditeur de interface\app.
 # Prérequis : Android SDK (%LOCALAPPDATA%\Android\Sdk ou ANDROID_HOME), JDK 17+ (celui d'Android Studio par défaut).
 # Clé de signature : HORS du dépôt (par défaut ..\..\keys\tbbr-release.jks + .pass), créée au premier lancement.
 # À CONSERVER : sans elle, une nouvelle version ne pourra pas s'installer par-dessus l'ancienne.
@@ -13,28 +13,9 @@ if (-not (Test-Path (Join-Path $env:JAVA_HOME 'bin\java.exe'))) { Fail "JDK intr
 if (-not (Test-Path $env:ANDROID_HOME)) { Fail "Android SDK introuvable (ANDROID_HOME)" }
 "sdk.dir=$($env:ANDROID_HOME -replace '\\', '/')" | Set-Content (Join-Path $here 'local.properties') -Encoding ascii
 
-# 1. éditeur -> assets/app (+ pont WebMIDI android-midi.js, chargé avant les scripts de l'éditeur)
-$src = Join-Path $repo 'interface\app'
-python -I (Join-Path $src 'make_static.py'); if ($LASTEXITCODE) { Fail "make_static" }
-$assets = Join-Path $here 'app\src\main\assets\app'
-if (Test-Path $assets) { Remove-Item $assets -Recurse -Force }
-New-Item -ItemType Directory -Force (Join-Path $assets 'css'), (Join-Path $assets 'js'), (Join-Path $assets 'fonts') | Out-Null
-foreach ($f in 'index.html', 'ecran.html', 'icon.svg', 'manifest.webmanifest') { Copy-Item (Join-Path $src $f) $assets }
-Copy-Item (Join-Path $src 'css\*.css') (Join-Path $assets 'css')
-Copy-Item (Join-Path $src 'js\*.js') (Join-Path $assets 'js')
-Copy-Item (Join-Path $here 'web\android-midi.js') (Join-Path $assets 'js')
-Copy-Item (Join-Path $repo 'interface\fonts\*') (Join-Path $assets 'fonts')
+# 1. éditeur -> assets/app (stage_assets.ps1 : aussi utilisé par les tests)
+powershell -ExecutionPolicy Bypass -File (Join-Path $here 'stage_assets.ps1'); if ($LASTEXITCODE) { Fail "assets" }
 $u8 = New-Object Text.UTF8Encoding($false)
-foreach ($page in 'index.html', 'ecran.html') {
-    $p = Join-Path $assets $page
-    $h = [IO.File]::ReadAllText($p)
-    $i = $h.IndexOf('<script src=')
-    if ($i -lt 0) { Fail "$page : pas de <script>" }
-    $h = $h.Insert($i, "<script src=`"js/android-midi.js`"></script>`n")
-    # polices embarquées (l'app doit marcher sans réseau)
-    $h = $h.Replace('</head>', "<style>@font-face{font-family:Inter;font-weight:400;src:url(fonts/Inter-400.woff2) format('woff2')}@font-face{font-family:Inter;font-weight:500 700;src:url(fonts/Inter-700.ttf)}@font-face{font-family:Inter;font-weight:800 900;src:url(fonts/Inter-800.ttf)}@font-face{font-family:'JetBrains Mono';src:url(fonts/JetBrainsMono-700.ttf)}</style>`n</head>")
-    [IO.File]::WriteAllText($p, $h, $u8)
-}
 
 # 2. icône
 $res = Join-Path $here 'app\src\main\res\mipmap-xxxhdpi'

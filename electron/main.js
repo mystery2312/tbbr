@@ -10,7 +10,10 @@ const http = require('http');
 const path = require('path');
 const { spawn } = require('child_process');
 
-const PORT = 8791;
+/* tests de bout en bout : profil isolé (jamais les presets / réglages de l'utilisateur) */
+if (process.env.TBBR_USER_DATA) app.setPath('userData', process.env.TBBR_USER_DATA);
+const PORT = Number(process.env.TBBR_PORT || 8791);
+const E2E = process.env.TBBR_E2E === '1' && !app.isPackaged;
 const BETA_CHANNEL = app.getVersion().includes('-beta');             // build beta : mises à jour depuis le dépôt beta
 const REPO = BETA_CHANNEL ? 'mystery2312/tbbr-beta' : 'mystery2312/tbbr';
 const RELEASES = BETA_CHANNEL ? `https://github.com/${REPO}/releases` : `https://github.com/${REPO}/releases/latest`;
@@ -65,6 +68,13 @@ function startServer(port) {
         fs.stat(file, (err, st) => {
           if (err || !st.isFile()) { res.writeHead(404); res.end('Not found'); return; }
           const ext = path.extname(file).toLowerCase();
+          if (E2E && pathname === '/js/app.js') {
+            /* tests de bout en bout (jamais dans l'exe livré : !app.isPackaged) : accès à la portée de l'IIFE d'app.js */
+            const src = fs.readFileSync(file, 'utf8'), k = src.lastIndexOf('})();');
+            res.writeHead(200, { 'Content-Type': MIME['.js'], 'Cache-Control': 'no-store' });
+            res.end(src.slice(0, k) + 'window.__t = src => eval(src);\n' + src.slice(k));
+            return;
+          }
           res.writeHead(200, {
             'Content-Type': MIME[ext] || 'application/octet-stream',
             'Cache-Control': 'no-store, max-age=0',
@@ -121,7 +131,7 @@ async function latestRelease() {
   const r = {
     tag: j.tag_name, page: j.html_url || RELEASES, beta: BETA_CHANNEL,
     fw: m ? `TBBR ${m[1]} ${m[2]}` : null, tbbrUrl: tbbr && tbbr.browser_download_url, tbbrName: tbbr && tbbr.name,
-    appVersion: app.getVersion(), appNewer: verGt(j.tag_name, app.getVersion()),
+    appVersion: app.getVersion(), appNewer: compareVersions(j.tag_name, app.getVersion()) > 0,
   };
   relCache = { t: Date.now(), r };
   return r;
@@ -142,9 +152,73 @@ async function updatePedal() {
   p.unref();
   return { ok: true, fw: r.fw };
 }
+/* ---------------- mise à jour automatique de l'app (updater.js) ----------------
+   Vérification au démarrage puis toutes les 6 h ; téléchargement en arrière-plan, vérifié (SHA-256 du manifeste) ;
+   installée en un clic (« Redémarrer ») ou automatiquement à la fermeture de l'app. */
+const { Updater, compareVersions } = require('./updater');
+let updater = null;
+const upd = { state: 'idle', version: null, progress: 0, error: null, page: null, canInstall: false };
+function updState(patch) {
+  Object.assign(upd, patch);
+  if (win && !win.isDestroyed()) win.webContents.send('tbbr:app-update', { ...upd });
+}
+function makeUpdater() {
+  const sources = [{ repo: 'mystery2312/tbbr', list: false }];
+  if (BETA_CHANNEL) sources.push({ repo: 'mystery2312/tbbr-beta', list: true });   /* dépôt privé : souvent inaccessible, sans gravité */
+  updater = new Updater({
+    version: app.getVersion(), sources, fetch: (u, o) => net.fetch(u, o),
+    dir: path.join(app.getPath('userData'), 'updates'),
+    exePath: process.env.PORTABLE_EXECUTABLE_FILE || null,            /* posé par le lanceur portable d'electron-builder */
+    apiBase: process.env.TBBR_UPDATE_API || 'https://api.github.com', /* tests : faux GitHub local */
+    spawn, log: s => log('updater: ' + s),
+  });
+  updater.cleanup();
+  upd.canInstall = updater.canReplace();
+  const p = updater.pending();
+  if (p) Object.assign(upd, { state: 'ready', version: p.version, progress: 1 });
+}
+let updBusy = false;
+async function appUpdateCheck() {
+  if (!updater || updBusy || upd.state === 'ready') return { ...upd };
+  updBusy = true;
+  try {
+    updState({ state: 'checking', error: null });
+    const r = await updater.check();
+    if (!r.available) { updState({ state: 'none', version: r.version || null }); return { ...upd }; }
+    updState({ state: upd.canInstall ? 'downloading' : 'available', version: r.version, page: r.page, progress: 0 });
+    if (!upd.canInstall) return { ...upd };
+    let last = 0;
+    const file = await updater.download(r, f => { if (f - last >= 0.02 || f === 1) { last = f; updState({ progress: f }); } });
+    updater.stage(r, file);
+    log('mise à jour ' + r.version + ' prête : ' + file);
+    updState({ state: 'ready', progress: 1 });
+  } catch (e) {
+    log('updater: ' + (e && e.stack || e));
+    updState({ state: 'error', error: String(e.message || e) });
+  } finally { updBusy = false; }
+  return { ...upd };
+}
+function appUpdateInstall() {
+  const r = updater ? updater.apply({ relaunch: true }) : { ok: false, reason: 'indisponible' };
+  if (r.ok) { appliedOnQuit = true; setImmediate(() => app.quit()); }
+  return r;
+}
+let appliedOnQuit = false;
+
 function setupIpc() {
   ipcMain.handle('tbbr:version', () => app.getVersion());
-  ipcMain.handle('tbbr:check', async () => { try { return await latestRelease(); } catch (e) { log('check: ' + e); return { error: String(e.message || e) }; } });
+  ipcMain.handle('tbbr:app-update-state', () => ({ ...upd }));
+  ipcMain.handle('tbbr:app-update-check', () => appUpdateCheck());
+  ipcMain.handle('tbbr:app-update-install', () => appUpdateInstall());
+  ipcMain.handle('tbbr:check', async () => {
+    try {
+      const r = await latestRelease();
+      /* la mise à jour de l'app est gérée ici (updater) : la page ne propose plus de téléchargement manuel si elle est installable */
+      if (upd.canInstall) r.appNewer = false;
+      else if (upd.version) r.appNewer = compareVersions(upd.version, app.getVersion()) > 0;
+      return r;
+    } catch (e) { log('check: ' + e); return { error: String(e.message || e) }; }
+  });
   ipcMain.handle('tbbr:update-pedal', async () => { try { return await updatePedal(); } catch (e) { log('update: ' + e); return { error: String(e.message || e) }; } });
   ipcMain.handle('tbbr:installer', () => { openInstaller(); return true; });
   ipcMain.handle('tbbr:release-page', () => { shell.openExternal(RELEASES); return true; });
@@ -329,12 +403,23 @@ async function main() {
     url = await startServer(0);
   }
   log('server: ' + url + ' root=' + APP_ROOT);
+  try { makeUpdater(); } catch (e) { log('updater init: ' + e); }
   setupIpc();
   Menu.setApplicationMenu(null);
   createWindow(url);
+  win.webContents.once('did-finish-load', () => {
+    updState({});                                                    /* état initial (mise à jour déjà prête ?) */
+    setTimeout(appUpdateCheck, Number(process.env.TBBR_UPDATE_DELAY_MS || 8000));
+  });
+  setInterval(appUpdateCheck, 6 * 60 * 60 * 1000);
 
   app.on('window-all-closed', () => app.quit());
   app.on('before-quit', () => { if (server) server.close(); });
+  /* mise à jour prête mais pas installée : elle s'installe à la fermeture (prise en compte au prochain lancement) */
+  app.on('will-quit', () => {
+    if (appliedOnQuit || !updater || upd.state !== 'ready') return;
+    try { const r = updater.apply({ relaunch: false }); log('installation à la fermeture : ' + JSON.stringify(r)); } catch (e) { log('installation à la fermeture : ' + e); }
+  });
 }
 
 main().catch(e => {

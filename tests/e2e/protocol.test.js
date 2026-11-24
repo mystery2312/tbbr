@@ -169,6 +169,26 @@ test('NAM : envoi, CRC faux refusé, suppression, redémarrage', () => withPedal
   assert.equal((await p.flashStats()).badWrites, 0);
 }));
 
+test('PRESET_LIST : empreintes CRC32 des slots NAM et IR (reconnaissance d\'une capture déjà présente), après redémarrage aussi', () => withPedal(async p => {
+  let l = await list(p);
+  assert.ok(Array.isArray(l.namCrc) && l.namCrc.length === A.NAM_SLOTS && l.namCrc.every(v => v === 0), 'namCrc vide attendu');
+  assert.ok(Array.isArray(l.irCrc) && l.irCrc.length === A.IR_SLOTS && l.irCrc.every(v => v === 0), 'irCrc vide attendu');
+  assert.equal(await sendNam(p, 6, 'CRC NAM'), true);
+  assert.equal(await sendIr(p, 11, 'CRC IR', 5), true);
+  const w = Float32Array.from({ length: 1871 }, (_, i) => Math.sin(i * 0.37) * 0.1);
+  const namCrc = zlib.crc32(Buffer.from(w.buffer)) >>> 0;
+  const sec = Buffer.alloc(4096, 0xFF);                                 /* secteur IR tel qu'écrit : int16 LE puis 0xFF */
+  for (let i = 0; i < 2048; i++) sec.writeInt16LE(Math.round(30000 * Math.exp(-i / 205) * Math.cos(i * 0.35)), i * 2);
+  const irCrc = zlib.crc32(sec) >>> 0;
+  for (const when of ['après envoi', 'après redémarrage']) {
+    l = await list(p);
+    assert.equal(l.namCrc[6], namCrc, when + ' : CRC NAM'); assert.equal(l.irCrc[11], irCrc, when + ' : CRC IR');
+    await p.reboot();
+  }
+  assert.equal(await p.cmd(CMD.NAM_DELETE, [6]), true);
+  assert.equal((await list(p)).namCrc[6], 0);
+}));
+
 /* --- réglages globaux --- */
 test('GLOBAL : gate d\'entrée et mode footswitch mémorisés après redémarrage', () => withPedal(async p => {
   assert.equal(await p.cmd(CMD.GLOBAL, { inGateOn: 0, inGate: -55 }), true);

@@ -8,6 +8,14 @@
 
   var EN = {
     /* barre du haut / navigation */
+    "Redémarrer maintenant": "Restart now",
+    "Télécharger": "Download",
+    "Plus tard": "Later",
+    "Mise à jour de l’app": "App update",
+    "Rechercher une mise à jour de l’app": "Check for app update",
+    "L’app est à jour.": "The app is up to date.",
+    "L’app vérifie les mises à jour au lancement puis toutes les 6 h. Le fichier téléchargé est contrôlé (empreinte et signature) avant l’installation.": "The app checks for updates at launch and every 6 h. The download is verified (checksum and signature) before installing.",
+    "L’app se met à jour toute seule : téléchargement en arrière-plan, fichier contrôlé, installation au redémarrage.": "The app updates itself: background download, verified file, installed on restart.",
     "Presets": "Presets",
     "Blocs": "Blocks",
     "Grille": "Grid",
@@ -523,6 +531,12 @@
     [/^(\d+) parallèle\(s\)$/, function (m) { return m[1] + " parallel"; }],
     [/^(\d+) sections? parallèles?$/, function (m) { return m[1] + " parallel section" + (m[1] === "1" ? "" : "s"); }],
     [/^Pas de parallèle$/, function () { return "No parallel"; }],
+    [/^Mise à jour de l’app (.+) : téléchargement (\d+) %$/, function (m) { return "App update " + m[1] + ": downloading " + m[2] + "%"; }],
+    [/^L’app (.+) est prête\. Elle s’installera à la fermeture, ou tout de suite :$/, function (m) { return "App " + m[1] + " is ready. It installs when you close the app, or right now:"; }],
+    [/^Nouvelle version de l’app TBBR : (.+)\.$/, function (m) { return "New TBBR app version: " + m[1] + "."; }],
+    [/^Installation impossible : (.+)$/, function (m) { return "Cannot install: " + m[1]; }],    [/^Version installée : (.+)$/, function (m) { return "Installed version: " + m[1]; }],
+    [/^Vérification impossible : (.+)$/, function (m) { return "Check failed: " + m[1]; }],
+    [/^Enregistré : (.+)$/, function (m) { return "Saved: " + m[1]; }],
     [/^Preset « (.+) » copié$/, function (m) { return "Preset “" + m[1] + "” copied"; }],
     [/^Preset « (.+) » sauvé dans la pédale$/, function (m) { return "Preset “" + m[1] + "” saved to the pedal"; }],
     [/^Preset « (.+) » réinitialisé$/, function (m) { return "Preset “" + m[1] + "” reset"; }],
@@ -542,7 +556,7 @@
     [/^DSP insuffisant pour (.+)$/, function (m) { return "Insufficient DSP for " + m[1]; }],
     [/^Un seul NAM par preset$/, function () { return "Only one NAM per preset"; }],
     [/^NAM trop lourd pour le 2e cœur \((\d+) %\)$/, function (m) { return "NAM too heavy for core 2 (" + m[1] + "%)"; }],
-    [/^Preset trop lourd : (\d+) % DSP \(maximum 100\)\. Retire un bloc pour que la pédale puisse le jouer\.$/, function (m) {
+    [/^Preset trop lourd : (\d+) % DSP \(maximum \d+\)\. Retire un bloc pour que la pédale puisse le jouer\.$/, function (m) {
       return "Preset too heavy: " + m[1] + "% DSP (max 100). Remove a block so the pedal can play it.";
     }],
     [/^Connecté via (.+)$/, function (m) { return "Connected via " + translate(m[1]); }],

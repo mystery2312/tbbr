@@ -40,3 +40,9 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
 }
+
+// tests JVM de la logique de mise à jour (UpdateLogicTest) ; org.json réel : celui d'android.jar est un bouchon
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20240303'
+}

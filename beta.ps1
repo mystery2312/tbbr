@@ -29,6 +29,8 @@ try {
         if ($LASTEXITCODE) { throw "build_all" }
     }
 
+    # tests de bout en bout (firmware émulé, app web, app de bureau, APK, ensemble) : rien n'est publié s'ils échouent
+    powershell -ExecutionPolicy Bypass -File tests\e2e\run.ps1; if ($LASTEXITCODE) { throw "tests de bout en bout en échec : publication annulée" }
     $app = "electron\dist\BlackBox_TBBR_App_$ver.exe"
     $apk = 'android\dist\TBBR_Android.apk'
     foreach ($f in $app, 'installer\dist\BlackBox_TBBR_Installer.exe', "installer\dist\$pkg", $apk) {
@@ -80,7 +82,8 @@ try {
     ) -join "`n"
     $nf = Join-Path $tmp 'notes.md'
     [IO.File]::WriteAllText($nf, $body, (New-Object Text.UTF8Encoding($false)))
-    gh release create $tag (Join-Path $tmp 'BlackBox_TBBR_App.exe') (Join-Path $tmp 'BlackBox_TBBR_Installer.exe') (Join-Path $tmp $pkg) (Join-Path $tmp 'TBBR_Android.apk') `
+    node tools\release_manifest.js $tmp beta $nf; if ($LASTEXITCODE) { throw "manifeste de mise à jour" }   # TBBR_update.json : mises à jour auto (Windows, Android)
+    gh release create $tag (Join-Path $tmp 'BlackBox_TBBR_App.exe') (Join-Path $tmp 'BlackBox_TBBR_Installer.exe') (Join-Path $tmp $pkg) (Join-Path $tmp 'TBBR_Android.apk') (Join-Path $tmp 'TBBR_update.json') `
         --repo $repo --title "TBBR $ver (beta)" --notes-file $nf --target main --prerelease
     if ($LASTEXITCODE) { throw "creation de la release beta echouee" }
     "beta publiee : https://github.com/$repo/releases/tag/$tag"

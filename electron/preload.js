@@ -8,4 +8,9 @@ contextBridge.exposeInMainWorld('tbbrDesktop', {
   updatePedal: () => ipcRenderer.invoke('tbbr:update-pedal'),     // télécharge le .tbbr puis lance l'installateur en mode mise à jour
   openInstaller: () => ipcRenderer.invoke('tbbr:installer'),
   openReleasePage: () => ipcRenderer.invoke('tbbr:release-page'),
+  /* mise à jour automatique de l'app : état { state: idle|checking|none|available|downloading|ready|error, version, progress, error, canInstall } */
+  appUpdateState: () => ipcRenderer.invoke('tbbr:app-update-state'),
+  appUpdateCheck: () => ipcRenderer.invoke('tbbr:app-update-check'),
+  appUpdateInstall: () => ipcRenderer.invoke('tbbr:app-update-install'),   // remplace l'exe et redémarre
+  onAppUpdate: fn => { const h = (e, s) => fn(s); ipcRenderer.on('tbbr:app-update', h); return () => ipcRenderer.removeListener('tbbr:app-update', h); },
 });

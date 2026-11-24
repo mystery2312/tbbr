@@ -15,6 +15,7 @@
 !/electron/
 !/android/
 !/tests/
+!/tools/
 /tests/e2e/emu/out/
 
 !/fw_maison/

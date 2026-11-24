@@ -362,6 +362,9 @@ function applyList(j) {
   });
   U.pedalIr = Array.isArray(j.ir) ? j.ir : null;
   U.pedalNam = Array.isArray(j.nam) ? j.nam : null;
+  /* empreintes CRC32 du contenu des slots (fw6 0.16+) : une capture / IR déjà présente n'est pas renvoyée */
+  U.pedalNamCrc = Array.isArray(j.namCrc) ? j.namCrc.map(v => +v >>> 0) : null;
+  U.pedalIrCrc = Array.isArray(j.irCrc) ? j.irCrc.map(v => +v >>> 0) : null;
   persist();
 }
 /* relit l'état réel du preset en cours (i = son numéro) et l'affiche */
@@ -947,13 +950,26 @@ async function allocNamSlot(slot, a) {
   if (weights.length !== 1871) throw new Error('capture NAM non A2 Lite (1871 poids attendus)');
   const crc = a.crc != null ? (+a.crc >>> 0) : crc32(bytes);
   if (a.crc != null && crc32(bytes) !== crc) throw new Error('CRC NAM invalide');
+  const pedalCrc = pedalNam && Array.isArray(U.pedalNamCrc) ? U.pedalNamCrc : null;
+  const onPedal = i => !!pedalCrc && pedalCrc[i] === crc;                /* même contenu déjà dans ce slot de la pédale */
   for (let i = 0; i < NAM_SLOTS; i++) {
     const n = S.nams[i], pn = pedalNam && pedalNam[i];
     if (!n || n.name !== String(a.name || '') || (+n.nWeights || 0) !== weights.length) continue;
     if (pn && pn !== n.name) continue;                               /* le slot pédale contient autre chose */
     const d = await idb.get(n.id);
     if (!d || !d.weights) continue;
-    if (crc32(new Uint8Array(d.weights.buffer.slice(0))) === crc) return { slot: i, created: true };
+    if (crc32(new Uint8Array(d.weights.buffer.slice(0))) === crc) return { slot: i, created: !onPedal(i) };
+  }
+  const k = pedalCrc ? pedalCrc.findIndex((v, i) => onPedal(i)) : -1;
+  if (k >= 0) {                                                      /* déjà sur la pédale : la bibliothèque de l'app la reprend, rien à envoyer */
+    if (!S.nams[k]) {
+      const id = uid();
+      S.nams[k] = { name: String(a.name || 'Capture').slice(0, 32), file: String(a.file || a.name || '').slice(0, 64), arch: String(a.arch || 'WaveNet'),
+        a2: !!a.a2, sr: +a.sr || 48000, nWeights: weights.length, bytes: bytes.length, meta: a.meta && typeof a.meta === 'object' ? a.meta : {},
+        added: Date.now(), onDevice: true, id };
+      await idb.put(id, { cfg: b64ToBytes(a.cfg), weights });
+    }
+    return { slot: k, created: false };
   }
   const i = S.nams.findIndex((x, i) => free(i));
   if (i < 0) throw new Error('aucun emplacement NAM libre');
@@ -996,12 +1012,23 @@ function allocIrSlot(slot, a) {
   const bytes = new Uint8Array(x.buffer.slice(0));
   const crc = a.crc != null ? (+a.crc >>> 0) : crc32(bytes);
   if (a.crc != null && crc32(bytes) !== crc) throw new Error('CRC IR invalide');
+  const pedalCrc = pedalIr && Array.isArray(U.pedalIrCrc) ? U.pedalIrCrc : null, sent = irSlotCrc(x);
+  const onPedal = i => !!pedalCrc && pedalCrc[i] === sent;              /* même contenu déjà dans ce slot de la pédale */
   for (let i = 0; i < IR_SLOTS; i++) {
     const ir = S.irs[i], pi = pedalIr && pedalIr[i];
     if (!ir || !ir.user || ir.name !== String(a.name || '') || (+ir.len || 0) !== x.length) continue;
     if (pi && pi !== ir.name) continue;
     const xi = irData(i);
-    if (xi && crc32(new Uint8Array(xi.buffer.slice(0))) === crc) return { slot: i, created: true };
+    if (xi && crc32(new Uint8Array(xi.buffer.slice(0))) === crc) return { slot: i, created: !onPedal(i) };
+  }
+  const k = pedalCrc ? pedalCrc.findIndex((v, i) => onPedal(i)) : -1;
+  if (k >= 0) {                                                      /* déjà sur la pédale : rien à envoyer */
+    if (!S.irs[k]) {
+      S.irs[k] = { name: String(a.name || 'IR').slice(0, 28), user: true, rate: +a.rate || 48000, len: x.length,
+        srcLen: +a.srcLen || x.length, srcRate: +a.srcRate || 48000, data: f2b(x), crc };
+      U.irCache.delete(k);
+    }
+    return { slot: k, created: false };
   }
   const i = S.irs.findIndex((x, i) => free(i));
   if (i < 0) throw new Error('aucun emplacement IR libre');
@@ -1011,6 +1038,12 @@ function allocIrSlot(slot, a) {
   };
   U.irCache.delete(i);
   return { slot: i, created: true };
+}
+/* CRC32 d'un slot IR de la pédale tel que sendIR l'écrit : secteur de 4 Ko effacé (0xFF), échantillons int16 LE au début */
+function irSlotCrc(x) {
+  const b = new Uint8Array(4096).fill(0xFF), dv = new DataView(b.buffer);
+  for (let j = 0; j < x.length && j < 2048; j++) dv.setInt16(j * 2, clamp(Math.round(x[j] * 32767), -32768, 32767), true);
+  return crc32(b);
 }
 function remapPresetAssets(p, namMap, irMap) {
   for (const { b } of blocks(p)) {
@@ -2543,7 +2576,21 @@ function renderDevice() {
       [115200, 230400, 460800, 921600, 1000000].map(b => h('option', { value: b, selected: b === g.baud }, b + ' bauds')))),
     h('div', { class: 'row' }, h('button', { class: 'btn sm ghost', onclick: () => { g.gatt = { ...GATT_DEFAULT }; g.baud = 115200; persist(); renderDevice(); } }, icon('reset'), 'Valeurs par défaut')));
 
-  page.append(h('div', { class: 'cards' }, infoCard, fwCard, backupCard, gattCard));
+  /* Mise à jour de l'app elle-même : bureau (electron/updater.js) ou Android (Updater.java) */
+  const A = window.TBBRAndroid, D = window.tbbrDesktop;
+  const appCard = (A || D) ? h('div', { class: 'card', id: 'appUpdCard' }, h('h3', {}, icon('down'), 'Mise à jour de l’app'),
+    h('p', { class: 'muted', id: 'appVer' }, 'Version installée : …'),
+    h('p', { class: 'dim' }, A ? 'L’app vérifie les mises à jour au lancement puis toutes les 6 h. Le fichier téléchargé est contrôlé (empreinte et signature) avant l’installation.'
+                              : 'L’app se met à jour toute seule : téléchargement en arrière-plan, fichier contrôlé, installation au redémarrage.'),
+    h('div', { class: 'row' }, h('button', { class: 'btn', onclick: async () => {
+      if (A) { A.checkUpdate(); return; }
+      const s = await D.appUpdateCheck();
+      if (s.state === 'none') toast('L’app est à jour.', 'ok');
+      else if (s.state === 'error') toast('Vérification impossible : ' + s.error, 'err');
+    } }, icon('down'), 'Rechercher une mise à jour de l’app'))) : null;
+  if (appCard) Promise.resolve(A ? A.version() : D.version()).then(ver => { const e = $('#appVer'); if (e) e.textContent = 'Version installée : ' + ver; }).catch(() => {});
+
+  page.append(h('div', { class: 'cards' }, infoCard, fwCard, appCard, backupCard, gattCard));
 
   /* Console */
   const con = h('div', { class: 'console', id: 'console' }, U.log.map(logNode));
@@ -2770,8 +2817,34 @@ async function checkForUpdates(force) {
   if (cur && nxt && tupleGt(nxt, cur)) showUpdateBanner('fw', r);
   else if (r.appNewer) showUpdateBanner('app', r);
 }
+/* mise à jour automatique de l'app de bureau (electron/updater.js) : téléchargée en arrière-plan, installée au redémarrage */
+function renderAppUpdate(s) {
+  let b = document.getElementById('appUpdBanner');
+  const show = s && (s.state === 'downloading' || s.state === 'ready' || s.state === 'available');
+  if (!show || U.appUpdHidden === s.state + s.version) { if (b) b.remove(); return; }
+  if (!b) { b = h('div', { class: 'upd-banner', id: 'appUpdBanner' }); document.body.append(b); }
+  b.dataset.state = s.state;
+  const close = h('button', { class: 'icon-btn', title: 'Plus tard', onclick: () => { U.appUpdHidden = s.state + s.version; b.remove(); } }, icon('close'));
+  if (s.state === 'downloading') {
+    b.replaceChildren(icon('down'), h('span', {}, 'Mise à jour de l’app ' + s.version + ' : téléchargement ' + Math.round((s.progress || 0) * 100) + ' %'), close);
+  } else if (s.state === 'ready') {
+    const go = h('button', { class: 'btn primary sm upd-go', onclick: async () => {
+      go.disabled = true;
+      const r = await window.tbbrDesktop.appUpdateInstall();
+      if (!r || !r.ok) { go.disabled = false; toast('Installation impossible : ' + (r && r.reason || '?'), 'err'); }
+    } }, 'Redémarrer maintenant');
+    b.replaceChildren(icon('bolt'), h('span', {}, 'L’app ' + s.version + ' est prête. Elle s’installera à la fermeture, ou tout de suite :'), go, close);
+  } else {
+    b.replaceChildren(icon('bolt'), h('span', {}, 'Nouvelle version de l’app TBBR : ' + s.version + '.'),
+      h('button', { class: 'btn primary sm upd-go', onclick: () => window.tbbrDesktop.openReleasePage() }, 'Télécharger'), close);
+  }
+}
+if (window.tbbrDesktop && window.tbbrDesktop.onAppUpdate) {
+  window.tbbrDesktop.onAppUpdate(renderAppUpdate);
+  window.tbbrDesktop.appUpdateState().then(renderAppUpdate).catch(() => {});
+}
 function showUpdateBanner(kind, r) {
-  const oldBanner = document.querySelector('.upd-banner'); if (oldBanner) oldBanner.remove();
+  const oldBanner = document.querySelector('.upd-banner:not(#appUpdBanner)'); if (oldBanner) oldBanner.remove();
   const fw = kind === 'fw', desk = !!window.tbbrDesktop;
   const short = s => String(s || '').replace(/^TBBR fw\d+\s*/, 'v');
   const go = async () => {
@@ -3047,5 +3120,6 @@ if (isTab()) U.sel = null; // accueil épuré : la grille seule
 setInterval(() => { if (connected()) send(CMD.GLOBAL, {}); }, 2000);   /* veille : host_ok côté pédale (3 s) */
 renderAll();
 setSideTab(S.sideTab === 'blocks' ? 'blocks' : 'presets');
+window.tbbrToast = toast;                                           /* pour android-midi.js (fichiers enregistrés) */
 connect('demo');
 })();

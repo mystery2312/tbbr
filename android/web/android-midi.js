@@ -108,10 +108,10 @@
       const r = new FileReader();
       r.onload = () => {
         const path = A.saveFile(name, String(r.result).split(',')[1] || '', blob.type || 'application/octet-stream');
-        if (typeof toast === 'function') toast(path ? 'Enregistré : ' + path : 'Enregistrement impossible', path ? 'ok' : 'err');
+        if (window.tbbrToast) window.tbbrToast(path ? 'Enregistré : ' + path : 'Enregistrement impossible', path ? 'ok' : 'err');
       };
       r.readAsDataURL(blob);
-    } catch (e) { if (typeof toast === 'function') toast('Enregistrement impossible', 'err'); }
+    } catch (e) { if (window.tbbrToast) window.tbbrToast('Enregistrement impossible', 'err'); }
   }
   const click = HTMLAnchorElement.prototype.click;
   HTMLAnchorElement.prototype.click = function () {

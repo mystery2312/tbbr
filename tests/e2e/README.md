@@ -1,30 +1,40 @@
 # Tests de bout en bout TBBR
 
 ```
-powershell -ExecutionPolicy Bypass -File tests\e2e\run.ps1          # tout (~40 s)
-powershell -ExecutionPolicy Bypass -File tests\e2e\run.ps1 -Only app
+powershell -ExecutionPolicy Bypass -File tests\e2e\run.ps1             # tout (~4 min)
+powershell -ExecutionPolicy Bypass -File tests\e2e\run.ps1 -Only apk
+powershell -ExecutionPolicy Bypass -File tests\e2e\run.ps1 -Packaged   # + vrais exe portables (~10 min)
 ```
 
-## Ce qui est testé
+`release.ps1` et `beta.ps1` lancent `run.ps1` : rien n'est publié si un test échoue.
+
+## Architecture
 
 ```
- app réelle (interface/app, Edge headless)          ── app.test.js
-        │  WebMIDI simulé, port « BlackBox Custom »
-        ▼
- trames A5… dans des SysEx F0 7D 42 58 70 … F7       ── protocol.test.js
-        │
-        ▼
+ app web (Edge)     app de bureau (Electron réel)     APK : ses fichiers web + pont Android simulé
+        \                     |                          /
+         WebMIDI simulé « BlackBox Custom »   /   window.TBBRMidi (mêmes méthodes que MidiBridge.java)
+                              |
+        trames A5… dans des SysEx F0 7D 42 58 70 … F7
+                              |
  émulateur de pédale (emu/out/pedal_emu.exe)
-   = VRAI proto.c + engine.c + models.c + circuit.c du firmware fw6,
-     compilés pour PC ; flash NOR 1 Mio simulée
+   = VRAI proto.c + engine.c + models.c + circuit.c du firmware fw6, compilés pour PC ;
+     flash NOR 1 Mio simulée (effacement / écriture comme la vraie : écriture sans effacement détectée)
 ```
 
-- **static.test.js** : syntaxe JS, script inline de l'installateur, `docs/sim` à jour, `catalog.h` à jour, aucun fichier privé suivi par git.
-- **protocol.test.js** : INFO et catalogue (coûts DSP firmware = `data.js`), banque d'usine, aller-retour de chaque preset d'usine, sauvegarde + redémarrage, budget DSP 115 %, IR, NAM (CRC), réglages globaux, Bluetooth, remise à zéro usine, scènes/bypass, trames corrompues. Chaque test vérifie aussi qu'aucune écriture flash ne s'est faite sans effacement.
-- **app.test.js** : connexion USB et synchro, changement de preset, modification + sauvegarde (relue dans la flash), export/import d'un preset avec ses NAM/IR vers une autre pédale (remappage des slots), remise à zéro usine depuis l'app, mode démo sans message d'erreur.
+| Fichier | Ce qui est testé |
+|---|---|
+| `static.test.js` | syntaxe JS, installateur, `docs/sim` à jour, `catalog.h` à jour, rien de privé ni de cité à tort dans git |
+| `protocol.test.js` | firmware : INFO/catalogue = `data.js`, banque d'usine, aller-retour des presets, sauvegarde + redémarrage, budget DSP, IR, NAM, empreintes CRC, réglages globaux, Bluetooth, remise à zéro, scènes, trames corrompues |
+| `updater.test.js` | mise à jour de l'app Windows (`electron/updater.js`) : canaux stable/beta, SHA-256, remplacement de l'exe, nettoyage |
+| `app.test.js` | app web : connexion, synchro, sauvegarde, export/import NAM+IR, remise à zéro, mode démo |
+| `desktop.test.js` | app de bureau réelle : USB + sauvegarde, mise à jour auto (redémarrage, à la fermeture, fichier altéré, app non portable) |
+| `apk.test.js` | APK : paquet (aapt2), fichiers web = éditeur actuel, tests JVM de la mise à jour Android, USB OTG, export vers Téléchargements, débranchement |
+| `ensemble.test.js` | PC → téléphone → navigateur sur la même pédale : preset NAM+IR créé sur le PC, importé sur le téléphone, rejoué après redémarrage |
+| `packaged.test.js` | (`-Packaged`) deux vrais exe portables : 0.9.90 se remplace par 0.9.91 |
 
-## Limites de l'émulateur
+## Limites
 
-- Le calcul NAM/A2L/AMX est en assembleur pi32v2 : son chargement échoue proprement dans l'émulateur (le bloc laisse passer le son). Le transfert, le CRC, les slots et les presets sont le vrai code.
-- Pas de 2e cœur, d'écran, de footswitchs ni de timing réel : les coûts CPU et le son se vérifient sur la pédale (`interface/tests/dsp_bench.py`, `nam_check.py`).
-- L'app servie aux tests reçoit une ligne en plus à la fin de son IIFE (`window.__t = src => eval(src)`), pour que les tests lisent son état ; le fichier `app.js` n'est pas modifié.
+- Le calcul NAM/A2L/AMX est en assembleur pi32v2 : il ne tourne pas dans l'émulateur (le bloc laisse passer le son). Transfert, CRC, slots et presets sont le vrai code. Les coûts CPU et le son se vérifient sur la pédale.
+- L'APK est testé sans téléphone : son code Java natif est couvert par les tests JVM (`UpdateLogicTest`) et par la simulation fidèle de `MidiBridge`. Un test sur appareil Android virtuel demande une image système (`sdkmanager "system-images;android-35;google_apis;x86_64"`).
+- Les tests lisent l'état interne de l'app : la copie d'`app.js` servie aux tests reçoit `window.__t = src => eval(src)` (navigateur : interception Playwright ; app de bureau : serveur de `main.js` avec `TBBR_E2E=1`, jamais dans l'exe livré).
