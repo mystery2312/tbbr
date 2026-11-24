@@ -20,6 +20,7 @@ import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -56,11 +57,14 @@ public class MidiBridge {
     @SuppressWarnings("deprecation")
     private MidiDeviceInfo[] devices() {
         if (mm == null) return new MidiDeviceInfo[0];
+        /* Fusionner les deux listes : certains Android 13/14 omettent l'USB MIDI dans getDevicesForTransport. */
+        Map<Integer, MidiDeviceInfo> all = new LinkedHashMap<>();
         if (Build.VERSION.SDK_INT >= 33) {
             Set<MidiDeviceInfo> s = mm.getDevicesForTransport(MidiManager.TRANSPORT_MIDI_BYTE_STREAM);
-            return s.toArray(new MidiDeviceInfo[0]);
+            if (s != null) for (MidiDeviceInfo d : s) all.put(d.getId(), d);
         }
-        return mm.getDevices();
+        for (MidiDeviceInfo d : mm.getDevices()) all.put(d.getId(), d);
+        return all.values().toArray(new MidiDeviceInfo[0]);
     }
 
     private static String devName(MidiDeviceInfo d) {

@@ -185,7 +185,7 @@ class BleTransport extends Transport {
     this.connected = true;
     this.emit('open');
   }
-  async disconnect() { try { this.device?.gatt?.disconnect(); } catch { /* déjà fermé */ } this.connected = false; this.emit('close'); }
+  async disconnect() { try { if (this.device && this.device.gatt) this.device.gatt.disconnect(); } catch { /* déjà fermé */ } this.connected = false; this.emit('close'); }
   _write(f) {
     this.q = this.q.then(async () => {
       for (let i = 0; i < f.length; i += this.chunk) {
@@ -226,10 +226,22 @@ class MidiTransport extends Transport {
   static supported() { return !!navigator.requestMIDIAccess; }
   async connect() {
     const acc = await navigator.requestMIDIAccess({ sysex: true });
-    const pick = m => [...m.values()].find(p => p.name && p.name.includes(this.portName));
+    const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const wanted = norm(this.portName);
+    /* Android expose parfois « BlackBox » au lieu de « BlackBox Custom » : garder une correspondance large. */
+    const pick = m => {
+      const ps = [...m.values()].filter(p => p.name);
+      return ps.find(p => norm(p.name) === wanted)
+          || ps.find(p => norm(p.name).includes(wanted))
+          || ps.find(p => norm(p.name).includes('blackbox'))
+          || ps.find(p => norm(p.name).includes('mvave'))
+          || null;
+    };
     this.input = pick(acc.inputs); this.output = pick(acc.outputs);
     if (!this.input || !this.output) {
-      const e = new Error('pédale « ' + this.portName + ' » introuvable en MIDI (branchée, allumée, firmware maison ?)'); e.name = 'NotFoundError'; throw e;
+      const names = m => [...m.values()].map(p => p.name).filter(Boolean).join(', ') || 'aucun';
+      const e = new Error('pédale « ' + this.portName + ' » introuvable en MIDI (entrées : ' + names(acc.inputs) + ' ; sorties : ' + names(acc.outputs) + ')');
+      e.name = 'NotFoundError'; throw e;
     }
     this.input.onmidimessage = ev => {
       const d = ev.data;
@@ -289,9 +301,9 @@ class SerialTransport extends Transport {
   async disconnect() {
     const was = this.connected;
     this.connected = false;
-    try { await this.reader?.cancel(); } catch { /* */ }
-    try { this.writer?.releaseLock(); } catch { /* */ }
-    try { await this.port?.close(); } catch { /* */ }
+    try { if (this.reader) await this.reader.cancel(); } catch { /* */ }
+    try { if (this.writer) this.writer.releaseLock(); } catch { /* */ }
+    try { if (this.port) await this.port.close(); } catch { /* */ }
     if (was) this.emit('close');
   }
   _write(f) { return this.writer.write(f).catch(e => this.emit('error', e)); }

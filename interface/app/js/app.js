@@ -2115,7 +2115,7 @@ function renderNam() {
         [['Matériel', [m.gear_make, m.gear_model].filter(Boolean).join(' ') || '—'],
           ['Capturé par', m.modeled_by || '—'],
           ['Loudness', m.loudness != null ? (+m.loudness).toFixed(1) + ' dB → gain de normalisation ' + (-18 - m.loudness).toFixed(1) + ' dB' : '—'],
-          ['Niveaux d’étalonnage', m.input_level_dbu != null || m.output_level_dbu != null ? 'entrée ' + (m.input_level_dbu ?? '—') + ' dBu · sortie ' + (m.output_level_dbu ?? '—') + ' dBu' : '—'],
+          ['Niveaux d’étalonnage', m.input_level_dbu != null || m.output_level_dbu != null ? 'entrée ' + (m.input_level_dbu != null ? m.input_level_dbu : '—') + ' dBu · sortie ' + (m.output_level_dbu != null ? m.output_level_dbu : '—') + ' dBu' : '—'],
           ['Gain (heuristique)', m.gain != null ? (+m.gain).toFixed(2) : '—'],
           ['Architecture', n.arch + ' · format v' + n.version],
           ['Échantillonnage', n.sr + ' Hz'],
@@ -2500,7 +2500,7 @@ async function checkForUpdates(force) {
   else if (r.appNewer) showUpdateBanner('app', r);
 }
 function showUpdateBanner(kind, r) {
-  document.querySelector('.upd-banner')?.remove();
+  const oldBanner = document.querySelector('.upd-banner'); if (oldBanner) oldBanner.remove();
   const fw = kind === 'fw', desk = !!window.tbbrDesktop;
   const short = s => String(s || '').replace(/^TBBR fw\d+\s*/, 'v');
   const go = async () => {
@@ -2747,7 +2747,8 @@ document.addEventListener('keydown', e => {
   else if (/^[1-8]$/.test(e.key)) selectScene(+e.key - 1);
 });
 
-new ResizeObserver(() => requestAnimationFrame(drawWires)).observe($('#chain'));
+if (window.ResizeObserver) new ResizeObserver(() => requestAnimationFrame(drawWires)).observe($('#chain'));
+else window.addEventListener('resize', () => requestAnimationFrame(drawWires));
 window.addEventListener('beforeunload', () => { clearTimeout(saveTimer); try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch { /* */ } });
 
 S.presets = S.presets.map(p => { if (p.par && p.lanes.length === 2 && !p.paths && !p.split) return p; try { return sanitizePreset(p); } catch { return initPreset(); } });

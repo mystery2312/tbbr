@@ -60,7 +60,7 @@ function fit(text, px, weight, family, max) {
 const decs = step => step >= 1 ? 0 : step >= 0.1 ? 1 : 2;
 const quant = (pd, v) => +(Math.round((v - pd.min) / pd.step) * pd.step + pd.min).toFixed(decs(pd.step));
 function fmtVal(pd, v) {
-  if (pd.type === 'select') return pd.options[v] ?? '—';
+  if (pd.type === 'select') return pd.options[v] != null ? pd.options[v] : '—';
   if (pd.type === 'bool') return v ? 'ON' : 'OFF';
   if (pd.type === 'ir') return (S.irs && S.irs[v] && S.irs[v].name) || 'Vide';
   if (pd.type === 'nam') return (S.nams && S.nams[v] && S.nams[v].name) || 'Vide';
@@ -282,7 +282,7 @@ function paraHold() {
   if (uidv) { bypassLocal(uidv); render(); }
 }
 function masterTurn(d) {
-  const v = clamp(Math.round(((G().outLevel ?? 0) + d) * 2) / 2, -60, 6);
+  const v = clamp(Math.round(((G().outLevel != null ? G().outLevel : 0) + d) * 2) / 2, -60, 6);
   G().outLevel = v;
   post({ type: 'global', key: 'outLevel', v });
   overlay = { kind: 'master', until: performance.now() + 1000 };
@@ -305,7 +305,7 @@ function tile(b, cx, cy, t, p, cursor) {
 
 const BAR = 34;
 function topBar(p) {
-  const bat = clamp(Math.round(info.battery ?? 86), 0, 100), bc = bat <= 15 ? C.bad : bat <= 30 ? C.warn : C.ok;
+  const bat = clamp(Math.round(info.battery != null ? info.battery : 86), 0, 100), bc = bat <= 15 ? C.bad : bat <= 30 ? C.warn : C.ok;
   const bx = W - 38;
   const bt = info.bt || 'off', btc = bt === 'paired' ? C.ok : bt === 'on' ? '#3aa0ff' : C.tx2;
   const btx = bx - 58, bty = 17, ux = bx - 40;
@@ -482,7 +482,7 @@ function presetOverlay(p) {
     ${lines.slice(0, 3).map((l, i) => `<text x="${W / 2}" y="${y0 + i * 32}" fill="${C.tx}" font-family="${FONT}" font-size="28" font-weight="800" text-anchor="middle">${esc(fit(l, 28, 800, FONT, W - 14))}</text>`).join('')}`;
 }
 function masterOverlay() {
-  const v = G().outLevel ?? 0, f = (v + 60) / 66;
+  const v = G().outLevel != null ? G().outLevel : 0, f = (v + 60) / 66;
   return `<rect x="16" y="80" width="${W - 32}" height="92" rx="14" fill="#151a20" stroke="${C.line}"/>
     <text x="${W / 2}" y="106" fill="${C.tx3}" font-family="${MONO}" font-size="12" font-weight="700" text-anchor="middle">MASTER</text>
     <text x="${W / 2}" y="140" fill="${C.tx}" font-family="${MONO}" font-size="28" font-weight="700" text-anchor="middle">${v > 0 ? '+' : ''}${v.toFixed(1)} dB</text>

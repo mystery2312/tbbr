@@ -5,6 +5,8 @@ Budget : 100 % DSP = la part du 1er cœur laissée aux effets = (CIBLE - charge 
 Chaque mesure : 19 200 échantillons (0,4 s d'audio) d'un bloc seul aux réglages par défaut, chronométrés à 1 ms près.
 Le NAM est mesuré à part (commande 0x19) : il est réparti sur les 2 cœurs, son « dsp » = sa moitié arrière (1er cœur) ;
 la moitié avant (2e cœur) est affichée pour NAM_C1_PCT (engine.c).
+L'IR Loader n'est pas réécrit : une mesure avec un emplacement vide ne représente pas une IR chargée, on garde
+la valeur pessimiste de data.js.
 Après la mesure, la pédale a une grille vide : renvoyer un preset depuis l'app."""
 import sys, os, re, math
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "scripts"))
@@ -40,7 +42,7 @@ base_ms = u35(d, 0)
 print(f"grille vide (entrée, sortie, maître) : {base_ms} ms / {AUDIO_MS:.0f} ms = {base_ms / AUDIO_MS * 100:.1f} % d'un coeur")
 res = {}
 for i, mid in enumerate(names):
-    if mid == "nam": continue
+    if mid == "nam" or mid == "ir": continue
     d = ask(0x1A, i, 3.0)
     if d is None: print(f"{mid:10s} pas de réponse"); continue
     ms = u35(d, 0) - base_ms
@@ -62,7 +64,8 @@ if d and len(d) >= 180 and u35(d, 160) == 0:
 else: print("nam : pas de réponse ou erreur")
 
 # charge de base du système en marche (USB, écran, entrée/sortie) : mesurée par la pédale avec une grille vide = « charge » de bbc state
-BASE_SYS = float(os.environ.get("BB_BASE", "20"))
+# 16 % : même budget que l'app et le firmware (100 % DSP = 85 % - 16 % = 69 % d'un cœur).
+BASE_SYS = float(os.environ.get("BB_BASE", "16"))
 budget = CIBLE - BASE_SYS
 dsp = {k: max(1, math.ceil(v / budget * 100)) for k, v in res.items()}
 print(f"\nbudget effets = {CIBLE:.0f} % - base {BASE_SYS:.0f} % = {budget:.0f} % d'un coeur ; % DSP par modèle :")
