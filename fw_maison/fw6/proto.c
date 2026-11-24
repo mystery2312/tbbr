@@ -386,7 +386,8 @@ static int in_gate_db(void) { u32 v = (META->pad >> 24) & 0x7Fu; return v >= 40 
 static void in_gate_apply(void) { main_set_in_gate(in_gate_on(), in_gate_db()); }
 void proto_bt_store(int on, int paired)
 {
-    META->pad = (META->pad & 0xFFu) | (on ? 0x100u : 0u) | (paired ? 0x200u : 0u);
+    /* bits 8/9 seulement : le reste de pad (mode footswitch, banque d'usine, gate d'entrée) doit survivre */
+    META->pad = (META->pad & ~0x300u) | (on ? 0x100u : 0u) | (paired ? 0x200u : 0u);
     meta_save();
 }
 static int meta_save(void)

@@ -14,6 +14,8 @@
 !/installer/
 !/electron/
 !/android/
+!/tests/
+/tests/e2e/emu/out/
 
 !/fw_maison/
 /fw_maison/*

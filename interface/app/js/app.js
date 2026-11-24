@@ -238,6 +238,8 @@ async function connect(kind) {
   t.on('close', () => {
     if (U.tx !== t) return;
     U.tx = null; U.info = null; U.synced = false;
+    bigWaiters.slice().forEach(w => w.res(null));                    /* requêtes en attente : libérées tout de suite */
+    ackWaiters.splice(0).forEach(w => w.res(false));
     setConn('off', 'Déconnecté');
     setMeters([0, 0]);
     renderBattery(null);
@@ -284,9 +286,13 @@ function onData(pl) {
 }
 /* une requête à la fois, reprise si la pédale refuse (occupée) ou ne répond pas */
 let askQ = Promise.resolve();
+/* une requête appartient à la connexion qui l'a lancée : si l'app change de transport (démo -> USB), elle s'arrête
+   au lieu de bloquer la file et de retenter sur la nouvelle connexion */
+const sameLink = tx => connected() && U.tx === tx;
 function pedalAsk(cmd, payload, type, idx) {
+  const tx = U.tx;
   const job = askQ.then(async () => {
-    for (let t = 0; t < 4 && connected(); t++) {
+    for (let t = 0; t < 4 && sameLink(tx); t++) {
       const r = await new Promise(res => {
         const w = { type, idx, res: null };
         const done = v => { const k = bigWaiters.indexOf(w); if (k >= 0) bigWaiters.splice(k, 1); nakHooks.delete(cmd); clearTimeout(tm); res(v); };
@@ -306,8 +312,9 @@ function pedalAsk(cmd, payload, type, idx) {
 }
 /* commande acquittée (ACK / NAK), dans la même file que les lectures ; 3 essais */
 function pedalCmd(cmd, payload, ms = 3000) {
+  const tx = U.tx;
   const job = askQ.then(async () => {
-    for (let t = 0; t < 3 && connected(); t++) {
+    for (let t = 0; t < 3 && sameLink(tx); t++) {
       const w = waitAck(cmd, ms);
       send(cmd, payload);
       if (await w) return true;
@@ -359,6 +366,7 @@ function applyList(j) {
 }
 /* relit l'état réel du preset en cours (i = son numéro) et l'affiche */
 async function pedalReadCurrent(i) {
+  if (!pedalOnline()) return false;                                  /* pédale simulée : rien à relire */
   const d = await pedalAsk(CMD.PRESET_GET, [0x7F], CMD.PRESET_GET, 0x7F);
   const c = d && decodeJSON(d);
   if (!c) { toast('La pédale n\'a pas renvoyé son preset (réessaie)', 'err'); return false; }
@@ -371,6 +379,7 @@ async function pedalReadCurrent(i) {
   return true;
 }
 async function pedalSync() {
+  if (!pedalOnline()) return;
   const l = await pedalAsk(CMD.PRESET_LIST, [], CMD.PRESET_LIST, 0);
   const j = l && decodeJSON(l);
   if (j) applyList(j); else toast('Liste des presets de la pédale illisible', 'err');
@@ -424,7 +433,7 @@ function onFrame(fr) {
     if (typeof U.info.inGate === 'number') { S.globals.inGateOn = !!U.info.inGateOn; S.globals.inGate = U.info.inGate; persist(); if (U.view === 'global') renderGlobal(); }   /* gate d'entrée : la pédale fait foi */
     toast('Connecté à ' + (U.info.model || 'la pédale') + ' · ' + (U.info.fw || ''), 'ok');
     checkForUpdates();
-    if (!U.synced) { U.synced = true; pedalSync(); }                /* lecture de la pédale (ses presets font foi) */
+    if (!U.synced) { U.synced = true; if (pedalOnline()) pedalSync(); }   /* lecture de la pédale (ses presets font foi) ; la démo n'a pas de presets à lire */
     if (U.view === 'device') renderDevice();
   } else if (fr.cmd === CMD.ACK) {
     ackArrived(fr.payload[0], true);
@@ -492,7 +501,7 @@ function selectPreset(i) {
   S.cur = ((i % PRESETS) + PRESETS) % PRESETS;
   U.sel = null;
   persist();
-  if (connected() && U.info) {                                       /* la pédale charge SON preset, l'app l'affiche ensuite */
+  if (pedalOnline() && U.info) {                                     /* la pédale charge SON preset, l'app l'affiche ensuite (démo : chemin hors ligne) */
     const n = S.cur;
     renderAll();
     pedalCmd(CMD.PRESET_SELECT, [n]).then(ok => { if (ok) pedalReadCurrent(n); else toast('La pédale n\'a pas changé de preset', 'err'); });
