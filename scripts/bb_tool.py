@@ -697,7 +697,7 @@ if __name__ == "__main__":
         if find_uboot(False): raise SystemExit("un disque UBOOT est déjà présent : soft key non envoyée")
         midi_exchange(b"\xF0\x22\x24\x35\x7D\xF7", wait=0.5)
         print("soft key envoyée :", SOFT_KEY.hex(" "))
-    elif c == "otakey":   # F0 22 24 35 7F F7 (OTA_KEY de la Tank-G) ; mêmes garde-fous que softkey
+    elif c == "otakey":   # F0 22 24 35 7F F7 (OTA_KEY du bootloader JieLi) ; mêmes garde-fous que softkey
         name = identify()
         if not name or not name.startswith("BlackBox_"):
             raise SystemExit(f"identité {name!r} : le message n'est PAS envoyé")
