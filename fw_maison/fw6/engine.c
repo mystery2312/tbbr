@@ -108,7 +108,7 @@ struct st_dyn { s32 env, g, thr, att, rel, floor_g, mix, level; float thr_db, ra
 struct st_mod { s32 *buf; u32 wr, ph, inc, inc2, ph2; s32 base, depth, mix, fb, fbv, kind, shape, dry; s32 apz[12]; int nst; struct bq tone; };
 struct st_dly { s16 *buf; u32 len, wr, d; s32 fb, mix, dry; struct bq lp, hp; u32 ph, inc, mod; s32 dsm; };
 #define RV_N 12
-struct st_rev { s32 *line[RV_N]; u16 len[RV_N]; u16 idx[RV_N]; s32 filt[8]; s32 fbk, damp, mix, dry; struct bq lc, tone; s16 *pre; u32 plen, pwr, pd; };
+struct st_rev { s32 *line[RV_N]; u16 len[RV_N]; u16 idx[RV_N]; u8 nlines; s32 filt[8]; s32 fbk, damp, mix, dry; struct bq lc, tone; s16 *pre; u32 plen, pwr, pd; };
 /* IR : convolution partitionnée uniforme (overlap-save), FFT 256, blocs de 128, jusqu'à 16 partitions (2048 points) */
 #define IR_B 128
 #define IR_N 256
@@ -153,6 +153,7 @@ s32 engine_process(s32 x);
 
 struct block {
     u8 used, model, on;
+    u8 cm, cat;                                                      /* type de moteur et categorie, mis en cache au design */
     float p[MAX_PARAMS];
     union st_any s;
 };
@@ -438,7 +439,7 @@ static s32 run_dly(struct st_dly *l, s32 x)
     u32 rd, dd = l->d;
     if (!l->buf || !l->len) return x;
     if (l->mod) { l->ph += l->inc; dd += (u32)((lfo_sine(l->ph) + 32767) * (s32)l->mod >> 15); if (dd >= l->len) dd = l->len - 1; }
-    rd = (l->wr + l->len - dd) % l->len;
+    rd = l->wr >= dd ? l->wr - dd : l->wr + l->len - dd;
     d = (s32)l->buf[rd] << 8;
     f = bq_run(&l->hp, bq_run(&l->lp, d));
     { s32 w = (x + mulq15(f, l->fb)) >> 8; l->buf[l->wr] = (s16)(w > 32767 ? 32767 : (w < -32768 ? -32768 : w)); }
@@ -466,6 +467,8 @@ static void design_rev(struct block *b)
         r->pre = pool_alloc(r->plen * 2);
         if (!r->pre) r->plen = 0;
     }
+    r->nlines = 0;
+    for (i = 0; i < RV_N; i++) if (r->line[i] && r->len[i]) r->nlines++;
     /* rétroaction des peignes d'après le temps de décroissance (RT60) : g = 10^(-3 * longueur / (RT60 * fs)) */
     fbk = powf(10.0f, -3.0f * (float)(rv_base[3] * scale) / (clampf(decay, 0.1f, 20.0f) * FS));
     r->fbk = (s32)(clampf(fbk, 0.2f, 0.985f) * 32767.0f);
@@ -478,36 +481,60 @@ static void design_rev(struct block *b)
 static s32 run_rev(struct st_rev *r, s32 x)
 {
     s32 in = bq_run(&r->lc, x), sum = 0, y;
+    const s32 damp = r->damp, fbk = r->fbk;
     int k;
     if (r->plen) {                                                     /* pré-délai */
-        u32 rd = (r->pwr + r->plen - r->pd) % r->plen;
+        u32 rd = r->pwr >= r->pd ? r->pwr - r->pd : r->pwr + r->plen - r->pd;
         s32 w = in >> 8;
         r->pre[r->pwr] = (s16)(w > 32767 ? 32767 : (w < -32768 ? -32768 : w));
         in = (s32)r->pre[rd] << 8;
         if (++r->pwr >= r->plen) r->pwr = 0;
     }
     in = mulq15(in, 1311);                                             /* 0,04 */
-    for (k = 0; k < 8; k++) {
-        s32 *b = r->line[k], o;
-        u32 i = r->idx[k];
-        if (!b || !r->len[k]) continue;
-        o = b[i];
-        r->filt[k] = mulq15(o, 32767 - r->damp) + mulq15(r->filt[k], r->damp);
-        b[i] = in + mulq15(r->filt[k], r->fbk);
-        if (++i >= r->len[k]) i = 0;
-        r->idx[k] = (u16)i;
-        sum += o;
-    }
-    y = sum;
-    for (k = 8; k < RV_N; k++) {
-        s32 *b = r->line[k], o;
-        u32 i = r->idx[k];
-        if (!b || !r->len[k]) continue;
-        o = b[i];
-        b[i] = y + (o >> 1);
-        y = o - y;
-        if (++i >= r->len[k]) i = 0;
-        r->idx[k] = (u16)i;
+    if (r->nlines == RV_N) {                                           /* cas normal : 12 lignes allouees */
+        for (k = 0; k < 8; k++) {
+            s32 *b = r->line[k];
+            u32 i = r->idx[k], len = r->len[k];
+            s32 o = b[i];
+            r->filt[k] = mulq15(o, 32767 - damp) + mulq15(r->filt[k], damp);
+            b[i] = in + mulq15(r->filt[k], fbk);
+            if (++i >= len) i = 0;
+            r->idx[k] = (u16)i;
+            sum += o;
+        }
+        y = sum;
+        for (k = 8; k < RV_N; k++) {
+            s32 *b = r->line[k];
+            u32 i = r->idx[k], len = r->len[k];
+            s32 o = b[i];
+            b[i] = y + (o >> 1);
+            y = o - y;
+            if (++i >= len) i = 0;
+            r->idx[k] = (u16)i;
+        }
+    } else {
+        for (k = 0; k < 8; k++) {
+            s32 *b = r->line[k], o;
+            u32 i = r->idx[k];
+            if (!b || !r->len[k]) continue;
+            o = b[i];
+            r->filt[k] = mulq15(o, 32767 - damp) + mulq15(r->filt[k], damp);
+            b[i] = in + mulq15(r->filt[k], fbk);
+            if (++i >= r->len[k]) i = 0;
+            r->idx[k] = (u16)i;
+            sum += o;
+        }
+        y = sum;
+        for (k = 8; k < RV_N; k++) {
+            s32 *b = r->line[k], o;
+            u32 i = r->idx[k];
+            if (!b || !r->len[k]) continue;
+            o = b[i];
+            b[i] = y + (o >> 1);
+            y = o - y;
+            if (++i >= r->len[k]) i = 0;
+            r->idx[k] = (u16)i;
+        }
     }
     y = bq_run(&r->tone, y);
     return mulq15(x, r->dry) + mulq15(y, r->mix);
@@ -721,7 +748,7 @@ static void design_cab(struct block *b)
     /* FFT réelle de 256 points par une FFT complexe de 128 : z[n] = x[2n] + j x[2n+1] */
     for (k = 0; k < IR_N / 2; k++) { fre[k] = r->xin[2 * k]; fim[k] = r->xin[2 * k + 1]; }
     fft128_fwd_scaled();                                                 /* Z / 128 */
-    r->head = (r->head + r->P - 1) % r->P;                               /* ligne à retard fréquentielle */
+    r->head = r->head ? r->head - 1 : (u32)r->P - 1;                               /* ligne à retard fréquentielle */
     {   /* X[k] / 256 = ((Z[k] + Z*[128-k]) + W^k (Z[k] - Z*[128-k]) / j) / 4 ; écrit deux fois (head et head + P) :
            les partitions head..head+np-1 sont alors contiguës, sans rebouclage */
         s32 *X2;
@@ -994,12 +1021,14 @@ u32 engine_bench_model(int m, int n)
 int cm_is(int m); unsigned int cm_size(void); void cm_design(void *mem, int m, const float *p); s32 cm_run(void *mem, s32 x);
 static void design(struct block *b)
 {
-    if (cm_is(b->model)) {                                             /* pédales / amplis modélisés */
+    b->cm = (u8)cm_is(b->model);
+    b->cat = (u8)MODEL_DEFS[b->model].cat;
+    if (b->cm) {                                             /* pédales / amplis modélisés */
         if (!b->s.cm.mem) b->s.cm.mem = pool_alloc(cm_size());
         if (b->s.cm.mem) cm_design(b->s.cm.mem, b->model, b->p);
         return;
     }
-    switch (MODEL_DEFS[b->model].cat) {
+    switch (b->cat) {
     case CAT_DRIVE: case CAT_AMP: if (b->model == M_NAM) design_nam(b); else design_drive(b); break;
     case CAT_DYN: if (b->model == M_BOOST) design_eq(b); else design_dyn(b); break;
     case CAT_MOD: design_mod(b); break;
@@ -1037,8 +1066,8 @@ void engine_ir_changed(int slot)
 static s32 run(struct block *b, s32 x)
 {
     if (!b->on) return x;
-    if (cm_is(b->model)) return b->s.cm.mem ? cm_run(b->s.cm.mem, x) : x;
-    switch (MODEL_DEFS[b->model].cat) {
+    if (b->cm) return b->s.cm.mem ? cm_run(b->s.cm.mem, x) : x;
+    switch (b->cat) {
     case CAT_DRIVE: case CAT_AMP: return b->model == M_NAM ? run_nam(b, x) : run_drive(&b->s.d, x);
     case CAT_DYN: return b->model == M_BOOST ? run_eq(&b->s.e, x) : run_dyn(b, x);
     case CAT_MOD: return run_mod(&b->s.m, x);
@@ -1305,6 +1334,10 @@ static s32 process_cols(s32 x, int c0, int c1)
 {
     int c, si = 0;
     s32 xa = 0, xb = 0;
+    if (!nsec) {                                                       /* chaine serie : pas de split a verifier */
+        for (c = c0; c < c1; c++) if (grid[0][c].used) x = run(&grid[0][c], x);
+        return x;
+    }
     while (si < nsec && secs[si].to <= c0) si++;
     for (c = c0; c < c1; c++) {
         int in_sec = si < nsec && c >= secs[si].from && c < secs[si].to;
