@@ -177,6 +177,7 @@ function markDirty(i = S.cur) {
  * Communication avec la pédale
  * ========================================================= */
 const connected = () => !!(U.tx && U.tx.connected);
+const pedalOnline = () => connected() && U.tx.kind !== 'demo';       /* une vraie pédale, pas la simulation */
 function send(cmd, payload) { if (connected()) U.tx.send(cmd, payload); }
 
 const throttles = new Map();
@@ -756,8 +757,8 @@ function presetMenu(i) {
     '-',
     { ic: 'copy', label: 'Copier', fn: () => { U.clip = JSON.stringify(p); toast('Preset « ' + p.name + ' » copié'); } },
     cur ? { ic: 'paste', label: 'Coller ici', disabled: !U.clip, fn: () => presetAction('paste') } : null,
-    cur ? { ic: 'down', label: 'Exporter (fichier)', fn: () => presetAction('export') } : null,
-    cur ? { ic: 'up', label: 'Importer (fichier)…', fn: () => presetAction('import') } : null,
+    cur ? { ic: 'down', label: 'Exporter le preset (IR/NAM inclus)', fn: () => presetAction('export') } : null,
+    cur ? { ic: 'up', label: 'Importer un preset (IR/NAM inclus)…', fn: () => presetAction('import') } : null,
     cur ? '-' : null,
     cur ? { ic: 'reset', label: 'Réinitialiser', danger: true, fn: () => presetAction('init') } : null,
   ] };
@@ -810,6 +811,22 @@ function setPresetField(key, v) {
   else throttled('pf' + key, syncPreset, 120);
 }
 
+function cleanParams(mid, src) {
+  const out = defaultParams(mid), s = src && typeof src === 'object' ? src : {};
+  for (const pd of MODEL[mid].params) {
+    const v = s[pd.id];
+    if (v == null) continue;
+    if (pd.type === 'bool') out[pd.id] = !!v;
+    else if (pd.type === 'nam') out[pd.id] = clamp(Math.round(+v) || 0, 0, NAM_SLOTS - 1);
+    else if (pd.type === 'ir') out[pd.id] = clamp(Math.round(+v) || 0, 0, IR_SLOTS - 1);
+    else if (pd.type === 'select') out[pd.id] = clamp(Math.round(+v) || 0, 0, pd.options.length - 1);
+    else {
+      const n = +v;
+      if (Number.isFinite(n) && Number.isFinite(pd.min) && Number.isFinite(pd.max)) out[pd.id] = clamp(n, pd.min, pd.max);
+    }
+  }
+  return out;
+}
 function sanitizePreset(p) {
   if (!p || !Array.isArray(p.lanes) || !Array.isArray(p.scenes)) throw new Error('format');
   const base = initPreset();
@@ -820,16 +837,23 @@ function sanitizePreset(p) {
   out.lanes = [0, 1].map(l => Array.from({ length: COLS }, (_, c) => fix(src[l] && src[l][c])));
   /* anciennes rangées C/D (maquette précédente) : repliées sur B quand la case est libre */
   for (let l = 2; l < src.length; l++) (src[l] || []).forEach((b, c) => { const f = fix(b); if (f && !out.lanes[1][c]) out.lanes[1][c] = f; });
-  out.par = p.par && typeof p.par === 'object' ? { ...p.par } : {};
+  out.par = {};
+  if (p.par && typeof p.par === 'object') for (const k of Object.keys(p.par)) {
+    const v = +p.par[k];
+    if (Number.isFinite(v)) out.par[k] = clamp(v, 0, 100);
+  }
   out.scenes = Array.from({ length: SCENES }, (_, i) => {
     const s = p.scenes[i] || {}, state = {};
     for (const { b } of blocks(out)) {
       const src = (s.state && s.state[b.uid]) || {};
-      state[b.uid] = { on: src.on !== false, p: { ...defaultParams(b.model), ...src.p } };
+      state[b.uid] = { on: src.on !== false, p: cleanParams(b.model, src.p) };
     }
     return { name: String(s.name || SCENE_NAMES[i]).slice(0, 16), state };
   });
   out.scene = clamp(out.scene | 0, 0, SCENES - 1);
+  out.tempo = clamp(Math.round(+out.tempo || 120), 20, 400);
+  out.level = clamp(+out.level || 0, -60, 12);
+  if (!/^#[0-9a-f]{6}$/i.test(out.color || '')) out.color = '#9aa3ad';
   if (!Array.isArray(out.fs) || out.fs.length < 4) out.fs = defaultFs(out);
   out.name = String(out.name || 'Import').slice(0, 20);
   return out;
@@ -844,6 +868,239 @@ function replacePreset(p, msg) {
   if (msg) toast(msg, 'ok');
 }
 
+/* =========================================================
+ * Preset complet : preset + captures NAM + IR réellement utilisées
+ * Format v2 : {format:"tbbr-preset", version:2, preset, assets:{nam,ir}}
+ * ========================================================= */
+const PRESET_FILE_VERSION = 2;
+const bytesToB64 = u8 => {
+  const b = u8 instanceof Uint8Array ? u8 : new Uint8Array(u8 || 0);
+  let s = '';
+  for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000));
+  return btoa(s);
+};
+const b64ToBytes = s => {
+  const t = atob(String(s || '')), u = new Uint8Array(t.length);
+  for (let i = 0; i < t.length; i++) u[i] = t.charCodeAt(i);
+  return u;
+};
+function presetAssetSlots(p) {
+  const nam = new Set(), ir = new Set();
+  for (const { b } of blocks(p)) {
+    const kind = b.model === 'nam' ? 'nam' : b.model === 'ir' ? 'ir' : null;
+    if (!kind) continue;
+    for (const sc of p.scenes) {
+      const st = sc.state && sc.state[b.uid], v = st && st.p ? st.p.slot : null;
+      if (v != null && Number.isFinite(+v)) (kind === 'nam' ? nam : ir).add(Math.round(+v));
+    }
+  }
+  return { nam: [...nam].sort((a, b) => a - b), ir: [...ir].sort((a, b) => a - b) };
+}
+async function namFileAsset(slot) {
+  const n = S.nams[slot];
+  if (!n) return null;
+  const d = await idb.get(n.id);
+  if (!d || !d.weights) throw new Error('poids NAM absents pour « ' + n.name + ' »');
+  const wb = new Uint8Array(d.weights.buffer.slice(0));
+  return {
+    name: String(n.name || 'Capture'), arch: String(n.arch || ''), a2: !!n.a2, sr: +n.sr || 48000,
+    nWeights: d.weights.length, bytes: wb.length, meta: n.meta && typeof n.meta === 'object' ? n.meta : {},
+    cfg: bytesToB64(d.cfg || new Uint8Array(0)), weights: f2b(d.weights), crc: crc32(wb),
+  };
+}
+function irFileAsset(slot) {
+  const ir = S.irs[slot];
+  if (!ir) return null;
+  if (ir.synth) return { name: String(ir.name || 'IR'), synth: ir.synth, rate: +ir.rate || 48000, len: +ir.len || 2048, user: false };
+  const x = irData(slot);
+  if (!x) throw new Error('données IR absentes pour « ' + ir.name + ' »');
+  const bytes = new Uint8Array(x.buffer.slice(0));
+  return {
+    name: String(ir.name || 'IR'), user: true, rate: +ir.rate || 48000, len: x.length,
+    srcLen: +ir.srcLen || x.length, srcRate: +ir.srcRate || 48000, data: f2b(x), crc: crc32(bytes),
+  };
+}
+async function allocNamSlot(slot, a) {
+  const pedalNam = pedalOnline() && Array.isArray(U.pedalNam) ? U.pedalNam : null;
+  const free = i => !S.nams[i] && !(pedalNam && pedalNam[i]);
+  if (a == null) {                                                   /* référence explicite à un slot vide */
+    if (free(slot)) return { slot, created: false };
+    const e = S.nams.findIndex((x, i) => free(i));
+    if (e < 0) throw new Error('aucun emplacement NAM libre');
+    return { slot: e, created: false };
+  }
+  if (!a.weights) throw new Error('capture NAM incomplète');
+  const bytes = b64ToBytes(a.weights);
+  if (!bytes.length || (bytes.length & 3)) throw new Error('poids NAM invalides');
+  const weights = new Float32Array(bytes.buffer);
+  const nw = +a.nWeights || weights.length;
+  if (nw !== weights.length) throw new Error('taille NAM incohérente');
+  if (weights.length !== 1871) throw new Error('capture NAM non A2 Lite (1871 poids attendus)');
+  const crc = a.crc != null ? (+a.crc >>> 0) : crc32(bytes);
+  if (a.crc != null && crc32(bytes) !== crc) throw new Error('CRC NAM invalide');
+  for (let i = 0; i < NAM_SLOTS; i++) {
+    const n = S.nams[i], pn = pedalNam && pedalNam[i];
+    if (!n || n.name !== String(a.name || '') || (+n.nWeights || 0) !== weights.length) continue;
+    if (pn && pn !== n.name) continue;                               /* le slot pédale contient autre chose */
+    const d = await idb.get(n.id);
+    if (!d || !d.weights) continue;
+    if (crc32(new Uint8Array(d.weights.buffer.slice(0))) === crc) return { slot: i, created: true };
+  }
+  const i = S.nams.findIndex((x, i) => free(i));
+  if (i < 0) throw new Error('aucun emplacement NAM libre');
+  const id = uid();
+  S.nams[i] = {
+    name: String(a.name || 'Capture').slice(0, 32), file: String(a.file || a.name || '').slice(0, 64),
+    arch: String(a.arch || 'WaveNet'), a2: !!a.a2, sr: +a.sr || 48000, nWeights: weights.length,
+    bytes: bytes.length, meta: a.meta && typeof a.meta === 'object' ? a.meta : {},
+    added: Date.now(), onDevice: false, id,
+  };
+  await idb.put(id, { cfg: b64ToBytes(a.cfg), weights });
+  return { slot: i, created: true };
+}
+function allocIrSlot(slot, a) {
+  const pedalIr = pedalOnline() && Array.isArray(U.pedalIr) ? U.pedalIr : null;
+  const free = i => !S.irs[i] && !(pedalIr && pedalIr[i]);
+  if (a == null) {
+    if (free(slot)) return { slot, created: false };
+    const e = S.irs.findIndex((x, i) => free(i));
+    if (e < 0) throw new Error('aucun emplacement IR libre');
+    return { slot: e, created: false };
+  }
+  if (a.synth) {
+    const synth = Math.round(+a.synth), len = Math.round(+a.len) || 2048;
+    if (!synth) throw new Error('IR d’usine invalide');
+    for (let i = 0; i < IR_SLOTS; i++) {
+      const ir = S.irs[i], pi = pedalIr && pedalIr[i];
+      if (ir && !ir.user && ir.synth === synth && (+ir.len || 2048) === len && (!pi || pi === ir.name))
+        return { slot: i, created: true };
+    }
+    const i = S.irs.findIndex((x, i) => free(i));
+    if (i < 0) throw new Error('aucun emplacement IR libre');
+    S.irs[i] = { name: String(a.name || 'IR').slice(0, 28), synth, rate: +a.rate || 48000, len, user: false };
+    U.irCache.delete(i);
+    return { slot: i, created: true };
+  }
+  const x = b2f(a.data || '');
+  if (!x.length) throw new Error('IR vide');
+  if (a.len && x.length !== +a.len) throw new Error('longueur IR incohérente');
+  const bytes = new Uint8Array(x.buffer.slice(0));
+  const crc = a.crc != null ? (+a.crc >>> 0) : crc32(bytes);
+  if (a.crc != null && crc32(bytes) !== crc) throw new Error('CRC IR invalide');
+  for (let i = 0; i < IR_SLOTS; i++) {
+    const ir = S.irs[i], pi = pedalIr && pedalIr[i];
+    if (!ir || !ir.user || ir.name !== String(a.name || '') || (+ir.len || 0) !== x.length) continue;
+    if (pi && pi !== ir.name) continue;
+    const xi = irData(i);
+    if (xi && crc32(new Uint8Array(xi.buffer.slice(0))) === crc) return { slot: i, created: true };
+  }
+  const i = S.irs.findIndex((x, i) => free(i));
+  if (i < 0) throw new Error('aucun emplacement IR libre');
+  S.irs[i] = {
+    name: String(a.name || 'IR').slice(0, 28), user: true, rate: +a.rate || 48000, len: x.length,
+    srcLen: +a.srcLen || x.length, srcRate: +a.srcRate || 48000, data: f2b(x), crc,
+  };
+  U.irCache.delete(i);
+  return { slot: i, created: true };
+}
+function remapPresetAssets(p, namMap, irMap) {
+  for (const { b } of blocks(p)) {
+    const map = b.model === 'nam' ? namMap : b.model === 'ir' ? irMap : null;
+    if (!map) continue;
+    for (const sc of p.scenes) {
+      const st = sc.state && sc.state[b.uid];
+      if (!st || !st.p || st.p.slot == null) continue;
+      const old = String(Math.round(+st.p.slot));
+      if (Object.prototype.hasOwnProperty.call(map, old)) st.p.slot = map[old];
+    }
+  }
+}
+async function exportPresetFile() {
+  const p = P(), refs = presetAssetSlots(p), assets = { nam: {}, ir: {} };
+  if (pedalOnline() && refs.nam.length && !Array.isArray(U.pedalNam))
+    throw new Error('liste NAM de la pédale inconnue : reconnecte-la avant d’exporter');
+  if (pedalOnline() && refs.ir.length && !Array.isArray(U.pedalIr))
+    throw new Error('liste IR de la pédale inconnue : reconnecte-la avant d’exporter');
+  try {
+    for (const slot of refs.nam) {
+      if (!S.nams[slot] && connected() && U.pedalNam && U.pedalNam[slot])
+        throw new Error('capture NAM du slot ' + (slot + 1) + ' absente de l’app (importe-la d’abord)');
+      assets.nam[slot] = await namFileAsset(slot);
+    }
+    for (const slot of refs.ir) {
+      if (!S.irs[slot] && connected() && U.pedalIr && U.pedalIr[slot])
+        throw new Error('IR du slot ' + (slot + 1) + ' absente de l’app (importe-la d’abord)');
+      assets.ir[slot] = irFileAsset(slot);
+    }
+  } catch (e) {
+    toast('Export impossible : ' + (e.message || e), 'err');
+    return false;
+  }
+  const doc = { format: 'tbbr-preset', version: PRESET_FILE_VERSION, app: 'TBBR', created: new Date().toISOString(), preset: p, assets };
+  download(presetLabel(S.cur) + '-' + slug(p.name) + '.tbbr.json', JSON.stringify(doc, null, 1));
+  toast('Preset exporté avec ses IR/NAM : ' + p.name, 'ok');
+  return true;
+}
+async function importPresetFile(file) {
+  let j;
+  try { j = JSON.parse(await file.text()); } catch { throw new Error('fichier JSON illisible'); }
+  if (j.format === 'tbbr-backup') throw new Error('c’est une sauvegarde complète : utilise « Restaurer »');
+  if (j.format && j.format !== 'tbbr-preset') throw new Error('format de fichier inconnu');
+  const ver = +j.version || 1;
+  if (ver > PRESET_FILE_VERSION) throw new Error('fichier créé par une version plus récente');
+  let p;
+  try { p = sanitizePreset(j.preset || j); } catch { throw new Error('preset invalide'); }
+  if (blocks(p).filter(x => x.b.model === 'nam').length > 1) throw new Error('un seul bloc NAM par preset');
+  const refs = presetAssetSlots(p), assets = j.assets && typeof j.assets === 'object' ? j.assets : {};
+  if (pedalOnline() && refs.nam.length && !Array.isArray(U.pedalNam))
+    throw new Error('liste NAM de la pédale inconnue : reconnecte-la avant d’importer');
+  if (pedalOnline() && refs.ir.length && !Array.isArray(U.pedalIr))
+    throw new Error('liste IR de la pédale inconnue : reconnecte-la avant d’importer');
+  const an = assets.nam && typeof assets.nam === 'object' ? assets.nam : {};
+  const ai = assets.ir && typeof assets.ir === 'object' ? assets.ir : {};
+  if (ver >= 2) {
+    const missing = [];
+    for (const slot of refs.nam) {
+      if (!Object.prototype.hasOwnProperty.call(an, slot)) missing.push('NAM ' + (slot + 1));
+      else if (an[slot] && !an[slot].weights) missing.push('NAM ' + (slot + 1));
+    }
+    for (const slot of refs.ir) {
+      if (!Object.prototype.hasOwnProperty.call(ai, slot)) missing.push('IR ' + (slot + 1));
+      else if (ai[slot] && !ai[slot].synth && !ai[slot].data) missing.push('IR ' + (slot + 1));
+    }
+    if (missing.length) throw new Error('données manquantes : ' + missing.join(', '));
+  }
+  const load = dspLoad(p);
+  if (load > DSP_LOAD_MAX) throw new Error('preset trop lourd (' + load + ' % DSP, maximum ' + DSP_LOAD_MAX + ' %)');
+  const nA = refs.nam.filter(s => an[s]).length, iA = refs.ir.filter(s => ai[s]).length;
+  const target = presetLabel(S.cur);
+  const detail = blocks(p).length + ' bloc' + (blocks(p).length > 1 ? 's' : '') +
+    (nA ? ', ' + nA + ' NAM' : '') + (iA ? ', ' + iA + ' IR' : '') + ' ; DSP estimé ' + load + ' %.';
+  if (!await confirmBox('Importer « ' + p.name + ' » ?', 'Le preset sera importé dans ' + target + ' (' + detail + ') et remplacera son contenu actuel.' +
+    (pedalOnline() && (nA || iA) ? ' Les IR/NAM seront envoyés à la pédale avant le preset.' : ''), 'Importer', false)) return false;
+  const namMap = {}, irMap = {}, createdN = [], createdI = [];
+  for (const slot of refs.nam) {
+    if (ver < 2) { namMap[slot] = slot; continue; }
+    const r = await allocNamSlot(slot, an[slot]);
+    namMap[slot] = r.slot; if (r.created) createdN.push(r.slot);
+  }
+  for (const slot of refs.ir) {
+    if (ver < 2) { irMap[slot] = slot; continue; }
+    const r = await allocIrSlot(slot, ai[slot]);
+    irMap[slot] = r.slot; if (r.created) createdI.push(r.slot);
+  }
+  remapPresetAssets(p, namMap, irMap);
+  if (createdN.length || createdI.length) persist();
+  if (pedalOnline()) {
+    for (const slot of createdN) if (!(await sendNam(slot))) throw new Error('envoi de la capture NAM interrompu');
+    for (const slot of createdI) if (!(await sendIR(slot))) throw new Error('envoi de l’IR interrompu');
+  }
+  replacePreset(p, 'Preset importé dans ' + target);
+  if (!pedalOnline() && (createdN.length || createdI.length))
+    toast('IR/NAM importés dans l’app : envoie-les à la pédale depuis leurs pages.', 'ok');
+  return true;
+}
+
 async function presetAction(a) {
   const p = P();
   if (a === 'copy') { U.clip = JSON.stringify(p); toast('Preset « ' + p.name + ' » copié'); }
@@ -854,14 +1111,12 @@ async function presetAction(a) {
     if (await confirmBox('Réinitialiser ' + presetLabel(S.cur) + ' ?', 'Le preset « ' + p.name + ' » sera remplacé par un preset vide (Gate → Ampli → IR). Annulable avec Ctrl+Z.', 'Réinitialiser'))
       replacePreset(initPreset(), 'Preset réinitialisé');
   } else if (a === 'export') {
-    download(presetLabel(S.cur) + '-' + slug(p.name) + '.tbbr.json', JSON.stringify({ format: 'tbbr-preset', version: 1, preset: p }, null, 1));
+    await exportPresetFile();
   } else if (a === 'import') {
     const f = await pickFile('.json,application/json');
     if (!f) return;
-    try {
-      const j = JSON.parse(await f.text());
-      replacePreset(sanitizePreset(j.preset || j), 'Importé dans ' + presetLabel(S.cur));
-    } catch { toast('Fichier de preset invalide', 'err'); }
+    try { await importPresetFile(f); }
+    catch (e) { toast('Import impossible : ' + (e && e.message || 'fichier de preset invalide'), 'err'); }
   }
 }
 const slug = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'preset';
@@ -1818,8 +2073,8 @@ async function loadWav(file, slot) {
 
 async function sendIR(slot) {
   const ir = S.irs[slot], x = irData(slot);
-  if (!ir) return;
-  if (!connected()) return toast('Connecte la pédale pour envoyer l’IR', 'err');
+  if (!ir) return false;
+  if (!connected()) { toast('Connecte la pédale pour envoyer l’IR', 'err'); return false; }
   const prog = progressModal('Envoi de « ' + ir.name + ' » → slot ' + (slot + 1));
   await U.tx.send(CMD.IR_BEGIN, { slot, name: ir.name, len: x.length, rate: 48000, fmt: 's16le' });
   const CH = 240;
@@ -1832,9 +2087,13 @@ async function sendIR(slot) {
     prog.set((i + n) / x.length);
   }
   const ok = !prog.cancelled && connected();
-  if (ok) await U.tx.send(CMD.IR_END, [slot]);
+  if (ok) {
+    await U.tx.send(CMD.IR_END, [slot]);
+    if (Array.isArray(U.pedalIr)) U.pedalIr[slot] = ir.name;
+  }
   prog.close();
   toast(ok ? 'IR envoyée dans le slot ' + (slot + 1) : 'Envoi interrompu', ok ? 'ok' : 'err');
+  return ok;
 }
 
 function useIRInPreset(slot) {
@@ -2013,13 +2272,13 @@ async function importNams(files) {
 
 async function sendNam(slot) {
   const n = S.nams[slot];
-  if (!n) return;
-  if (!connected()) return toast('Connecte la pédale pour envoyer la capture', 'err');
+  if (!n) return false;
+  if (!connected()) { toast('Connecte la pédale pour envoyer la capture', 'err'); return false; }
   const issues = namIssues(n);
-  if (issues.some(i => i[0] === 'bad')) return toast(issues.find(i => i[0] === 'bad')[1], 'err');
-  if (issues.length && !await confirmBox('Envoyer quand même ?', issues.map(i => i[1]).join(' '), 'Envoyer', false)) return;
+  if (issues.some(i => i[0] === 'bad')) { toast(issues.find(i => i[0] === 'bad')[1], 'err'); return false; }
+  if (issues.length && !await confirmBox('Envoyer quand même ?', issues.map(i => i[1]).join(' '), 'Envoyer', false)) return false;
   const data = await idb.get(n.id);
-  if (!data) return toast('Poids introuvables dans le navigateur : réimporte le fichier', 'err');
+  if (!data) { toast('Poids introuvables dans le navigateur : réimporte le fichier', 'err'); return false; }
   /* la pédale n'a besoin que des poids du sous-modèle Lite (topologie A2 Lite fixe, vérifiée à l'import) : float32 LE */
   const cfg = new Uint8Array(0), w = new Uint8Array(data.weights.buffer, data.weights.byteOffset, data.weights.byteLength);
   const blob = new Uint8Array(w);
@@ -2041,12 +2300,14 @@ async function sendNam(slot) {
     const e = new Uint8Array(5); e[0] = slot; new DataView(e.buffer).setUint32(1, crc, true);
     await U.tx.send(CMD.NAM_END, e);
     n.onDevice = true;
+    if (Array.isArray(U.pedalNam)) U.pedalNam[slot] = n.name;
     persist();
   }
   prog.close();
   logSys('NAM slot ' + (slot + 1) + ' : ' + blob.length + ' octets en ' + ((performance.now() - t0) / 1000).toFixed(1) + ' s, CRC32 ' + crc.toString(16).padStart(8, '0'));
   toast(ok ? 'Capture envoyée dans le slot NAM ' + (slot + 1) : 'Envoi interrompu', ok ? 'ok' : 'err');
   renderNam();
+  return ok;
 }
 
 async function deleteNam(slot) {
@@ -2054,6 +2315,7 @@ async function deleteNam(slot) {
   if (!n || !await confirmBox('Vider le slot NAM ' + (slot + 1) + ' ?', '« ' + n.name + ' » sera retirée de la bibliothèque' + (n.onDevice ? ' et de la pédale.' : '.'), 'Vider')) return;
   idb.del(n.id).catch(() => {});
   if (n.onDevice) send(CMD.NAM_DELETE, [slot]);
+  if (Array.isArray(U.pedalNam)) U.pedalNam[slot] = '';
   S.nams[slot] = null;
   persist();
   renderNam();
