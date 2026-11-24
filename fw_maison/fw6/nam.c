@@ -53,7 +53,7 @@ struct nam {
     struct xfer xf[2];
     s32 hcat[(HK - 1 + NB) * CH];
 };
-#define NAM_SPLIT_DEF 18
+#define NAM_SPLIT_DEF 19                                          /* couches [0,19) sur le 2e coeur ; mesure 91,7 % / 20,8 % */
 /* mémoire : l'état (nam_mem_size) et un historique par couche (nam_hist_bytes), alloués séparément par l'appelant
    pour pouvoir remplir les deux zones de la réserve (~18 Ko + 23 morceaux de 1,6 à 15 Ko, 111 Ko au total) */
 u32 nam_mem_size(void) { return sizeof(struct nam) + 64; }

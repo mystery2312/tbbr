@@ -43,10 +43,15 @@ Copy-Item (Join-Path $repo 'electron\build\icon.png') (Join-Path $res 'ic_launch
 
 # 3. version = celle de l'app de bureau ; clé de signature
 $ver = (Get-Content (Join-Path $repo 'electron\package.json') -Raw | ConvertFrom-Json).version
-$core = ($ver -split '-')[0]                                            # 0.9.5-beta.1 -> versionCode 905
+$core = ($ver -split '-')[0]
 $n = $core.Split('.') | ForEach-Object { [int]$_ }
 $env:TBBR_VERSION_NAME = $ver
-$env:TBBR_VERSION_CODE = [string]($n[0] * 10000 + $n[1] * 100 + $n[2])
+# versionCode strictement croissant (fichier suivi) : une beta puis la stable s'installent l'une sur l'autre.
+$codeFile = Join-Path $here 'version-code.txt'
+$code = if (Test-Path $codeFile) { [int]((Get-Content $codeFile -Raw).Trim()) } else { ($n[0] * 10000 + $n[1] * 100 + $n[2]) - 1 }
+$code++
+[IO.File]::WriteAllText($codeFile, [string]$code)
+$env:TBBR_VERSION_CODE = [string]$code
 $keys = if ($env:TBBR_KEYS) { $env:TBBR_KEYS } else { Join-Path $repo '..\keys' }
 $ks = Join-Path $keys 'tbbr-release.jks'; $pf = Join-Path $keys 'tbbr-release.pass'
 if (-not (Test-Path $ks)) {

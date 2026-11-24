@@ -132,7 +132,7 @@ const namCount = (p = P()) => activeBlocks(p).filter(x => x.b.model === 'nam').l
 const namCpu2 = () => (MODEL.nam && typeof MODEL.nam.cpu2 === 'number' ? MODEL.nam.cpu2 : 87);
 function fits(mid, replaced) {
   if (mid === 'nam' && (namCpu2() > 100 || namCount() - (replaced === 'nam' ? 1 : 0) !== 0)) return false;
-  return dspLoad() - dspOf(replaced) + dspOf(mid) <= 100;
+  return dspLoad() - dspOf(replaced) + dspOf(mid) <= 115;   /* 115 % : meme plafond que le chargement firmware */
 }
 function dspRefusal(mid) {
   if (mid === 'nam' && namCpu2() > 100) return 'NAM trop lourd pour le 2e cœur (' + namCpu2() + ' %)';

@@ -111,10 +111,10 @@ const MODELS = [
   { id: 'plexi',   cat: 'amp', name: 'Plexi 68', desc: 'Inspiré du Marshall Super Lead 1959', dsp: 26, params: AMP([sel('jump', 'Canaux', ['Normal', 'Bright', 'Jumped'], 2)]) },
   { id: 'rect',    cat: 'amp', name: 'Cali Rectified', desc: 'Inspiré du Mesa/Boogie Dual Rectifier', dsp: 36, params: AMP([sel('mode', 'Mode', ['Raw', 'Vintage', 'Modern'], 2), sel('rect', 'Redresseur', ['Tube', 'Diode'], 1)]) },
   { id: 'lead51',  cat: 'amp', name: 'Lead 5-1-50', desc: 'Inspiré du Peavey 5150 (canal Lead)', dsp: 35, params: AMP([k('res', 'Resonance', 5)]) },
-  { id: 'nam',     cat: 'amp', name: 'NAM Loader',      dsp: 39, params: [{ id: 'slot', name: 'Capture', type: 'nam', def: 0 }, db('in', 'Entrée'), db('out', 'Sortie', 0, -24, 12), db('bass', 'Bass'), db('mid', 'Mid'), db('treb', 'Treble'), tog('norm', 'Normaliser', true)] },
+  { id: 'nam',     cat: 'amp', name: 'NAM Loader',      dsp: 31, params: [{ id: 'slot', name: 'Capture', type: 'nam', def: 0 }, db('in', 'Entrée'), db('out', 'Sortie', 0, -24, 12), db('bass', 'Bass'), db('mid', 'Mid'), db('treb', 'Treble'), tog('norm', 'Normaliser', true)] },
   { id: 'bassamp', cat: 'amp', name: 'Bass SVx',        dsp: 13, params: [k('gain', 'Gain', 4), k('bass', 'Bass', 6), k('lmid', 'Lo-Mid', 5), k('hmid', 'Hi-Mid', 5), k('treb', 'Treble', 5), k('mast', 'Master', 5), tog('ultra', 'Ultra Lo', false)] },
 
-  { id: 'ir',     cat: 'cab', name: 'IR Loader', dsp: 26, params: [{ id: 'slot', name: 'IR', type: 'ir', def: 0 }, hz('lc', 'Low Cut', 80, 20, 500), hz('hc', 'High Cut', 8000, 2000, 20000, 10), pct('mix', 'Mix', 100), db('lvl', 'Niveau')] },
+  { id: 'ir',     cat: 'cab', name: 'IR Loader', dsp: 24, params: [{ id: 'slot', name: 'IR', type: 'ir', def: 0 }, hz('lc', 'Low Cut', 80, 20, 500), hz('hc', 'High Cut', 8000, 2000, 20000, 10), pct('mix', 'Mix', 100), db('lvl', 'Niveau')] },
   { id: 'cab412', cat: 'cab', name: '4x12 V30',  dsp: 20,  params: [sel('mic', 'Baffle', ['V30 SM57 A', 'V30 SM57 B', 'V30 Dyn 75', 'V30 + G12F', '4x12 fermé']), k('pos', 'Position', 3, 0, 10), k('dist', 'Distance', 2, 0, 10), hz('lc', 'Low Cut', 80, 20, 500), hz('hc', 'High Cut', 9000, 2000, 20000, 10)] },
   { id: 'cab212', cat: 'cab', name: 'Combo',     dsp: 20,  params: [sel('mic', 'Baffle', ['2x12 ouvert', '2x12 fermé', '2x12 mi-ouvert', '1x12 ouvert', '1x12 fermé', '4x10 ouvert'], 0), k('pos', 'Position', 4, 0, 10), k('dist', 'Distance', 2, 0, 10), hz('lc', 'Low Cut', 80, 20, 500), hz('hc', 'High Cut', 9000, 2000, 20000, 10)] },
 

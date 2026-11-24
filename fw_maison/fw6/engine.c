@@ -1130,7 +1130,7 @@ void engine_load_end(void)
  * Le NAM est réparti sur les deux cœurs : son « dsp » est sa moitié arrière (1er cœur), comptée avec les autres effets ;
  * sa moitié avant occupe NAM_C1_PCT % du 2e cœur. Un seul NAM par preset.
  * Tout bloc présent compte, même éteint (une scène peut le rallumer). */
-#define NAM_C1_PCT 88
+#define NAM_C1_PCT 92                                                  /* couches [0,19) : 91,7 % du 2e coeur, mesure sur la pedale */
 int engine_dsp_total(int skip_lane, int skip_col)
 {
     int l, c, t = 0;
@@ -1141,7 +1141,7 @@ int engine_dsp_total(int skip_lane, int skip_col)
     }
     return t;
 }
-/* charge du 2e cœur pour la moitié avant d'un NAM A2 Lite (couches [0, 18)), mesurée par nam_check.py à 396 MHz */
+/* charge du 2e cœur pour la moitié avant d'un NAM A2 Lite (couches [0, 19)), mesurée sur la pédale à 396 MHz */
 int engine_nam_c1_pct(void) { return NAM_C1_PCT; }
 static int nam_count(int skip_lane, int skip_col)
 {
@@ -1153,7 +1153,8 @@ static int nam_count(int skip_lane, int skip_col)
 int engine_dsp_check(int lane, int col, int m)
 {
     if (m == M_NAM && (NAM_C1_PCT > 100 || nam_count(lane, col) != 0)) return -2;
-    return engine_dsp_total(lane, col) + MODEL_DEFS[m].dsp <= 100 ? 0 : -2;
+    /* 115 % : plafond de chargement deja accepte par le firmware ; au-dela, refus. */
+    return engine_dsp_total(lane, col) + MODEL_DEFS[m].dsp <= 115 ? 0 : -2;
 }
 /* place un bloc (modèle m) aux réglages par défaut ; refusé (-2) si le budget DSP serait dépassé */
 int engine_block_set(int lane, int col, int m)

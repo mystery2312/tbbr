@@ -49,7 +49,7 @@ for i, mid in enumerate(names):
     res[mid] = max(0.0, ms / AUDIO_MS * 100)
     print(f"{mid:10s} {res[mid]:5.1f} % d'un coeur")
 # NAM brut réparti sur les 2 cœurs (commande 0x19, emplacement NAM_SLOT, coupure NAM_SPLIT) : moitié arrière = 1er cœur
-NAM_SLOT, NAM_SPLIT = int(os.environ.get("BB_NAM_SLOT", "1")), int(os.environ.get("BB_NAM_SPLIT", "18"))
+NAM_SLOT, NAM_SPLIT = int(os.environ.get("BB_NAM_SLOT", "1")), int(os.environ.get("BB_NAM_SPLIT", "19"))
 got = bb_tool.midi_exchange(bytes([0xF0, 0x7D, 0x42, 0x58, 0x19, NAM_SLOT, NAM_SPLIT, 0xF7]), wait=6.0, port="BlackBox Custom")
 d = None
 for raw in got:
