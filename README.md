@@ -43,6 +43,7 @@ Open firmware for the **M-VAVE BlackBox** multi-effects pedal (JieLi AC791N chip
 - **Everything** (firmware → installer → desktop app → website): `powershell -File build_all.ps1` (PyInstaller in `..\venv`, `npm install` in `electron/`).
 - **Android**: `powershell -File android\build_apk.ps1` (Android SDK, JDK 17+).
 - **Release**: bump `FW_VERSION` in `fw_maison/fw6/main.c` and `version` in `electron/package.json`, then `powershell -File release.ps1`.
+- **Beta**: set a version like `0.9.5-beta.1` in `electron/package.json`, then `powershell -File beta.ps1`. It builds and publishes only to the private `mystery2312/tbbr-beta` repository; `release.ps1` refuses beta versions.
 
 ## License
 

@@ -9,6 +9,7 @@ $repo = 'mystery2312/tbbr'
 Push-Location $here
 try {
     $ver = (Get-Content electron\package.json -Raw | ConvertFrom-Json).version
+    if ($ver -match '-beta') { throw "version beta : utiliser beta.ps1, pas release.ps1" }
     $fw = ([regex]::Match((Get-Content fw_maison\fw6\main.c -Raw), '#define FW_VERSION "TBBR (fw\d+) (\d+\.\d+)"')).Groups
     if (-not $fw[0].Success) { throw "FW_VERSION introuvable dans main.c" }
     $tag = "v$ver"; $pkg = "TBBR_$($fw[1].Value)_$($fw[2].Value).tbbr"

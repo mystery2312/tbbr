@@ -11,8 +11,9 @@ const path = require('path');
 const { spawn } = require('child_process');
 
 const PORT = 8791;
-const REPO = 'mystery2312/tbbr';                                    // GitHub : releases = app, installateur, paquets .tbbr
-const RELEASES = `https://github.com/${REPO}/releases/latest`;
+const BETA_CHANNEL = app.getVersion().includes('-beta');             // build beta : mises à jour depuis le dépôt beta
+const REPO = BETA_CHANNEL ? 'mystery2312/tbbr-beta' : 'mystery2312/tbbr';
+const RELEASES = BETA_CHANNEL ? `https://github.com/${REPO}/releases` : `https://github.com/${REPO}/releases/latest`;
 const APP_ROOT = app.isPackaged
   ? path.join(process.resourcesPath, 'app')
   : path.join(__dirname, '..', 'interface', 'app');
@@ -100,15 +101,25 @@ function verGt(a, b) {
 let relCache = null;
 async function latestRelease() {
   if (relCache && Date.now() - relCache.t < 10 * 60 * 1000) return relCache.r;
-  const res = await net.fetch(`https://api.github.com/repos/${REPO}/releases/latest`,
-    { headers: { 'Accept': 'application/vnd.github+json', 'User-Agent': 'TBBR-desktop' } });
-  if (!res.ok) throw new Error('GitHub ' + res.status);
-  const j = await res.json();
+  const headers = { 'Accept': 'application/vnd.github+json', 'User-Agent': 'TBBR-desktop' };
+  let j;
+  if (BETA_CHANNEL) {
+    /* le dépôt beta ne contient que des pré-releases : /releases/latest les ignore */
+    const res = await net.fetch(`https://api.github.com/repos/${REPO}/releases?per_page=20`, { headers });
+    if (!res.ok) throw new Error('GitHub ' + res.status);
+    const list = await res.json();
+    j = list.find(x => !x.draft && (x.assets || []).some(a => /\.tbbr$/i.test(a.name)));
+    if (!j) throw new Error('aucune beta publiée');
+  } else {
+    const res = await net.fetch(`https://api.github.com/repos/${REPO}/releases/latest`, { headers });
+    if (!res.ok) throw new Error('GitHub ' + res.status);
+    j = await res.json();
+  }
   const assets = j.assets || [];
   const tbbr = assets.find(a => /\.tbbr$/i.test(a.name));
   const m = tbbr && tbbr.name.match(/TBBR_(fw\d+)_(\d+\.\d+)\.tbbr/i);
   const r = {
-    tag: j.tag_name, page: j.html_url || RELEASES,
+    tag: j.tag_name, page: j.html_url || RELEASES, beta: BETA_CHANNEL,
     fw: m ? `TBBR ${m[1]} ${m[2]}` : null, tbbrUrl: tbbr && tbbr.browser_download_url, tbbrName: tbbr && tbbr.name,
     appVersion: app.getVersion(), appNewer: verGt(j.tag_name, app.getVersion()),
   };

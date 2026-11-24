@@ -43,7 +43,8 @@ Copy-Item (Join-Path $repo 'electron\build\icon.png') (Join-Path $res 'ic_launch
 
 # 3. version = celle de l'app de bureau ; clé de signature
 $ver = (Get-Content (Join-Path $repo 'electron\package.json') -Raw | ConvertFrom-Json).version
-$n = $ver.Split('.') | ForEach-Object { [int]$_ }
+$core = ($ver -split '-')[0]                                            # 0.9.5-beta.1 -> versionCode 905
+$n = $core.Split('.') | ForEach-Object { [int]$_ }
 $env:TBBR_VERSION_NAME = $ver
 $env:TBBR_VERSION_CODE = [string]($n[0] * 10000 + $n[1] * 100 + $n[2])
 $keys = if ($env:TBBR_KEYS) { $env:TBBR_KEYS } else { Join-Path $repo '..\keys' }
