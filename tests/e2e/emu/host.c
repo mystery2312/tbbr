@@ -192,6 +192,29 @@ int main(int argc, char **argv)
             out_msg('D', o, cnt * 8);
             break;
         }
+        case 'T': {   /* chronométrage d'un bloc seul (même charge utile que 'D', modèle 0xFFFF = grille vide) :
+                         meilleur de 7 passes de n échantillons -> double, nanosecondes par échantillon (processeur du PC) */
+            u32 cnt = *(u32 *)buf, m = ((u32 *)buf)[1], k = ((u32 *)buf)[2], i, rep;
+            static s32 xin[480000];
+            s32 engine_block_set_force(int, int, int); int engine_param(int, int, int, float); void engine_clear(void);
+            LARGE_INTEGER f, t0, t1;
+            double best = 1e30;
+            volatile s32 sink = 0;
+            if (cnt > 480000) cnt = 480000;
+            for (i = 0; i < cnt; i++) xin[i] = (s32)(0.3 * 8388607.0 * sin(2 * 3.14159265358979 * 220.0 * i / 48000.0) * exp(-(double)(i % 24000) / 9000.0));
+            engine_clear();
+            if (m != 0xFFFF && engine_block_set_force(0, 0, (int)m) != 0) fatal("modèle %u refusé", m);
+            for (i = 0; i < k; i++) engine_param(0, 0, (int)((u32 *)buf)[3 + 2 * i], ((float *)buf)[4 + 2 * i]);
+            QueryPerformanceFrequency(&f);
+            for (rep = 0; rep < 7; rep++) {
+                QueryPerformanceCounter(&t0);
+                for (i = 0; i < cnt; i++) sink += engine_process(xin[i]);
+                QueryPerformanceCounter(&t1);
+                { double ns = (double)(t1.QuadPart - t0.QuadPart) * 1e9 / (double)f.QuadPart / cnt; if (ns < best) best = ns; }
+            }
+            out_msg('T', &best, 8);
+            break;
+        }
         case 'C': {                                                  /* compteurs flash */
             u32 r[4]; r[0] = n_erase; r[1] = n_write; r[2] = bad_write; r[3] = st_err;
             out_msg('C', r, 16);
