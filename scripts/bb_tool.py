@@ -151,6 +151,10 @@ class SCSIDev:
         if self.h == INVALID:
             raise OSError(ctypes.get_last_error(), f"ouverture {path}")
     def close(self):
+        for a in getattr(self, "aliases", []):                      # lecteurs mis au repos par quiet_aliases
+            x = wt.DWORD(); k32.DeviceIoControl(a.h, 0x9001C, None, 0, None, 0, ctypes.byref(x), None)   # FSCTL_UNLOCK_VOLUME
+            a.close()
+        self.aliases = []
         if self.h: k32.CloseHandle(self.h); self.h = None
     def execute(self, cdb, data_out=None, data_in_len=0, timeout=10):
         s = SPTD(); s.len = ctypes.sizeof(s); s.target_id = 1; s.timeout = timeout; s.cdb_len = len(cdb)
@@ -167,6 +171,13 @@ class SCSIDev:
         if not k32.DeviceIoControl(self.h, 0x4D014, ctypes.byref(s), s.len, ctypes.byref(s), s.len, ctypes.byref(x), None):
             raise OSError(ctypes.get_last_error(), "IOCTL_SCSI_PASS_THROUGH_DIRECT")
         return buf.raw[:s.data_len] if (buf is not None and data_out is None) else b""
+    def device_number(self):
+        """(type, numéro) du disque physique derrière ce chemin (IOCTL_STORAGE_GET_DEVICE_NUMBER), None si inconnu :
+        une lettre de lecteur (\\\\.\\D:) et \\\\.\\PhysicalDriveN peuvent désigner la même pédale."""
+        out = (wt.DWORD * 3)(); x = wt.DWORD()
+        if not k32.DeviceIoControl(self.h, 0x2D1080, None, 0, ctypes.byref(out), ctypes.sizeof(out), ctypes.byref(x), None):
+            return None
+        return (out[0], out[1])
     def inquiry(self):
         d = self.execute(b"\x12\x00\x00\x00\x24\x00", data_in_len=36)
         return d[8:16].decode("ascii", "replace").strip(), d[16:32].decode("ascii", "replace").strip(), d[32:36].decode("ascii", "replace").strip()
@@ -174,6 +185,18 @@ class SCSIDev:
 def cdb(cmd, args):
     c = cmd.to_bytes(2, "big") + args
     return c + b"\xFF" * (16 - len(c))
+
+def _retry(what, fn, tries=6):
+    """Erreurs USB passagères (Errno 31 ERROR_GEN_FAILURE, 1117, 121…) : vues chez un utilisateur dont Windows lisait le disque
+    UBOOT en parallèle (lettre de lecteur). Lectures, effacements et écritures sont rejouables sans risque : chaque secteur
+    écrit est de toute façon relu et comparé. Jamais utilisé pour les sauts (mem_jump), qui ne répondent pas normalement."""
+    for essai in range(tries):
+        try:
+            return fn()
+        except OSError as e:
+            if essai == tries - 1: raise
+            print(f"  erreur USB passagère ({what} : {e}), nouvel essai", flush=True)
+            time.sleep(0.3 * (essai + 1))
 
 class Loader:   # UBOOT1.00 + LoaderV2, sous-ensemble LECTURE (plus mem_write/jump en RAM)
     def __init__(self, dev): self.dev = dev; self.full = False
@@ -183,9 +206,9 @@ class Loader:   # UBOOT1.00 + LoaderV2, sous-ensemble LECTURE (plus mem_write/ju
             raise OSError(0, f"réponse inattendue à la commande {cmd:#06x}: {r.hex(' ')}")
         return r[2:]
     def mem_write(self, addr, data):
-        self.dev.execute(cdb(0xFB06, addr.to_bytes(4, "big") + len(data).to_bytes(2, "big") + b"\x00" + crc16(data).to_bytes(2, "little")), data_out=data)
+        _retry(f"RAM {addr:#x}", lambda: self.dev.execute(cdb(0xFB06, addr.to_bytes(4, "big") + len(data).to_bytes(2, "big") + b"\x00" + crc16(data).to_bytes(2, "little")), data_out=data))
     def mem_read(self, addr, n):
-        return self.dev.execute(cdb(0xFD07, addr.to_bytes(4, "big") + n.to_bytes(2, "big")), data_in_len=n)
+        return _retry(f"RAM {addr:#x}", lambda: self.dev.execute(cdb(0xFD07, addr.to_bytes(4, "big") + n.to_bytes(2, "big")), data_in_len=n))
     def mem_jump(self, addr, arg=0):
         return self.cmd(0xFB08, addr.to_bytes(4, "big") + arg.to_bytes(2, "big"))
     def chip_key(self):
@@ -195,15 +218,15 @@ class Loader:   # UBOOT1.00 + LoaderV2, sous-ensemble LECTURE (plus mem_write/ju
         r = self.cmd(0xFC0A, b"")
         return r[0], int.from_bytes(r[2:6], "little")
     def flash_read(self, addr, n):
-        return self.dev.execute(cdb(0xFD05, addr.to_bytes(4, "big") + n.to_bytes(2, "big")), data_in_len=n)
+        return _retry(f"lecture {addr:#07x}", lambda: self.dev.execute(cdb(0xFD05, addr.to_bytes(4, "big") + n.to_bytes(2, "big")), data_in_len=n))
     # ÉCRITURE FLASH (protocole LoaderV2 de jl-uboot-tool, docs/usb-loader-v2.md) : données envoyées telles quelles (déjà chiffrées SFC)
     def flash_erase_sector(self, addr):
         _flash_guard(addr, 0x1000, self.full)
-        return self.cmd(0xFB01, addr.to_bytes(4, "big"))
+        return _retry(f"effacement {addr:#07x}", lambda: self.cmd(0xFB01, addr.to_bytes(4, "big")))
     def flash_write(self, addr, data):
         _flash_guard(addr, len(data), self.full)
-        self.dev.execute(cdb(0xFB04, addr.to_bytes(4, "big") + len(data).to_bytes(2, "big") + b"\x00" + crc16(data).to_bytes(2, "little")),
-                         data_out=data, timeout=20)
+        _retry(f"écriture {addr:#07x}", lambda: self.dev.execute(cdb(0xFB04, addr.to_bytes(4, "big") + len(data).to_bytes(2, "big") + b"\x00" + crc16(data).to_bytes(2, "little")),
+                                                                  data_out=data, timeout=20))
 
 # Zone normale : application + stockage maison [0x4000, 0xA7000) (V19 : VM à 0xA7000).
 # Restauration complète : [0x4000, 0x100000), pour remettre aussi VM / BTIF / USR d'origine.
@@ -224,7 +247,9 @@ def candidate_paths():
     return paths
 
 def find_uboot(verbose=True):
-    found = []
+    """Disques UBOOT présents, un seul chemin par disque physique. Selon le PC, Windows donne aussi une lettre de lecteur
+    au disque UBOOT : la même pédale apparaît alors en \\\\.\\D: ET en \\\\.\\PhysicalDriveN (on garde PhysicalDriveN)."""
+    found, seen = [], {}
     for p in candidate_paths():
         try:
             d = SCSIDev(p)
@@ -235,11 +260,18 @@ def find_uboot(verbose=True):
             if verbose and (pr.startswith(("UBOOT", "UDISK", "DEVICE")) or v.startswith("WL8")):
                 print(f"  {p}: {v} {pr} {rev}")
             if pr.startswith("UBOOT") or v == "WL82":
+                key = d.device_number() or p
+                if key in seen:                                       # même disque déjà vu par un autre chemin
+                    if "PhysicalDrive" in p: found[seen[key]] = (p, v, pr, rev)
+                    continue
+                seen[key] = len(found)
                 found.append((p, v, pr, rev))
         except OSError:
             pass
         finally:
             d.close()
+    if any("PhysicalDrive" in f[0] for f in found):                  # numéro de disque refusé sur une lettre : chaque
+        found = [f for f in found if "PhysicalDrive" in f[0]]         # pédale a de toute façon son PhysicalDriveN
     return found
 
 def sha(path): return hashlib.sha256(open(path, "rb").read()).hexdigest()
@@ -251,13 +283,34 @@ def open_session():
     path, v, pr, rev = f[0]
     print(f"UBOOT : {path} -> {v} {pr} {rev}")
     dev = SCSIDev(path)
+    dev.aliases = quiet_aliases(dev, path)
     return dev, v, pr
+
+def quiet_aliases(dev, path):
+    """Si Windows a donné une lettre de lecteur au disque UBOOT, il y lit en parallèle (Explorateur, antivirus, système de
+    fichiers) et ces lectures font échouer les commandes du loader (Errno 31 chez un utilisateur). Le volume est verrouillé et
+    démonté pendant la session (lettres qui désignent le MÊME disque physique seulement), puis libéré par dev.close()."""
+    num, out = dev.device_number(), []
+    if not num: return out
+    for c in range(ord("C"), ord("Z") + 1):
+        p = f"\\\\.\\{chr(c)}:"
+        if p == path: continue
+        try: a = SCSIDev(p)
+        except OSError: continue
+        if a.device_number() != num: a.close(); continue
+        x = wt.DWORD()
+        locked = k32.DeviceIoControl(a.h, 0x90018, None, 0, None, 0, ctypes.byref(x), None)        # FSCTL_LOCK_VOLUME
+        dism = k32.DeviceIoControl(a.h, 0x90020, None, 0, None, 0, ctypes.byref(x), None)          # FSCTL_DISMOUNT_VOLUME
+        print(f"lecteur {chr(c)}: (même pédale) mis au repos pendant l'opération" + ("" if locked and dism else f" (verrou {bool(locked)}, démontage {bool(dism)})"))
+        out.append(a)
+    return out
 
 def start_loader(dev, pr):
     ldr = Loader(dev)
     active = False
-    try: active = ldr.chip_key() == CHIP_KEY
-    except OSError: pass
+    for essai in range(3):                                         # une erreur passagère ne doit pas faire renvoyer le loader
+        try: active = ldr.chip_key() == CHIP_KEY; break           # par-dessus un loader déjà en marche
+        except OSError: time.sleep(0.3)
     if os.environ.get("BB_LOADER_ACTIVE") or active:   # loader déjà lancé dans cette session UBOOT : ne pas le recharger
         if not active: raise SystemExit("BB_LOADER_ACTIVE : le loader ne répond pas comme attendu")
         print("loader déjà actif")
@@ -410,16 +463,27 @@ def flash_app(img_path, ref_path, keep_storage=True, full=False):
         if cabs:
             curc = rd(CAB_LO, CAB_HI - CAB_LO)
             todo += [s for s in range(CAB_LO, CAB_HI, 0x1000) if curc[s - CAB_LO:s - CAB_LO + 0x1000] != img[s:s + 0x1000]]
+        # Ordre d'écriture : le début de l'app TBBR (secteurs < BOOT_HI) contient l'entrée de secours « HOME tenu à l'allumage
+        # -> UBOOT » (main.c, code autonome). Vers TBBR : ces secteurs d'abord (secours disponible au plus tôt) ; vers un autre
+        # firmware (restauration) : en dernier (le secours de l'ancien TBBR reste en place si l'écriture est interrompue).
+        BOOT_HI = 0x7000
+        boot, rest = [s for s in todo if s < BOOT_HI], [s for s in todo if s >= BOOT_HI]
+        todo = boot + rest if b"TBBR fw" in plain else rest + boot
         if keep_storage and not full: print(f"zone de stockage [{STORE_LO:#x}, {FLASH_W_HI:#x}) conservée (--tout pour l'écrire aussi)" + (" ; cabs d'usine mis à jour" if cabs else ""))
         if full: print(f"restauration complète [{FLASH_W_LO:#x}, {hi:#x}) ; SPL [0, {FLASH_W_LO:#x}) intact")
         print(f"zone lue en {time.time() - t0:.0f} s ; secteurs à écrire : {[hex(s) for s in todo]}")
         for s in todo:
             want = img[s:s + 0x1000]
-            for essai in range(1, 4):
-                ldr.flash_erase_sector(s)
-                for o in range(0, 0x1000, BLOCK):
-                    ldr.flash_write(s + o, want[o:o + BLOCK])
-                if rd(s, 0x1000) == want:
+            for essai in range(1, 6):
+                try:
+                    ldr.flash_erase_sector(s)
+                    for o in range(0, 0x1000, BLOCK):
+                        ldr.flash_write(s + o, want[o:o + BLOCK])
+                    ok = rd(s, 0x1000) == want
+                except OSError as e:                               # erreur USB persistante : on recommence le secteur
+                    print(f"  secteur {s:#07x} : erreur USB ({e}), nouvel essai", flush=True)
+                    time.sleep(1.0 * essai); continue
+                if ok:
                     print(f"  secteur {s:#07x} écrit et vérifié" + (f" (essai {essai})" if essai > 1 else "")); break
                 print(f"  secteur {s:#07x} : relecture différente, nouvel essai")
             else:
@@ -697,7 +761,7 @@ if __name__ == "__main__":
         if find_uboot(False): raise SystemExit("un disque UBOOT est déjà présent : soft key non envoyée")
         midi_exchange(b"\xF0\x22\x24\x35\x7D\xF7", wait=0.5)
         print("soft key envoyée :", SOFT_KEY.hex(" "))
-    elif c == "otakey":   # F0 22 24 35 7F F7 (OTA_KEY de la Tank-G) ; mêmes garde-fous que softkey
+    elif c == "otakey":   # F0 22 24 35 7F F7 (OTA_KEY du bootloader JieLi) ; mêmes garde-fous que softkey
         name = identify()
         if not name or not name.startswith("BlackBox_"):
             raise SystemExit(f"identité {name!r} : le message n'est PAS envoyé")

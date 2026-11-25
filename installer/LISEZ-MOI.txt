@@ -24,8 +24,31 @@ RESTAURER LE FIRMWARE D'ORIGINE
 « Restaurer » réécrit toute la flash depuis la sauvegarde M-VAVE (bootloader exclu).
 L'installateur garde la sauvegarde M-VAVE d'origine sélectionnée en priorité.
 
+AVANT DE COMMENCER
+- Batterie de la pédale bien chargée : elle doit rester ALLUMÉE pendant toute l'opération.
+- Câble USB de DONNÉES court et de bonne qualité, branché DIRECTEMENT sur un port du PC
+  (de préférence à l'arrière d'un PC fixe) : pas de hub, pas de rallonge, pas de port en façade.
+- PC : désactive la mise en veille pendant l'opération.
+
+PENDANT LA SAUVEGARDE ET L'INSTALLATION
+N'ÉTEINS JAMAIS la pédale, ne débranche pas l'USB, ne ferme pas l'installateur.
+
+SI L'INSTALLATION S'ARRÊTE (erreur, « Errno 31 »…)
+- N'éteins PAS la pédale : elle reste en mode mise à jour tant qu'elle est allumée.
+- Ne refais pas de sauvegarde : ta sauvegarde d'origine reste sélectionnée.
+- Clique à nouveau sur « Installer » : seuls les secteurs qui diffèrent sont réécrits.
+- Des lignes « erreur USB passagère … nouvel essai » dans le journal sont normales.
+- Si les erreurs persistent, le problème vient de la liaison USB du PC : branche un autre
+  câble et/ou un autre port USB. Débrancher le câble interrompt le mode mise à jour : éteins
+  alors la pédale, attends 10 s, rallume-la, puis « Détecter » et « Installer ».
+- Si la pédale a été éteinte et reste écran noir, non détectée : éteins-la, branche l'USB,
+  MAINTIENS HOME ENFONCÉ ET ALLUME-LA, garde HOME une dizaine de secondes, relâche, puis
+  « Détecter » et « Installer » (le début du firmware TBBR, écrit en premier, contient cette
+  entrée de secours vers le mode mise à jour). Si rien ne la détecte, n'essaie rien d'autre
+  et ouvre une issue sur GitHub avec le journal de l'installateur (bouton Copier).
+
 Après une installation ou une restauration, ÉTEINS puis RALLUME la pédale avec
-son interrupteur avant de jouer. Ne débranche jamais l'USB pendant une écriture.
+son interrupteur avant de jouer.
 Garde le dossier de sauvegarde en lieu sûr, et ne le partage pas : il contient
 des identifiants propres à ta pédale. Ferme l'app TBBR et M-UPGRADE avant d'utiliser
 l'installateur (ils occupent le port MIDI).
@@ -37,4 +60,17 @@ First install: 1. Back up (full 1 MiB flash, read twice). 2. Install.
 Updates: drop the small "TBBR_fw6_x.y.tbbr" file into the installer window, then
 "Update to x.y". Presets, IRs and NAM captures are kept. No need to download the installer again.
 Restore: rewrites the whole flash from the original M-VAVE backup (bootloader excluded).
-Power the pedal off and on after installing or restoring. Never unplug USB while writing.
+Power the pedal off and on after installing or restoring.
+
+Before you start: charged battery (the pedal must stay ON the whole time); short, good-quality
+USB DATA cable plugged DIRECTLY into the PC (rear port on a desktop PC; no hub, no extension,
+no front-panel port); PC sleep mode off.
+During backup and install: NEVER power the pedal off, do not unplug USB, do not close the installer.
+If the install stops (error, "Errno 31"…): do NOT power the pedal off (it stays in update mode
+while it is on), do not make a new backup, click "Install" again. "erreur USB passagère … nouvel
+essai" lines in the log are normal (automatic retry). If errors persist, the problem is the PC's
+USB connection: use another cable and/or USB port. Unplugging the cable interrupts the update
+mode: then switch the pedal off, wait 10 s, switch it on, then "Detect" and "Install".
+Blank screen, pedal not detected: switch it off, connect USB, HOLD HOME AND SWITCH IT ON, keep
+HOME pressed about ten seconds, release, then "Detect" and "Install". If nothing detects it,
+try nothing else and open a GitHub issue with the installer log (Copy button).

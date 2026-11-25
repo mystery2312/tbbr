@@ -100,9 +100,9 @@ footer { border-top: 1px solid var(--line); padding: 26px 16px 40px; color: var(
 
 <h2 id="start">Ce qu'il faut</h2>
 <ul>
-  <li>Une pédale <b>M-VAVE BlackBox</b> avec sa batterie chargée.</li>
-  <li>Un <b>PC Windows 10 ou 11</b> (l'installation et les mises à jour du firmware se font depuis Windows ; Microsoft Edge doit être présent, c'est le cas par défaut).</li>
-  <li>Un <b>câble USB de données</b> (pas un câble de charge seule), branché <b>directement</b> sur le PC, sans hub.</li>
+  <li>Une pédale <b>M-VAVE BlackBox</b> avec sa <b>batterie bien chargée</b> : elle doit rester allumée pendant toute l'opération.</li>
+  <li>Un <b>PC Windows 10 ou 11</b> (l'installation et les mises à jour du firmware se font depuis Windows ; Microsoft Edge doit être présent, c'est le cas par défaut). Désactive la mise en veille pendant l'opération.</li>
+  <li>Un <b>câble USB de données court et de bonne qualité</b> (pas un câble de charge seule), branché <b>directement sur un port du PC</b> : de préférence à l'arrière d'un PC fixe, <b>sans hub, sans rallonge, sans port en façade ni station d'accueil</b>. Une liaison USB instable provoque des erreurs pendant la sauvegarde ou l'écriture.</li>
   <li>Le firmware officiel M-VAVE <b>V19</b> sur la pédale (voir ci-dessous).</li>
   <li>L'app <b>BlackBox TBBR</b> (<a href="https://github.com/mystery2312/tbbr/releases/latest/download/BlackBox_TBBR_App.exe">BlackBox_TBBR_App.exe</a>) : un seul fichier, rien à installer. Elle contient l'éditeur et l'installateur du firmware.</li>
 </ul>
@@ -125,7 +125,8 @@ footer { border-top: 1px solid var(--line); padding: 26px 16px 40px; color: var(
   <li><b>Installer</b> : l'image est construite à partir de <b>ta</b> sauvegarde (le bootloader et les données propres à ta pédale restent intacts), puis seuls les secteurs qui changent sont écrits et relus. Environ 1 minute.</li>
   <li>À la fin, <b>éteins puis rallume la pédale</b> avec son interrupteur avant de jouer.</li>
 </ol>
-<div class="box warn"><b>Pendant une écriture :</b> ne débranche pas l'USB, n'éteins pas la pédale et ne ferme pas l'installateur (s'il est fermé pendant une écriture, il se rouvre). Garde le dossier de sauvegarde en lieu sûr et ne le partage pas : il contient des identifiants propres à ta pédale.</div>
+<div class="box warn"><b>Pendant la sauvegarde et l'installation :</b> <b>n'éteins jamais la pédale</b>, ne débranche pas l'USB, ne ferme pas l'installateur (s'il est fermé pendant une écriture, il se rouvre) et ne laisse pas le PC se mettre en veille. Garde le dossier de sauvegarde en lieu sûr et ne le partage pas : il contient des identifiants propres à ta pédale.</div>
+<div class="box"><b>Si une écriture est interrompue</b> (message d'erreur, « Errno 31 », USB débranché…), la pédale reste en mode mise à jour <b>tant qu'elle est allumée</b> : ne l'éteins pas, ne refais pas de sauvegarde (ta sauvegarde d'origine reste sélectionnée) et clique simplement à nouveau sur <b>Installer</b>. Seuls les secteurs qui diffèrent sont réécrits. Des lignes « erreur USB passagère … nouvel essai » dans le journal sont normales : l'installateur réessaie tout seul. Si elles sont nombreuses ou si l'installation s'arrête encore, <b>le problème vient de la liaison USB du PC</b> : branche un autre câble de données et/ou un autre port USB. Débrancher le câble interrompt le mode mise à jour : <b>éteins alors la pédale avec son interrupteur, attends 10 secondes, rallume-la</b>, ouvre l'installateur et clique sur <b>Détecter</b>, puis sur <b>Installer</b> si la pédale apparaît en mode mise à jour. <b>Écran noir, pédale non détectée ?</b> Éteins-la, <b>maintiens HOME enfoncé en la rallumant</b> (une dizaine de secondes) : elle repasse en mode mise à jour, puis <b>Détecter</b> → <b>Installer</b>.</div>
 <p>Au premier démarrage, TBBR place ses 20 presets d'usine dans les emplacements vides.</p>
 
 <h2 id="update">Mettre à jour</h2>
@@ -218,7 +219,8 @@ footer { border-top: 1px solid var(--line); padding: 26px 16px 40px; color: var(
   <tr><td>Pas de son après l'installation</td><td>Éteins puis rallume la pédale avec son interrupteur. Vérifie le volume <kbd>MASTER</kbd> (au milieu ≈ −31 dB).</td></tr>
   <tr><td>Souffle sans jouer</td><td>Vérifie que le noise gate d'entrée est actif (Global), ou ajoute un bloc Gate en début de chaîne.</td></tr>
   <tr><td>« DSP insuffisant »</td><td>Le preset est trop lourd : retire ou remplace un bloc (les réverbes et les amplis sont les plus coûteux).</td></tr>
-  <tr><td>Écriture interrompue (USB débranché…)</td><td>Ne panique pas et n'éteins pas la pédale si elle est encore branchée : relance l'installation ou la restauration. Si la pédale démarre dans le mode de mise à jour M-VAVE, réinstalle le firmware officiel avec M-UPGRADE, puis recommence.</td></tr>
+  <tr><td>Erreurs USB pendant la sauvegarde ou l'installation (« Errno 31 », lecture impossible…)</td><td>Le problème vient de la liaison USB du PC (câble, port, hub, rallonge). Tant que la pédale est encore détectée, <b>ne l'éteins pas</b> et clique à nouveau sur <b>Installer</b>. Si les erreurs persistent : branche un câble de données court et de bonne qualité directement sur un port du PC (à l'arrière d'un PC fixe), sans hub ni rallonge, éteins la pédale, attends 10 s, rallume-la, puis <b>Détecter</b> et <b>Installer</b>.</td></tr>
+  <tr><td>Écriture interrompue (USB débranché, erreur…)</td><td>Ne panique pas et <b>n'éteins pas la pédale</b> : elle reste en mode mise à jour tant qu'elle est allumée. Ne refais pas de sauvegarde ; clique à nouveau sur <b>Installer</b> (ou <b>Restaurer</b>). Si la pédale a été éteinte et reste écran noir, non détectée : éteins-la, branche l'USB, <b>maintiens HOME enfoncé et allume-la</b>, garde HOME enfoncé une dizaine de secondes, relâche, puis ouvre l'installateur → <b>Détecter</b> → <b>Installer</b> (sans refaire de sauvegarde). Le début du firmware TBBR, écrit en premier, contient cette entrée de secours vers le mode mise à jour (vérifié sur une pédale interrompue à mi-installation). Si elle démarre dans le mode de mise à jour M-VAVE, réinstalle le firmware officiel avec M-UPGRADE, puis recommence. Si rien ne la détecte, ne tente rien d'autre et ouvre une issue avec le journal de l'installateur.</td></tr>
   <tr><td>Revenir en arrière</td><td>Installateur → <b>Restaurer</b> (voir <a href="#restore">Revenir au firmware M-VAVE</a>).</td></tr>
 </table>
 <p>Signale les problèmes sur <a href="https://github.com/mystery2312/tbbr/issues">GitHub (issues)</a>, avec le journal de l'installateur (bouton Copier) si besoin.</p>
@@ -280,9 +282,9 @@ footer { border-top: 1px solid var(--line); padding: 26px 16px 40px; color: var(
 
 <h2 id="start-en">What you need</h2>
 <ul>
-  <li>An <b>M-VAVE BlackBox</b> pedal with a charged battery.</li>
-  <li>A <b>Windows 10 or 11 PC</b> (firmware installation and updates run on Windows; Microsoft Edge must be present, which is the default).</li>
-  <li>A <b>USB data cable</b> (not a charge-only cable), plugged <b>directly</b> into the PC, without a hub.</li>
+  <li>An <b>M-VAVE BlackBox</b> pedal with a <b>well-charged battery</b>: it must stay powered on during the whole operation.</li>
+  <li>A <b>Windows 10 or 11 PC</b> (firmware installation and updates run on Windows; Microsoft Edge must be present, which is the default). Turn off sleep mode during the operation.</li>
+  <li>A <b>short, good-quality USB data cable</b> (not a charge-only cable), plugged <b>directly into a port on the PC</b>: preferably a rear port on a desktop PC, <b>no hub, no extension, no front-panel port or docking station</b>. An unreliable USB connection causes errors during the backup or the write.</li>
   <li>The official M-VAVE <b>V19</b> firmware on the pedal (see below).</li>
   <li>The <b>BlackBox TBBR</b> app (<a href="https://github.com/mystery2312/tbbr/releases/latest/download/BlackBox_TBBR_App.exe">BlackBox_TBBR_App.exe</a>): a single file, nothing to install. It contains the editor and the firmware installer.</li>
 </ul>
@@ -305,7 +307,8 @@ footer { border-top: 1px solid var(--line); padding: 26px 16px 40px; color: var(
   <li><b>Install</b>: the image is built from <b>your</b> backup (the bootloader and your pedal's own data stay intact), then only the sectors that change are written and read back. About 1 minute.</li>
   <li>At the end, <b>power the pedal off and on</b> with its switch before playing.</li>
 </ol>
-<div class="box warn"><b>While writing:</b> do not unplug USB, do not power the pedal off and do not close the installer (if it is closed during a write, it reopens). Keep the backup folder somewhere safe and do not share it: it contains identifiers unique to your pedal.</div>
+<div class="box warn"><b>During the backup and the install:</b> <b>never power the pedal off</b>, do not unplug USB, do not close the installer (if it is closed during a write, it reopens) and do not let the PC go to sleep. Keep the backup folder somewhere safe and do not share it: it contains identifiers unique to your pedal.</div>
+<div class="box"><b>If a write is interrupted</b> (error message, "Errno 31", USB unplugged…), the pedal stays in update mode <b>as long as it is powered on</b>: do not switch it off, do not make a new backup (your original backup stays selected) and simply click <b>Install</b> again. Only the sectors that differ are rewritten. Lines saying "erreur USB passagère … nouvel essai" (temporary USB error, retrying) in the log are normal: the installer retries by itself. If there are many of them, or if the install stops again, <b>the problem comes from the PC's USB connection</b>: use another data cable and/or another USB port. Unplugging the cable interrupts the update mode: <b>then switch the pedal off with its switch, wait 10 seconds, switch it back on</b>, open the installer and click <b>Detect</b>, then <b>Install</b> if the pedal shows up in update mode. <b>Blank screen, pedal not detected?</b> Switch it off, <b>hold HOME while switching it back on</b> (about ten seconds): it goes back into update mode, then <b>Detect</b> → <b>Install</b>.</div>
 <p>On first boot, TBBR places its 20 factory presets into empty slots.</p>
 
 <h2 id="update-en">Update</h2>
@@ -398,7 +401,8 @@ footer { border-top: 1px solid var(--line); padding: 26px 16px 40px; color: var(
   <tr><td>No sound after installing</td><td>Power the pedal off and on with its switch. Check the <kbd>MASTER</kbd> volume (middle ≈ −31 dB).</td></tr>
   <tr><td>Hiss when not playing</td><td>Check that the input noise gate is on (Global), or add a Gate block at the start of the chain.</td></tr>
   <tr><td>"Not enough DSP"</td><td>The preset is too heavy: remove or replace a block (reverbs and amps cost the most).</td></tr>
-  <tr><td>Write interrupted (USB unplugged…)</td><td>Don't panic and don't power the pedal off if it is still connected: run the install or restore again. If the pedal starts in the M-VAVE update mode, reinstall the official firmware with M-UPGRADE, then start over.</td></tr>
+  <tr><td>USB errors during the backup or the install ("Errno 31", read failed…)</td><td>The problem comes from the PC's USB connection (cable, port, hub, extension). As long as the pedal is still detected, <b>don't power it off</b> and click <b>Install</b> again. If errors persist: plug a short, good-quality data cable directly into a port on the PC (a rear port on a desktop PC), with no hub or extension, switch the pedal off, wait 10 s, switch it back on, then <b>Detect</b> and <b>Install</b>.</td></tr>
+  <tr><td>Write interrupted (USB unplugged, error…)</td><td>Don't panic and <b>don't power the pedal off</b>: it stays in update mode as long as it is on. Don't make a new backup; click <b>Install</b> (or <b>Restore</b>) again. If the pedal was switched off and stays on a blank screen, not detected: switch it off, connect USB, <b>hold HOME and switch it on</b>, keep HOME pressed for about ten seconds, release, then open the installer → <b>Detect</b> → <b>Install</b> (without a new backup). The beginning of the TBBR firmware, written first, contains this emergency entry into update mode (verified on a pedal interrupted mid-install). If it starts in the M-VAVE update mode, reinstall the official firmware with M-UPGRADE, then start over. If nothing detects it, don't try anything else and open an issue with the installer log.</td></tr>
   <tr><td>Going back</td><td>Installer → <b>Restore</b> (see <a href="#restore-en">Go back to the M-VAVE firmware</a>).</td></tr>
 </table>
 <p>Report problems on <a href="https://github.com/mystery2312/tbbr/issues">GitHub (issues)</a>, with the installer log (Copy button) if needed.</p>
