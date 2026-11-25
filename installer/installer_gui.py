@@ -213,7 +213,8 @@ RISK_TEXT = (
     "port du PC (pas de hub, de rallonge ni de port en façade), batterie chargée, mise en veille désactivée.\n\n"
     "Pendant l'opération : n'éteins jamais la pédale, ne débranche pas l'USB, ne ferme pas l'installateur.\n\n"
     "En cas de problème : n'éteins pas la pédale et ne débranche pas l'USB ; tant qu'elle reste allumée et branchée, "
-    "relance « Installer » ou « Restaurer » (sauvegarde d'origine). Ne refais pas de sauvegarde.\n\n"
+    "relance « Installer » ou « Restaurer » (sauvegarde d'origine). Ne refais pas de sauvegarde. Écran noir, pédale non "
+    "détectée : éteins-la, maintiens HOME enfoncé en la rallumant (une dizaine de secondes), puis Installer.\n\n"
     "Tu installes et utilises TBBR à tes propres risques et périls. Les auteurs de TBBR ne peuvent être tenus pour "
     "responsables d'aucun dommage à ta pédale, d'aucune perte de données ni d'aucun autre préjudice.\n\n"
     "Acceptes-tu ces conditions ?",
@@ -224,7 +225,8 @@ RISK_TEXT = (
     "(no hub, extension or front-panel port), charged battery, sleep mode off.\n\n"
     "During the operation: never power the pedal off, do not unplug USB, do not close the installer.\n\n"
     "If something goes wrong: do not power the pedal off or unplug USB; as long as it stays on and connected, run "
-    "\"Install\" or \"Restore\" (original backup) again. Do not make a new backup.\n\n"
+    "\"Install\" or \"Restore\" (original backup) again. Do not make a new backup. Blank screen, pedal not detected: "
+    "switch it off, hold HOME while switching it back on (about ten seconds), then Install.\n\n"
     "You install and use TBBR entirely at your own risk. The TBBR authors cannot be held liable for any damage to your "
     "pedal, any loss of data or any other harm.\n\n"
     "Do you accept these terms?")
@@ -1089,11 +1091,13 @@ class WebApp:
                     msg += self.tr("\n\nLiaison USB instable entre le PC et la pédale. N'éteins PAS la pédale et ne refais pas de "
                                    "sauvegarde : clique d'abord à nouveau sur Installer (les erreurs passagères sont réessayées). "
                                    "Si l'erreur revient : branche un câble de données court directement sur un autre port du PC "
-                                   "(sans hub ni rallonge), éteins la pédale, attends 10 s, rallume-la, puis Détecter et Installer.",
+                                   "(sans hub ni rallonge), éteins la pédale, puis rallume-la en maintenant HOME enfoncé une dizaine "
+                                   "de secondes : elle repasse en mode mise à jour ; puis Détecter et Installer.",
                                    "\n\nUnreliable USB connection between the PC and the pedal. Do NOT power the pedal off and do not "
                                    "make a new backup: first click Install again (temporary errors are retried). If the error comes "
                                    "back: plug a short data cable directly into another port on the PC (no hub or extension), switch "
-                                   "the pedal off, wait 10 s, switch it on, then Detect and Install.")
+                                   "the pedal off, then switch it back on while holding HOME for about ten seconds: it goes back into "
+                                   "update mode; then Detect and Install.")
                 self.task.update(ok=False, msg=msg)
             finally:
                 sys.stdout = old

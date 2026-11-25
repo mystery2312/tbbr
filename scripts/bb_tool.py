@@ -463,6 +463,12 @@ def flash_app(img_path, ref_path, keep_storage=True, full=False):
         if cabs:
             curc = rd(CAB_LO, CAB_HI - CAB_LO)
             todo += [s for s in range(CAB_LO, CAB_HI, 0x1000) if curc[s - CAB_LO:s - CAB_LO + 0x1000] != img[s:s + 0x1000]]
+        # Ordre d'écriture : le début de l'app TBBR (secteurs < BOOT_HI) contient l'entrée de secours « HOME tenu à l'allumage
+        # -> UBOOT » (main.c, code autonome). Vers TBBR : ces secteurs d'abord (secours disponible au plus tôt) ; vers un autre
+        # firmware (restauration) : en dernier (le secours de l'ancien TBBR reste en place si l'écriture est interrompue).
+        BOOT_HI = 0x7000
+        boot, rest = [s for s in todo if s < BOOT_HI], [s for s in todo if s >= BOOT_HI]
+        todo = boot + rest if b"TBBR fw" in plain else rest + boot
         if keep_storage and not full: print(f"zone de stockage [{STORE_LO:#x}, {FLASH_W_HI:#x}) conservée (--tout pour l'écrire aussi)" + (" ; cabs d'usine mis à jour" if cabs else ""))
         if full: print(f"restauration complète [{FLASH_W_LO:#x}, {hi:#x}) ; SPL [0, {FLASH_W_LO:#x}) intact")
         print(f"zone lue en {time.time() - t0:.0f} s ; secteurs à écrire : {[hex(s) for s in todo]}")

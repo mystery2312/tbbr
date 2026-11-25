@@ -41,9 +41,11 @@ SI L'INSTALLATION S'ARRÊTE (erreur, « Errno 31 »…)
 - Si les erreurs persistent, le problème vient de la liaison USB du PC : branche un autre
   câble et/ou un autre port USB. Débrancher le câble interrompt le mode mise à jour : éteins
   alors la pédale, attends 10 s, rallume-la, puis « Détecter » et « Installer ».
-- Si la pédale a été éteinte : rallume-la et ouvre l'installateur ; si elle est en mode
-  mise à jour, clique sur « Installer ». Si rien ne la détecte, n'essaie rien d'autre et
-  ouvre une issue sur GitHub avec le journal de l'installateur (bouton Copier).
+- Si la pédale a été éteinte et reste écran noir, non détectée : éteins-la, branche l'USB,
+  MAINTIENS HOME ENFONCÉ ET ALLUME-LA, garde HOME une dizaine de secondes, relâche, puis
+  « Détecter » et « Installer » (le début du firmware TBBR, écrit en premier, contient cette
+  entrée de secours vers le mode mise à jour). Si rien ne la détecte, n'essaie rien d'autre
+  et ouvre une issue sur GitHub avec le journal de l'installateur (bouton Copier).
 
 Après une installation ou une restauration, ÉTEINS puis RALLUME la pédale avec
 son interrupteur avant de jouer.
@@ -68,6 +70,7 @@ If the install stops (error, "Errno 31"…): do NOT power the pedal off (it stay
 while it is on), do not make a new backup, click "Install" again. "erreur USB passagère … nouvel
 essai" lines in the log are normal (automatic retry). If errors persist, the problem is the PC's
 USB connection: use another cable and/or USB port. Unplugging the cable interrupts the update
-mode: then switch the pedal off, wait 10 s, switch it on, then "Detect" and "Install". If the pedal was switched off: switch it on, open the installer; if it is in
-update mode, click "Install". If nothing detects it, try nothing else and open a GitHub issue
-with the installer log (Copy button).
+mode: then switch the pedal off, wait 10 s, switch it on, then "Detect" and "Install".
+Blank screen, pedal not detected: switch it off, connect USB, HOLD HOME AND SWITCH IT ON, keep
+HOME pressed about ten seconds, release, then "Detect" and "Install". If nothing detects it,
+try nothing else and open a GitHub issue with the installer log (Copy button).

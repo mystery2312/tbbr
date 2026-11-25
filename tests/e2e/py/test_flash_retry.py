@@ -14,6 +14,7 @@ ref = os.path.join(root, open(refl).readline().strip())
 flash = bytearray(open(ref, "rb").read())            # la pédale contient la sauvegarde (firmware d'origine)
 rnd = random.Random(int(sys.argv[1]) if len(sys.argv) > 1 else 1)
 stats = {"fail": 0, "cmds": 0}
+erased = []                                          # ordre des secteurs effacés
 
 class FakeDev:
     aliases = []
@@ -29,6 +30,7 @@ class FakeDev:
             n = int.from_bytes(cdb[6:8], "big"); return bytes(flash[a:a + n])
         if cmd == 0xFB01:
             assert a % 0x1000 == 0 and a >= 0x4000
+            if a not in erased: erased.append(a)
             flash[a:a + 0x1000] = b"\xFF" * 0x1000; return cdb[:2] + bytes(14)
         if cmd == 0xFB04:
             for i, b in enumerate(data_out): flash[a + i] &= b
@@ -43,4 +45,18 @@ bb_tool.flash_app(img, ref)
 want = open(img, "rb").read()
 assert flash[:0x4000] == want[:0x4000], "SPL modifié !"
 assert flash[0x4000:0x60000] == want[0x4000:0x60000], "zone application différente"
-print(f"OK : {stats['fail']} erreurs USB sur {stats['cmds']} commandes, image écrite et vérifiée")
+boot = [s for s in erased if s < 0x7000]
+assert boot and erased[:len(boot)] == boot, "installation TBBR : le début (secours HOME) doit être écrit en premier"
+n1 = stats["cmds"]
+
+# restauration (TBBR -> firmware d'origine) : le début de l'app TBBR (secours HOME) doit être réécrit EN DERNIER
+erased.clear()
+_info = os.path.join(os.path.dirname(ref), "flashdump_info.json")      # identifiant de la pédale de la sauvegarde
+_id = int(__import__("json").load(open(_info, encoding="utf-8"))["online_device"]["id"], 16) if os.path.exists(_info) else 0
+bb_tool.Loader.online_device = lambda self: (3, _id)
+bb_tool.flash_app(ref, ref, keep_storage=False, full=True)
+orig = open(ref, "rb").read()
+assert flash == bytearray(orig), "restauration différente de la sauvegarde"
+boot = [s for s in erased if s < 0x7000]
+assert boot and erased[-len(boot):] == boot, "restauration : le début de l'app doit être écrit en dernier"
+print(f"OK : {stats['fail']} erreurs USB sur {stats['cmds']} commandes (installation puis restauration), images écrites et vérifiées, ordre d'écriture sûr")

@@ -41,8 +41,8 @@ for (const lang of ['fr', 'en']) {
       await pg.goto(`http://127.0.0.1:${s.srv.address().port}/?t=x`);
       await pg.waitForSelector('.modal.risk #riskGo');
       const txt = await pg.$eval('.modal.risk', e => e.textContent);
-      for (const re of lang === 'fr' ? [/alpha/, /propres risques et périls/, /responsables/, /câble USB/, /N'éteins pas la pédale/, /Restaurer/]
-        : [/alpha/, /own risk/, /liable/, /cable/, /Do not power the pedal off/, /Restore/]) assert.match(txt, re);
+      for (const re of lang === 'fr' ? [/alpha/, /propres risques et périls/, /responsables/, /câble USB/, /N'éteins pas la pédale/, /Restaurer/, /maintiens HOME enfoncé/]
+        : [/alpha/, /own risk/, /liable/, /cable/, /Do not power the pedal off/, /Restore/, /hold HOME/]) assert.match(txt, re);
       assert.equal(await pg.$eval('#riskGo', e => e.disabled), true, 'bouton actif sans la case cochée');
       await pg.click('#riskGo', { force: true });
       assert.ok(!s.calls.includes('accept_risks'), 'accepté sans la case');
