@@ -23,4 +23,19 @@ assert run({D: None, P1: (7, 1)}) == [P1], "numéro refusé sur la lettre"
 assert run({P1: (7, 1)}) == [P1]
 assert run({D: (7, 1)}) == [D], "lettre seule"
 assert run({D: (7, 1), P1: (7, 1), P2: (7, 2)}) == [P1, P2], "deux pédales restent deux"
+# quiet_aliases : seules les lettres du MÊME disque physique sont mises au repos (jamais C: ni un autre disque)
+closed = []
+class FakeVol:
+    def __init__(self, p):
+        nums = {"\\\\.\\C:": (7, 0), "\\\\.\\D:": (7, 1), "\\\\.\\E:": (7, 2)}
+        if p not in nums: raise OSError(2, "absent")
+        self.p, self.n, self.h = p, nums[p], None
+    def device_number(self): return self.n
+    def close(self): closed.append(self.p)
+bb_tool.SCSIDev = FakeVol
+class Dev:
+    def device_number(self): return (7, 1)
+kept = bb_tool.quiet_aliases(Dev(), P1)
+assert [a.p for a in kept] == [D], "seule la lettre de la pédale est mise au repos"
+assert sorted(closed) == ["\\\\.\\C:", "\\\\.\\E:"], "les autres disques sont refermés sans y toucher"
 print("OK")

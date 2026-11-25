@@ -15,6 +15,11 @@ test('installateur : une pédale UBOOT vue par une lettre de lecteur et par Phys
   assert.match(out, /OK/);
 });
 
+test('installateur : écriture flash qui aboutit malgré 5 % d\'erreurs USB (Errno 31), image vérifiée, SPL intact', () => {
+  const out = execFileSync('python', ['-I', '-X', 'utf8', path.join(__dirname, 'py', 'test_flash_retry.py')], { encoding: 'utf8', timeout: 300000 });
+  assert.match(out, /^(OK|SKIP)/m);
+});
+
 test('syntaxe JavaScript de l\'app, de la simulation et d\'Electron', () => {
   const files = ['interface/app/js/app.js', 'interface/app/js/data.js', 'interface/app/js/transport.js', 'interface/app/js/i18n.js',
     'interface/app/js/ecran.js', 'electron/main.js', 'electron/preload.js', 'electron/updater.js', 'tools/release_manifest.js', 'android/web/android-midi.js'].filter(f => fs.existsSync(R(f)));
