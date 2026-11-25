@@ -104,11 +104,13 @@ static u32 hz2inc(float hz) { return (u32)(clampf(hz, 0.0f, 20.0f) * (4294967296
 /* ---------------- états des blocs ---------------- */
 struct st_drv { struct bq pre1, pre2, up1, up2, dn1, dn2, t1, t2, t3, t4; s32 gain, level, bias; };
 struct st_eq  { struct bq b[9]; int n; s32 level, mix; };
-struct st_dyn { s32 env, g, thr, att, rel, floor_g, mix, level; float thr_db, ratio; u32 cnt; };
+struct st_dyn { s32 env, g, thr, att, rel, floor_g, mix, level; s32 lthr, kq; u32 cnt; };   /* thr : seuil linéaire Q23 ; lthr = log2(thr) Q16 ; kq = 1 - 1/ratio Q16 */
 struct st_mod { s32 *buf; u32 wr, ph, inc, inc2, ph2; s32 base, depth, mix, fb, fbv, kind, shape, dry; s32 apz[12]; int nst; struct bq tone; };
 struct st_dly { s16 *buf; u32 len, wr, d; s32 fb, mix, dry; struct bq lp, hp; u32 ph, inc, mod; s32 dsm; };
 #define RV_N 12
-struct st_rev { s32 *line[RV_N]; u16 len[RV_N]; u16 idx[RV_N]; u8 nlines; s32 filt[8]; s32 fbk, damp, mix, dry; struct bq lc, tone; s16 *pre; u32 plen, pwr, pd; };
+#define RV_B 128                                                        /* réverbe calculée par blocs (voir run_rev) */
+struct st_rev { s32 *line[RV_N]; u16 len[RV_N]; u16 idx[RV_N]; u8 nlines; s32 filt[8]; s32 fbk, damp, mix, dry; struct bq lc, tone; s16 *pre; u32 plen, pwr, pd;
+                s32 *xb, *wb; u32 bp; };                                /* xb : entrées du bloc en cours ; wb : sortie humide du bloc précédent */
 /* IR : convolution partitionnée uniforme (overlap-save), FFT 256, blocs de 128, jusqu'à 16 partitions (2048 points) */
 #define IR_B 128
 #define IR_N 256
@@ -317,15 +319,48 @@ static s32 run_eq(struct st_eq *e, s32 x)
     return y;
 }
 
-/* dynamique : gate, compresseurs (calcul du gain toutes les 32 échantillons, en flottant) */
+/* dynamique : gate, compresseurs (calcul du gain toutes les 32 échantillons, en virgule fixe).
+   engine.c n'utilise pas la FPU : log10f / powf y étaient en flottant logiciel (~20 000 cycles par calcul de gain, soit
+   l'essentiel du coût d'un compresseur). Le gain est maintenant calculé en log2 / exp2 entiers (tables de 33 points
+   interpolées, écart < 0,01 dB avec l'ancien calcul) ; le gate compare l'enveloppe à un seuil linéaire. */
+static const s32 log2_t[33] = { 0, 2909, 5732, 8473, 11136, 13727, 16248, 18704, 21098, 23433, 25711, 27936, 30109, 32234, 34312,
+    36346, 38336, 40286, 42196, 44068, 45904, 47705, 49472, 51207, 52911, 54584, 56229, 57845, 59434, 60997, 62534, 64047, 65536 };  /* log2(1 + i/32) Q16 */
+static const s32 exp2n_t[33] = { 1073741824, 1050733751, 1028218693, 1006186087, 984625594, 963527098, 942880699, 922676710,
+    902905651, 883558244, 864625413, 846098274, 827968132, 810226483, 792865000, 775875538, 759250125, 742980960, 727060411,
+    711481005, 696235434, 681316545, 666717336, 652430958, 638450708, 624770026, 611382493, 598281827, 585461881, 572916640,
+    560640218, 548626854, 536870912 };                                                                   /* 2^(-i/32) Q30 */
+static s32 log2q16(u32 v)                                             /* log2(v) Q16, v > 0 */
+{
+    int n = 0;
+    u32 m, f, i, r;
+    if (v >> 16) { n += 16; m = v >> 16; } else m = v;
+    if (m >> 8) { n += 8; m >>= 8; }
+    if (m >> 4) { n += 4; m >>= 4; }
+    if (m >> 2) { n += 2; m >>= 2; }
+    if (m >> 1) n += 1;
+    m = n >= 16 ? v >> (n - 16) : v << (16 - n);                      /* [1, 2) en Q16 */
+    f = m - 65536; i = f >> 11; r = f & 2047;
+    return (n << 16) + log2_t[i] + (s32)(((u32)(log2_t[i + 1] - log2_t[i]) * r) >> 11);
+}
+static s32 exp2neg_q16(s32 e)                                         /* 65536 x 2^(-e / 65536), 0 <= e < 16 x 65536 */
+{
+    u32 ip = (u32)e >> 16, f = (u32)e & 0xFFFF, i = f >> 11, r = f & 2047;
+    s32 t = exp2n_t[i] - (s32)(((s64)(exp2n_t[i] - exp2n_t[i + 1]) * r) >> 11);
+    return t >> (14 + ip);
+}
+#define DYN_EMAX 1044964                                              /* 96 dB en log2 Q16 (plancher de l'ancien db2q16) */
 static void design_dyn(struct block *b)
 {
     struct st_dyn *y = &b->s.y;
-    float *p = b->p, att = 5, rel = 100;
+    float *p = b->p, att = 5, rel = 100, thr_db, ratio = 1, t;
     y->mix = 32767; y->level = 65536;
-    if (b->model == M_GATE) { y->thr_db = p[P_GATE_THR]; rel = p[P_GATE_REL]; att = 1; y->floor_g = db2q16(p[P_GATE_DEPTH]); y->ratio = 0; }
-    else if (b->model == M_COMP) { y->thr_db = p[P_COMP_THR]; y->ratio = p[P_COMP_RATIO]; att = p[P_COMP_ATT]; rel = p[P_COMP_REL]; y->mix = pct2q15(p[P_COMP_MIX]); y->level = db2q16(p[P_COMP_LVL]); }
-    else { y->thr_db = -10 - 4 * p[P_SQUASH_SUS]; y->ratio = 2 + p[P_SQUASH_SUS]; att = 1 + 3 * p[P_SQUASH_ATT]; rel = 150; y->mix = pct2q15(p[P_SQUASH_MIX]); y->level = db2q16(-12 + 2.4f * p[P_SQUASH_LVL] + 0.6f * p[P_SQUASH_SUS]); }
+    if (b->model == M_GATE) { thr_db = p[P_GATE_THR]; rel = p[P_GATE_REL]; att = 1; y->floor_g = db2q16(p[P_GATE_DEPTH]); }
+    else if (b->model == M_COMP) { thr_db = p[P_COMP_THR]; ratio = p[P_COMP_RATIO]; att = p[P_COMP_ATT]; rel = p[P_COMP_REL]; y->mix = pct2q15(p[P_COMP_MIX]); y->level = db2q16(p[P_COMP_LVL]); }
+    else { thr_db = -10 - 4 * p[P_SQUASH_SUS]; ratio = 2 + p[P_SQUASH_SUS]; att = 1 + 3 * p[P_SQUASH_ATT]; rel = 150; y->mix = pct2q15(p[P_SQUASH_MIX]); y->level = db2q16(-12 + 2.4f * p[P_SQUASH_LVL] + 0.6f * p[P_SQUASH_SUS]); }
+    t = (float)ONE * powf(10.0f, clampf(thr_db, -120.0f, 24.0f) / 20.0f);
+    y->thr = t < 1.0f ? 1 : (s32)t;
+    y->lthr = log2q16((u32)y->thr);
+    y->kq = (s32)((1.0f - 1.0f / clampf(ratio, 1.0f, 50.0f)) * 65536.0f);
     y->att = (s32)(32768.0f * (1.0f - powf(2.718f, -1.0f / (clampf(att, 0.1f, 1000.0f) * 0.001f * FS))));
     y->rel = (s32)(32768.0f * (1.0f - powf(2.718f, -1.0f / (clampf(rel, 1.0f, 5000.0f) * 0.001f * FS))));
     if (!y->g) y->g = 65536;
@@ -336,13 +371,11 @@ static s32 run_dyn(struct block *b, s32 x)
     s32 a = iabs(x), out;
     y->env += mulq15(a - y->env, a > y->env ? y->att : y->rel);
     if ((++y->cnt & 31) == 0) {                                       /* calculateur de gain, 1 500 fois / s */
-        float env = (float)y->env / (float)ONE, edb, gdb = 0;
-        edb = env > 1e-6f ? 20.0f * log10f(env) : -120.0f;
-        if (b->model == M_GATE) y->g = edb < y->thr_db ? y->floor_g : 65536;
-        else {
-            if (edb > y->thr_db) gdb = (y->thr_db - edb) * (1.0f - 1.0f / clampf(y->ratio, 1.0f, 50.0f));
-            y->g = db2q16(gdb);
-        }
+        if (b->model == M_GATE) y->g = y->env < y->thr ? y->floor_g : 65536;
+        else if (y->env > y->thr) {                                   /* gain (dB) = -(niveau - seuil) x (1 - 1/ratio) */
+            s32 e = (s32)(((s64)(log2q16((u32)y->env) - y->lthr) * y->kq) >> 16);
+            y->g = exp2neg_q16(e > DYN_EMAX ? DYN_EMAX : e);
+        } else y->g = 65536;
     }
     out = mulq16(mulq16(x, y->g), y->level);
     if (y->mix < 32767) out = mulq15(out, y->mix) + mulq15(x, 32767 - y->mix);
@@ -467,6 +500,7 @@ static void design_rev(struct block *b)
         r->pre = pool_alloc(r->plen * 2);
         if (!r->pre) r->plen = 0;
     }
+    if (!r->xb) { r->xb = pool_alloc(2 * RV_B * 4); r->wb = r->xb ? r->xb + RV_B : 0; r->bp = 0; }
     r->nlines = 0;
     for (i = 0; i < RV_N; i++) if (r->line[i] && r->len[i]) r->nlines++;
     /* rétroaction des peignes d'après le temps de décroissance (RT60) : g = 10^(-3 * longueur / (RT60 * fs)) */
@@ -475,68 +509,87 @@ static void design_rev(struct block *b)
     r->damp = (s32)((0.05f + 0.07f * (10 - clampf(tone, 0, 10))) * 32767.0f);
     r->mix = pct2q15(mix); r->dry = 32767;
     r->pd = (u32)(clampf(pre, 0, 250) * 48.0f); if (r->plen && r->pd >= r->plen) r->pd = r->plen - 1;
+    r->pd = r->pd >= RV_B ? r->pd - RV_B : 0;                          /* le calcul par blocs ajoute RV_B échantillons */
     bq_design(&r->lc, BQ_HP, lc, 0.707f, 0);
     bq_design(&r->tone, BQ_LP, 3000 + 1100 * clampf(tone, 0, 10), 0.707f, 0);
 }
+/* Partie humide d'un bloc de RV_B échantillons : xb (entrées) -> wb (sortie humide). Chaque ligne est parcourue sur tout
+   le bloc d'un coup (index, filtre et coefficients en registres, rebouclage traité par tranches contiguës, plus de test
+   par échantillon). Mêmes opérations entières, dans le même ordre pour chaque ligne, que l'ancien calcul échantillon par
+   échantillon : sortie identique au bit près, décalée de RV_B (retiré du pré-délai dans design_rev). */
+static void rev_block(struct st_rev *r)
+{
+    s32 *in = r->xb, *out = r->wb;
+    const s32 damp = r->damp, ndamp = 32767 - r->damp, fbk = r->fbk;
+    int k, n;
+    {   /* coupe-bas, pré-délai, 0,04 */
+        struct bq lc = r->lc;
+        u32 pwr = r->pwr, pd = r->pd, plen = r->plen;
+        s16 *pre = r->pre;
+        for (n = 0; n < RV_B; n++) {
+            s32 v = bq_run(&lc, in[n]);
+            if (plen) {
+                u32 rd = pwr >= pd ? pwr - pd : pwr + plen - pd;
+                s32 w = v >> 8;
+                pre[pwr] = (s16)(w > 32767 ? 32767 : (w < -32768 ? -32768 : w));
+                v = (s32)pre[rd] << 8;
+                if (++pwr >= plen) pwr = 0;
+            }
+            in[n] = mulq15(v, 1311);
+            out[n] = 0;
+        }
+        r->lc = lc; r->pwr = pwr;
+    }
+    for (k = 0; k < 8; k++) {                                          /* 8 peignes amortis, sommés dans out */
+        s32 *b = r->line[k], f = r->filt[k];
+        u32 i = r->idx[k], len = r->len[k];
+        if (!b || !len) continue;
+        for (n = 0; n < RV_B; ) {
+            s32 *p = b + i, *pi = in + n, *po = out + n;
+            int c = (int)(len - i), j;
+            if (c > RV_B - n) c = RV_B - n;
+            for (j = 0; j < c; j++) {
+                s32 o = p[j];
+                f = mulq15(o, ndamp) + mulq15(f, damp);
+                p[j] = pi[j] + mulq15(f, fbk);
+                po[j] += o;
+            }
+            n += c; i += (u32)c;
+            if (i >= len) i = 0;
+        }
+        r->filt[k] = f; r->idx[k] = (u16)i;
+    }
+    for (k = 8; k < RV_N; k++) {                                       /* 4 passe-tout en série, en place dans out */
+        s32 *b = r->line[k];
+        u32 i = r->idx[k], len = r->len[k];
+        if (!b || !len) continue;
+        for (n = 0; n < RV_B; ) {
+            s32 *p = b + i, *po = out + n;
+            int c = (int)(len - i), j;
+            if (c > RV_B - n) c = RV_B - n;
+            for (j = 0; j < c; j++) {
+                s32 o = p[j], y = po[j];
+                p[j] = y + (o >> 1);
+                po[j] = o - y;
+            }
+            n += c; i += (u32)c;
+            if (i >= len) i = 0;
+        }
+        r->idx[k] = (u16)i;
+    }
+    {
+        struct bq tone = r->tone;
+        for (n = 0; n < RV_B; n++) out[n] = bq_run(&tone, out[n]);
+        r->tone = tone;
+    }
+}
 static s32 run_rev(struct st_rev *r, s32 x)
 {
-    s32 in = bq_run(&r->lc, x), sum = 0, y;
-    const s32 damp = r->damp, fbk = r->fbk;
-    int k;
-    if (r->plen) {                                                     /* pré-délai */
-        u32 rd = r->pwr >= r->pd ? r->pwr - r->pd : r->pwr + r->plen - r->pd;
-        s32 w = in >> 8;
-        r->pre[r->pwr] = (s16)(w > 32767 ? 32767 : (w < -32768 ? -32768 : w));
-        in = (s32)r->pre[rd] << 8;
-        if (++r->pwr >= r->plen) r->pwr = 0;
-    }
-    in = mulq15(in, 1311);                                             /* 0,04 */
-    if (r->nlines == RV_N) {                                           /* cas normal : 12 lignes allouees */
-        for (k = 0; k < 8; k++) {
-            s32 *b = r->line[k];
-            u32 i = r->idx[k], len = r->len[k];
-            s32 o = b[i];
-            r->filt[k] = mulq15(o, 32767 - damp) + mulq15(r->filt[k], damp);
-            b[i] = in + mulq15(r->filt[k], fbk);
-            if (++i >= len) i = 0;
-            r->idx[k] = (u16)i;
-            sum += o;
-        }
-        y = sum;
-        for (k = 8; k < RV_N; k++) {
-            s32 *b = r->line[k];
-            u32 i = r->idx[k], len = r->len[k];
-            s32 o = b[i];
-            b[i] = y + (o >> 1);
-            y = o - y;
-            if (++i >= len) i = 0;
-            r->idx[k] = (u16)i;
-        }
-    } else {
-        for (k = 0; k < 8; k++) {
-            s32 *b = r->line[k], o;
-            u32 i = r->idx[k];
-            if (!b || !r->len[k]) continue;
-            o = b[i];
-            r->filt[k] = mulq15(o, 32767 - damp) + mulq15(r->filt[k], damp);
-            b[i] = in + mulq15(r->filt[k], fbk);
-            if (++i >= r->len[k]) i = 0;
-            r->idx[k] = (u16)i;
-            sum += o;
-        }
-        y = sum;
-        for (k = 8; k < RV_N; k++) {
-            s32 *b = r->line[k], o;
-            u32 i = r->idx[k];
-            if (!b || !r->len[k]) continue;
-            o = b[i];
-            b[i] = y + (o >> 1);
-            y = o - y;
-            if (++i >= r->len[k]) i = 0;
-            r->idx[k] = (u16)i;
-        }
-    }
-    y = bq_run(&r->tone, y);
+    s32 y;
+    if (!r->xb) return x;
+    y = r->wb[r->bp];                                                  /* humide du bloc précédent */
+    r->xb[r->bp] = x;
+    if (++r->bp >= RV_B) { r->bp = 0; rev_block(r); }
     return mulq15(x, r->dry) + mulq15(y, r->mix);
 }
 

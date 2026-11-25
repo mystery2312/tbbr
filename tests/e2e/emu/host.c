@@ -170,6 +170,28 @@ int main(int argc, char **argv)
             out_msg('A', r, 12);
             break;
         }
+        case 'D': {   /* un bloc seul : [u32 n, u32 modèle, u32 k, k x (u32 index, float valeur)] -> n entrées puis n sorties s32 (Q23).
+                         Signal : notes de guitare (220 Hz + harmoniques, attaque puis décroissance) séparées de silences
+                         et de souffle faible, pour faire travailler gates, compresseurs et queues de reverb. */
+            u32 cnt = *(u32 *)buf, m = ((u32 *)buf)[1], k = ((u32 *)buf)[2], i;
+            static s32 o[2 * 480000];
+            s32 engine_block_set_force(int, int, int); int engine_param(int, int, int, float); void engine_clear(void);
+            u32 seed = 1;
+            if (cnt > 480000) cnt = 480000;
+            engine_clear();
+            if (engine_block_set_force(0, 0, (int)m) != 0) fatal("modèle %u refusé", m);
+            for (i = 0; i < k; i++) engine_param(0, 0, (int)((u32 *)buf)[3 + 2 * i], ((float *)buf)[4 + 2 * i]);
+            for (i = 0; i < cnt; i++) {
+                u32 t = i % 36000;                                       /* 0,75 s : 0,5 s de note, 0,25 s de silence */
+                double env = t < 24000 ? exp(-(double)t / 9000.0) * (t < 96 ? t / 96.0 : 1) : 0, ph = 2 * 3.14159265358979 * 220.0 * i / 48000.0;
+                double a = (i / 36000) % 3 == 0 ? 0.6 : ((i / 36000) % 3 == 1 ? 0.15 : 0.03);
+                seed = seed * 1664525u + 1013904223u;
+                o[i] = (s32)((a * env * (sin(ph) + 0.4 * sin(2 * ph) + 0.2 * sin(3 * ph)) + ((s32)seed >> 20) / 2048.0 * 0.0003) * 8388607.0);
+                o[cnt + i] = engine_process(o[i]);
+            }
+            out_msg('D', o, cnt * 8);
+            break;
+        }
         case 'C': {                                                  /* compteurs flash */
             u32 r[4]; r[0] = n_erase; r[1] = n_write; r[2] = bad_write; r[3] = st_err;
             out_msg('C', r, 16);

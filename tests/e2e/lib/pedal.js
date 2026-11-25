@@ -132,7 +132,7 @@ class Pedal {
   async info() { const from = this.frames.length; this.send(CMD.HELLO, { app: 'e2e', proto: 1 }); const f = await this.waitFrame(f => f.cmd === CMD.INFO, 3000, from); return f && JSON.parse(f.payload.toString('utf8')); }
   async host(t, data) {                                                /* 'A' / 'C' : réponse du même type ; sinon accusé 'K' */
     this._send(t, data);
-    const typed = t === 'A' || t === 'C';
+    const typed = t === 'A' || t === 'C' || t === 'D';
     const f = await this.waitFrame(f => typed ? f.host === t : f.host === 'K' && f.payload.toString() === t, 20000);
     if (!f) throw new Error('émulateur : pas de réponse à ' + t);
     return f.payload;
@@ -140,6 +140,14 @@ class Pedal {
   reboot() { return this.host('B'); }
   saveFlash(file) { return this.host('F', Buffer.from(file, 'utf8')); }
   async audio(n = 48000) { const b = Buffer.alloc(4); b.writeUInt32LE(n); const r = await this.host('A', b); return { inPeak: r.readUInt32LE(0), outPeak: r.readUInt32LE(4), bad: r.readUInt32LE(8) }; }
+  /* un bloc seul (modèle m, réglages [[index, valeur]...]) sur n échantillons du signal de test de host.c : { x, y } (Int32Array, Q23) */
+  async block(m, params = [], n = 48000) {
+    const b = Buffer.alloc(12 + 8 * params.length);
+    b.writeUInt32LE(n, 0); b.writeUInt32LE(m, 4); b.writeUInt32LE(params.length, 8);
+    params.forEach(([i, v], k) => { b.writeUInt32LE(i, 12 + 8 * k); b.writeFloatLE(v, 16 + 8 * k); });
+    const r = await this.host('D', b), all = new Int32Array(r.buffer.slice(r.byteOffset, r.byteOffset + r.length));
+    return { x: all.subarray(0, n), y: all.subarray(n) };
+  }
   async flashStats() { const r = await this.host('C', null); return { erases: r.readUInt32LE(0), writes: r.readUInt32LE(4), badWrites: r.readUInt32LE(8), refused: r.readUInt32LE(12) }; }
   async close() { try { this._send('Q'); this.proc.stdin.end(); } catch { /* déjà fermé */ } await Promise.race([this.exited, new Promise(r => setTimeout(r, 2000))]); if (this.code == null) this.proc.kill(); }
 }
