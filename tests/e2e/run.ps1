@@ -1,9 +1,9 @@
 ﻿# run.ps1 : prépare et lance tous les tests de bout en bout (firmware, app web, app de bureau, APK, ensemble).
-# Usage : powershell -ExecutionPolicy Bypass -File tests\e2e\run.ps1 [-Only static|protocol|dsp|updater|app|desktop|apk|ensemble|packaged] [-NoAndroid] [-Packaged]
+# Usage : powershell -ExecutionPolicy Bypass -File tests\e2e\run.ps1 [-Only static|protocol|dsp|installer|updater|app|desktop|apk|ensemble|packaged] [-NoAndroid] [-Packaged]
 #   -Packaged : ajoute la mise à jour avec de vrais exe portables (2 builds electron-builder, ~6 min)
 # Prérequis : Node 20+, Microsoft Edge, Visual Studio Build Tools (C++ x86), Electron installé (npm install dans electron\),
 #             Android SDK + JDK 17 pour l'APK (sinon -NoAndroid : les tests APK et ensemble sont sautés).
-param([ValidateSet('', 'static', 'protocol', 'dsp', 'updater', 'app', 'desktop', 'apk', 'ensemble', 'packaged')][string]$Only = '', [switch]$NoAndroid, [switch]$Packaged)
+param([ValidateSet('', 'static', 'protocol', 'dsp', 'installer', 'updater', 'app', 'desktop', 'apk', 'ensemble', 'packaged')][string]$Only = '', [switch]$NoAndroid, [switch]$Packaged)
 $ErrorActionPreference = 'Stop'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $root = Resolve-Path (Join-Path $here '..\..')
@@ -28,7 +28,7 @@ try {
             $ErrorActionPreference = 'Stop'
         } finally { Pop-Location }
     }
-    $all = 'static', 'protocol', 'dsp', 'updater', 'app', 'desktop', 'apk', 'ensemble'
+    $all = 'static', 'protocol', 'dsp', 'installer', 'updater', 'app', 'desktop', 'apk', 'ensemble'
     if ($Packaged -or $Only -eq 'packaged') { $env:E2E_PACKAGED = '1'; $all += 'packaged' }
     $sel = if ($Only) { @($Only) } elseif ($NoAndroid) { $all | Where-Object { $_ -notin 'apk', 'ensemble' } } else { $all }
     $files = @($sel | ForEach-Object { "$_.test.js" })

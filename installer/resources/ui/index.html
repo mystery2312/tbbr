@@ -154,6 +154,13 @@ footer .spacer { flex: 1; }
 .modal-b { padding: 16px; display: flex; flex-direction: column; gap: 10px; color: var(--tx2); font-size: 13px; }
 .modal-b .path { font: 12px var(--mono); color: var(--tx); background: #0a0b0e; border: 1px solid var(--line2); border-radius: 8px; padding: 8px 10px; word-break: break-all; user-select: text; }
 .modal-f { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); }
+.modal.risk { width: min(640px, 100%); max-height: calc(100vh - 32px); }
+.modal.risk .modal-b { overflow-y: auto; }
+.modal.risk h4 { margin: 4px 0 0; color: var(--tx); font-size: 13px; }
+.modal.risk ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.modal.risk .legal { color: var(--tx); border: 1px solid rgba(255, 176, 32, .45); background: rgba(255, 176, 32, .08); border-radius: 8px; padding: 10px 12px; }
+.modal.risk label { display: flex; gap: 10px; align-items: flex-start; color: var(--tx); cursor: pointer; }
+.modal.risk input { margin-top: 2px; width: 16px; height: 16px; accent-color: var(--acc); flex: none; }
 @keyframes fade { from { opacity: 0; } }
 @keyframes pop { from { transform: scale(.96); opacity: 0; } }
 .toasts { position: fixed; bottom: 54px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; z-index: 200; pointer-events: none; }
@@ -321,6 +328,38 @@ function confirmBox({ title, html, ok, danger, warn }) {
     document.body.append(bg); bg.querySelector('[data-r="1"]').focus();
   });
 }
+/* avertissement obligatoire, à chaque lancement, avant toute sauvegarde / installation / restauration */
+let riskShown = false;
+function riskBox() {
+  riskShown = true;
+  const bg = document.createElement('div'); bg.className = 'modal-bg';
+  bg.innerHTML = `<div class="modal risk" role="dialog" aria-modal="true"><div class="modal-h w"><svg class="ic"><use href="#i-warn"/></svg><h3>${T('Avertissement : à lire avant de continuer', 'Warning: read before continuing')}</h3></div>
+  <div class="modal-b">
+    <p>${T('TBBR est un projet indépendant, ni affilié à M-VAVE ni approuvé par M-VAVE. <b>Le firmware TBBR est en version alpha</b> : expérimental, il peut contenir des erreurs. Remplacer le firmware d\'un appareil comporte des risques : une écriture interrompue peut rendre la pédale inutilisable. Cela peut aussi annuler sa garantie.',
+           'TBBR is an independent project, neither affiliated with nor endorsed by M-VAVE. <b>The TBBR firmware is in alpha</b>: it is experimental and may contain errors. Replacing a device\'s firmware carries risks: an interrupted write can leave the pedal unusable. It may also void its warranty.')}</p>
+    <h4>${T('Avant de commencer', 'Before you start')}</h4>
+    <ul>
+      <li>${T('<b>Liaison USB stable</b> : câble USB de <b>données</b> court et de bonne qualité, branché <b>directement</b> sur un port du PC (de préférence à l\'arrière d\'un PC fixe). Pas de hub, de rallonge, de port en façade ni de station d\'accueil.', '<b>Stable USB connection</b>: short, good-quality USB <b>data</b> cable, plugged <b>directly</b> into a port on the PC (preferably a rear port on a desktop PC). No hub, extension, front-panel port or docking station.')}</li>
+      <li>${T('Batterie de la pédale bien chargée, mise en veille du PC désactivée.', 'Pedal battery well charged, PC sleep mode turned off.')}</li>
+      <li>${T('App TBBR et M-UPGRADE fermées.', 'TBBR app and M-UPGRADE closed.')}</li>
+    </ul>
+    <h4>${T('Pendant l\'opération', 'During the operation')}</h4>
+    <ul><li>${T('<b>N\'éteins jamais la pédale</b>, ne débranche pas l\'USB et ne ferme pas l\'installateur.', '<b>Never power the pedal off</b>, do not unplug USB and do not close the installer.')}</li></ul>
+    <h4>${T('En cas de problème (erreur, écriture interrompue)', 'If something goes wrong (error, interrupted write)')}</h4>
+    <ul>
+      <li>${T('<b>N\'éteins pas la pédale et ne débranche pas l\'USB.</b> Tant qu\'elle reste allumée et branchée, elle reste en mode mise à jour : clique à nouveau sur <b>Installer</b>, ou sur <b>Restaurer</b> pour remettre ta sauvegarde du firmware d\'origine.', '<b>Do not power the pedal off and do not unplug USB.</b> As long as it stays on and connected, it stays in update mode: click <b>Install</b> again, or <b>Restore</b> to put back your backup of the original firmware.')}</li>
+      <li>${T('Ne refais pas de sauvegarde. Si l\'erreur se répète, copie le journal (bouton Copier) et demande de l\'aide avant de toucher à la pédale.', 'Do not make a new backup. If the error keeps coming back, copy the log (Copy button) and ask for help before touching the pedal.')}</li>
+    </ul>
+    <div class="legal">${T('<b>Tu installes et utilises TBBR à tes propres risques et périls.</b> Les auteurs de TBBR ne peuvent être tenus pour responsables d\'aucun dommage à ta pédale, d\'aucune perte de données ni d\'aucun autre préjudice, direct ou indirect, résultant de l\'installation, de l\'utilisation ou de la restauration du firmware.', '<b>You install and use TBBR entirely at your own risk.</b> The TBBR authors cannot be held liable for any damage to your pedal, any loss of data or any other direct or indirect harm resulting from installing, using or restoring the firmware.')}</div>
+    <label><input type="checkbox" id="riskOk"><span>${T('J\'ai lu et compris cet avertissement, et j\'accepte d\'installer et d\'utiliser TBBR à mes propres risques et périls.', 'I have read and understood this warning, and I accept to install and use TBBR entirely at my own risk.')}</span></label>
+    <p>${T('Si tu n\'acceptes pas, ferme simplement cette fenêtre : rien n\'est fait sur la pédale.', 'If you do not accept, simply close this window: nothing is done to the pedal.')}</p>
+  </div>
+  <div class="modal-f"><button class="btn primary" id="riskGo" disabled>${T('J\'accepte et je continue', 'I accept and continue')}</button></div></div>`;
+  const cb = bg.querySelector('#riskOk'), go = bg.querySelector('#riskGo');
+  cb.onchange = () => { go.disabled = !cb.checked; };
+  go.onclick = async () => { if (!cb.checked) return; await act('accept_risks'); bg.remove(); };
+  document.body.append(bg);
+}
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const fwShort = s => (s || '').replace(/^TBBR fw\d+\s*/, 'v');
 
@@ -445,6 +484,7 @@ async function poll() {
     if (lastBusy && !st.busy && st.task && st.task.ok === false) $('#logBox').open = true;
     lastBusy = st.busy;
     render();
+    if (!st.consent && !riskShown) riskBox();
   } catch (e) { /* serveur arrêté : la fenêtre peut être fermée */ }
   pollT = setTimeout(poll, S && S.busy ? 300 : 1200);
 }

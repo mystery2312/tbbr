@@ -205,6 +205,31 @@ def build_image(backup_dir, app=None, cabs=None):
     return tmp, data
 
 
+RISK_TEXT = (
+    "TBBR est un projet indépendant, ni affilié à M-VAVE ni approuvé par M-VAVE. Le firmware TBBR est en version ALPHA "
+    "(expérimental). Remplacer le firmware comporte des risques : une écriture interrompue peut rendre la pédale "
+    "inutilisable, et la garantie peut être annulée.\n\n"
+    "Avant de commencer : liaison USB stable, câble USB de données court et de bonne qualité branché directement sur un "
+    "port du PC (pas de hub, de rallonge ni de port en façade), batterie chargée, mise en veille désactivée.\n\n"
+    "Pendant l'opération : n'éteins jamais la pédale, ne débranche pas l'USB, ne ferme pas l'installateur.\n\n"
+    "En cas de problème : n'éteins pas la pédale et ne débranche pas l'USB ; tant qu'elle reste allumée et branchée, "
+    "relance « Installer » ou « Restaurer » (sauvegarde d'origine). Ne refais pas de sauvegarde.\n\n"
+    "Tu installes et utilises TBBR à tes propres risques et périls. Les auteurs de TBBR ne peuvent être tenus pour "
+    "responsables d'aucun dommage à ta pédale, d'aucune perte de données ni d'aucun autre préjudice.\n\n"
+    "Acceptes-tu ces conditions ?",
+    "TBBR is an independent project, neither affiliated with nor endorsed by M-VAVE. The TBBR firmware is in ALPHA "
+    "(experimental). Replacing the firmware carries risks: an interrupted write can leave the pedal unusable, and the "
+    "warranty may be voided.\n\n"
+    "Before you start: stable USB connection, short good-quality USB data cable plugged directly into a port on the PC "
+    "(no hub, extension or front-panel port), charged battery, sleep mode off.\n\n"
+    "During the operation: never power the pedal off, do not unplug USB, do not close the installer.\n\n"
+    "If something goes wrong: do not power the pedal off or unplug USB; as long as it stays on and connected, run "
+    "\"Install\" or \"Restore\" (original backup) again. Do not make a new backup.\n\n"
+    "You install and use TBBR entirely at your own risk. The TBBR authors cannot be held liable for any damage to your "
+    "pedal, any loss of data or any other harm.\n\n"
+    "Do you accept these terms?")
+
+
 class QueueWriter:
     def __init__(self, q):
         self.q = q
@@ -623,8 +648,14 @@ class Installer:
         return wait_original(seconds)
 
     # ------------------------------------------------------------------ actions
+    def accepted(self):
+        """Avertissement des risques (alpha, USB stable, à ses risques et périls) : accepté une fois par lancement."""
+        if not getattr(self, "consent", False):
+            self.consent = messagebox.askyesno(self.tr("Avertissement", "Warning"), self.tr(*RISK_TEXT), icon="warning")
+        return self.consent
+
     def do_backup(self):
-        if self.busy:
+        if self.busy or not self.accepted():
             return
         self.backup_parent.mkdir(parents=True, exist_ok=True)
         out = self.backup_parent / ("BlackBox_" + now_name())
@@ -652,7 +683,7 @@ class Installer:
         return build_image(self.backup_dir)
 
     def do_install(self):
-        if self.busy or not self.backup_dir:
+        if self.busy or not self.backup_dir or not self.accepted():
             return
         if not (self.backup_dir / BACKUP_FILE).exists():
             messagebox.showerror(self.tr("Sauvegarde absente", "Backup missing"),
@@ -688,7 +719,7 @@ class Installer:
         self.run_task(self.tr("Installation du firmware TBBR", "TBBR firmware installation"), task)
 
     def do_restore(self):
-        if self.busy or not self.backup_dir:
+        if self.busy or not self.backup_dir or not self.accepted():
             return
         backup = self.backup_dir / BACKUP_FILE
         if not backup.exists():
@@ -850,6 +881,7 @@ class WebApp:
         self.embedded = embedded_fw()
         self.pkg = None                                               # paquet .tbbr chargé : {"fw", "name", "app"}
         self.auto_update = "--update" in sys.argv
+        self.consent = False                                          # avertissement des risques accepté (interface, à chaque lancement)
         self.last_seen = time.time()
         self.main_q = queue.Queue()
         self.quit_flag = False
@@ -1004,7 +1036,7 @@ class WebApp:
             if not self.busy:
                 self.detect(query_info=False)
                 # lancé par l'app (--update + paquet .tbbr) : mise à jour dès que la pédale TBBR est là, sans autre clic
-                if (self.auto_update and self.task is None and self.pkg and self.backup_info.get("ok")
+                if (self.auto_update and self.consent and self.task is None and self.pkg and self.backup_info.get("ok")
                         and self.device.get("kind") == "tbbr" and self.device.get("fw")):
                     self.auto_update = False
                     if self.update_state() == "available":
@@ -1176,12 +1208,18 @@ class WebApp:
             return {"app": "TBBR Installer " + APP_VERSION, "lang": self.lang, "busy": self.busy, "task": self.task,
                     "device": self.device, "embedded": {"fw": self.target_fw(), "builtin": self.embedded,
                                                         "pkg": {"fw": self.pkg["fw"], "name": self.pkg["name"]} if self.pkg else None},
-                    "update": self.update_state(),
+                    "update": self.update_state(), "consent": self.consent,
                     "backup": self.backup_info, "backupParent": str(self.backup_parent), "log": logs, "logN": len(self.logs)}
 
     def handle(self, path, body):
         if path == "detect":
             threading.Thread(target=self.detect, daemon=True).start(); return {"ok": True}
+        if path == "accept_risks":                                    # avertissement accepté dans l'interface (à chaque lancement)
+            self.consent = True
+            self.add_log("\n=== " + time.strftime("%H:%M:%S") + " avertissement accepté (risques, firmware alpha, USB stable) ===\n")
+            return {"ok": True}
+        if path in ("backup", "install", "restore") and not self.consent:
+            return {"error": self.tr("Lis et accepte d'abord l'avertissement.", "First read and accept the warning.")}
         if path == "backup":
             return self.do_backup()
         if path == "install":
