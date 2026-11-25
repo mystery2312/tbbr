@@ -1052,7 +1052,17 @@ class WebApp:
                 self.task.update(ok=False, msg=str(e))
             except Exception as e:
                 self.add_log(traceback.format_exc())
-                self.task.update(ok=False, msg=str(e) or e.__class__.__name__)
+                msg = str(e) or e.__class__.__name__
+                if isinstance(e, OSError) and "IOCTL" in msg:              # liaison USB défaillante (ex. Errno 31)
+                    msg += self.tr("\n\nLiaison USB instable entre le PC et la pédale. N'éteins PAS la pédale : elle reste en mode "
+                                   "mise à jour tant qu'elle est allumée. Ne refais pas de sauvegarde. Change de câble USB (câble de "
+                                   "données court) et/ou branche-le directement sur un autre port du PC (sans hub ni rallonge), "
+                                   "attends que la pédale soit détectée, puis clique à nouveau sur Installer.",
+                                   "\n\nUnreliable USB connection between the PC and the pedal. Do NOT power the pedal off: it stays in "
+                                   "update mode as long as it is on. Do not make a new backup. Change the USB cable (short data cable) "
+                                   "and/or plug it directly into another port on the PC (no hub or extension), wait until the pedal is "
+                                   "detected, then click Install again.")
+                self.task.update(ok=False, msg=msg)
             finally:
                 sys.stdout = old
                 with self.lock:

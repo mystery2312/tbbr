@@ -398,8 +398,8 @@ function render() {
   document.querySelectorAll('#lang button').forEach(x => x.disabled = busy);
   $('#busyWarn').classList.toggle('on', !!busy);
   $('#busyTxt').textContent = S.task && S.task.id === 'backup'
-    ? T('Lecture en cours : ne débranche pas l\'USB.', 'Reading in progress: do not unplug USB.')
-    : T('Écriture en cours : ne débranche pas l\'USB et n\'éteins pas la pédale.', 'Writing in progress: do not unplug USB or power the pedal off.');
+    ? T('Lecture en cours : n\'éteins pas la pédale et ne débranche pas l\'USB.', 'Reading in progress: do not power the pedal off or unplug USB.')
+    : T('Écriture en cours : n\'éteins pas la pédale, ne débranche pas l\'USB, ne ferme pas l\'installateur.', 'Writing in progress: do not power the pedal off, unplug USB or close the installer.');
 
   /* progression */
   const t = S.task;
