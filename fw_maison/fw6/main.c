@@ -48,7 +48,7 @@ enum { RB_MAGIC = 0, RB_BOOTS, RB_STAGE, RB_HALVES, RB_EXIT, RB_OVERRUNS, RB_TIM
 #define RB_OVERLOADS 20                         /* nombre de coupures pour surcharge (RB[17..19] déjà pris) */
 enum { RB_PEXIT = 26, RB_PUP, RB_PSTAGE, RB_PMARK, RB_PLOAD };   /* démarrage précédent : cause, durée (blocs), étape, marqueur, charge max */
 #define FW_MAGIC 0x46573452u                    /* "R4WF" */
-#define FW_VERSION "TBBR fw6 0.17"
+#define FW_VERSION "TBBR fw6 0.18"
 #define FW_MHZ 396                                      /* horloge processeur (clock.c) */
 #include "catalog.h"
 #include "engine.h"

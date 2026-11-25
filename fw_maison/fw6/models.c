@@ -17,6 +17,23 @@ typedef long long s64;
 float sinf(float), cosf(float), powf(float, float), expf(float);
 float sqrtf_(float v);
 
+/* calibrage des amplis (voir cm_design) : atténuation d'entrée et compensation de sortie, en dB */
+#ifndef PAD_USCLEAN
+#define PAD_USCLEAN 6
+#define PAD_CHIME 22
+#define PAD_PLEXI 14
+#define PAD_BRIT 22
+#define PAD_RECT 58
+#define PAD_LEAD51 58
+#endif
+#ifndef MK_USCLEAN
+#define MK_USCLEAN 5
+#define MK_CHIME 6
+#define MK_PLEXI 2
+#define MK_BRIT 4
+#define MK_RECT 0
+#define MK_LEAD51 0
+#endif
 #define FS1 48000.0f
 #define FS2 96000.0f
 #define PI_F 3.14159265f
@@ -82,6 +99,7 @@ struct cmst {
     struct iir stack;
     float gain_in, pa_drive, pa_asym, sag, env, att, rel, out, bright_g;
     float trim;                                                     /* alignement du niveau (mesuré par tests\levels.py) */
+    float pad;                                                      /* atténuation d'entrée : seuil de saturation réaliste (fw6 0.18) */
     struct bqf in_hp, pres, res, cut, post;
 };
 unsigned int cm_size(void) { return sizeof(struct cmst); }
@@ -265,7 +283,9 @@ static void stage(struct tstage *t, float g, float bias, float hp, float lp, flo
     bqf_set(&t->hp, F_HP1, hp, 0, 0, FS2);
     bqf_set(&t->lp, F_LP1, lp, 0, 0, FS2);
     t->has_sh = shdb != 0;
-    bqf_set(&t->sh, t->has_sh ? F_LSH : F_THRU, shf, 0.6f, shdb, FS2);  /* condensateur de cathode : graves en plus */
+    /* condensateur de découplage de cathode : plein gain AU-DESSUS de sa coupure, gain réduit en dessous -> shdb < 0
+       (graves moins saturés : son plus serré). Le signe était inversé avant fw6 0.18 (graves gonflés avant la saturation). */
+    bqf_set(&t->sh, t->has_sh ? F_LSH : F_THRU, shf, 0.6f, shdb, FS2);
 }
 static void design_amp(struct cmst *s, int m, const float *p)
 {
@@ -284,7 +304,8 @@ static void design_amp(struct cmst *s, int m, const float *p)
            forte asymétrie), V2a suiveur de cathode -> tone stack Marshall (33k, 470p, 22n, 22n, 220k / 1M / 25k) ; EL34 */
         int jump = m == M_PLEXI ? (int)(p[6] + 0.5f) : 0;
         s->nst = m == M_PLEXI ? 2 : 3; s->gain_at = 1; s->ts_after = s->nst;
-        stage(&s->st[0], 32, 0.15f, 30, 12000, 200, 3);
+        if (m == M_PLEXI) stage(&s->st[0], 32, 0.15f, 30, 12000, 0, 0);   /* 1959 : 820 ohms / 250 uF, plat dans le registre guitare */
+        else stage(&s->st[0], 32, 0.15f, 30, 12000, 90, -8);           /* 2203 V1a : 2,7k / 0,68 uF -> ~-8 dB sous ~90 Hz */
         stage(&s->st[1], m == M_PLEXI ? 28 : 40, m == M_PLEXI ? 0.2f : 0.55f, 80, 9000, 0, 0);
         stage(&s->st[2], 2.5f, 0.35f, 15, 15000, 0, 0);                /* suiveur de cathode : écrête le positif */
         s->gain_in = 0.02f + 2.2f * gk;
@@ -297,7 +318,7 @@ static void design_amp(struct cmst *s, int m, const float *p)
         /* Twin Reverb (blackface) : V1 -> tone stack Fender (100k, 250p, 100n, 47n, 250k / 250k / 10k) -> Volume -> V2 ;
            6L6 x4 : énorme réserve ; Bright = 120 pF sur le potard de volume */
         s->nst = 2; s->ts_after = 1; s->gain_at = 1;
-        stage(&s->st[0], 20, 0.1f, 20, 15000, 150, 2);
+        stage(&s->st[0], 20, 0.1f, 20, 15000, 0, 0);                   /* 1,5k / 25 uF : coupure ~4 Hz, plat */
         stage(&s->st[1], 16, 0.1f, 20, 14000, 0, 0);
         s->gain_in = 0.03f + 0.9f * gk;
         s->bright_g = (p[6] > 0.5f) ? 1.4f * (1 - gain) + 0.2f : 0;
@@ -309,7 +330,7 @@ static void design_amp(struct cmst *s, int m, const float *p)
            EL84 classe A (asymétrique, compression) ; Cut = passe-bas variable à l'entrée de l'étage de puissance */
         int tb = (int)(p[6] + 0.5f);
         s->nst = tb ? 3 : 2; s->ts_after = s->nst; s->gain_at = 1;
-        stage(&s->st[0], 28, 0.15f, 25, 14000, 300, 2);
+        stage(&s->st[0], 28, 0.15f, 25, 14000, 0, 0);                  /* cathode bien découplée : plat */
         stage(&s->st[1], tb ? 30 : 18, 0.2f, 60, 12000, 0, 0);
         stage(&s->st[2], 2.5f, 0.3f, 20, 16000, 0, 0);
         s->gain_in = 0.02f + 1.6f * gk;
@@ -323,7 +344,7 @@ static void design_amp(struct cmst *s, int m, const float *p)
            22n, 250k / 1M / 25k) ; 6L6 ; redresseur à lampe = plus de « sag » */
         int mode = (int)(p[6] + 0.5f), tube = p[7] < 0.5f;
         s->nst = mode == 2 ? 4 : 3; s->ts_after = s->nst; s->gain_at = 1;
-        stage(&s->st[0], 35, 0.15f, mode == 2 ? 60 : 30, 12000, 250, 3);
+        stage(&s->st[0], 35, 0.15f, mode == 2 ? 60 : 30, 12000, 100, -6);   /* découplage partiel : graves moins saturés */
         stage(&s->st[1], 40, 0.3f, mode == 2 ? 120 : 60, 9000, 0, 0);
         stage(&s->st[2], mode == 0 ? 18 : 35, 0.4f, 40, 8000, 0, 0);
         stage(&s->st[3], 30, 0.35f, 50, 7500, 0, 0);
@@ -397,6 +418,17 @@ void cm_design(void *mem, int m, const float *p)
     /* niveaux alignés : sortie moyenne ~ entrée (+0..+3 dB pour les drives) aux réglages par défaut (dB) */
     s->trim = db2g(m == M_GREEN ? 8.0f : m == M_OD1 ? 8.0f : m == M_SD1 ? 7.0f : m == M_BD2 ? 3.5f : m == M_GOLD ? 7.0f : m == M_GRIT ? 10.5f :
                    m == M_MUFF ? -7.0f : m == M_USCLEAN ? 8.0f : m == M_CHIME ? 1.0f : m == M_BRIT ? -3.0f : m == M_PLEXI ? -3.0f : m == M_RECT ? -2.0f : 0.0f);
+    /* Seuil de saturation (distorsion > 3 % à 220 Hz, réglages par défaut) : avant fw6 0.18 les amplis saturaient dès
+       -54 (Plexi) à moins de -100 dBFS (Rectifier, 5150), c.-à-d. sur le souffle du convertisseur (-79 dBFS) : son brouillon,
+       graves baveux. pad (dB) ramène ce seuil vers : Twin -20, AC30 -36, Plexi -40, JCM800 -46, Rectifier -56, 5150 -58 ;
+       makeup (dB, dans trim) garde le niveau de sortie d'avant pour une entrée de -20 dBFS (mesures : tests\e2e\emu\breakup.js). */
+    {
+        float pad = m == M_USCLEAN ? PAD_USCLEAN : m == M_CHIME ? PAD_CHIME : m == M_PLEXI ? PAD_PLEXI : m == M_BRIT ? PAD_BRIT :
+                    m == M_RECT ? PAD_RECT : m == M_LEAD51 ? PAD_LEAD51 : 0;
+        float mk = m == M_USCLEAN ? MK_USCLEAN : m == M_CHIME ? MK_CHIME : m == M_PLEXI ? MK_PLEXI : m == M_BRIT ? MK_BRIT :
+                   m == M_RECT ? MK_RECT : m == M_LEAD51 ? MK_LEAD51 : 0;
+        s->pad = db2g(-pad); s->trim *= db2g(mk);
+    }
     if (m == M_GREEN || m == M_GOLD || m == M_GRIT || m == M_OD1 || m == M_SD1 || m == M_BD2 || m == M_MUFF) design_pedal(s, m, p);
     else {
         design_amp(s, m, p);
@@ -407,7 +439,7 @@ void cm_design(void *mem, int m, const float *p)
 s32 cm_run(void *mem, s32 xq)
 {
     struct cmst *s = (struct cmst *)mem;
-    float x = (float)xq * (1.0f / 8388608.0f), y = (s->kind ? run_amp(s, x) : run_pedal(s, x)) * s->trim;
+    float x = (float)xq * (1.0f / 8388608.0f) * s->pad, y = (s->kind ? run_amp(s, x) : run_pedal(s, x)) * s->trim;
     if (y > 15.9f) y = 15.9f; else if (y < -15.9f) y = -15.9f;
     return (s32)(y * 8388608.0f);
 }

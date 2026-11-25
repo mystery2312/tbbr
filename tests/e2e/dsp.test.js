@@ -89,3 +89,20 @@ test('réverbes par blocs : arrivée de l\'humide inchangée (pré-délai compen
     assert.ok(pk > 1e5 && pk < 4 * 8388608, `${m} : crête ${pk}`);
   }
 });
+
+/* --- amplis : seuil de saturation réaliste (fw6 0.18) : avant, Rectifier / 5150 saturaient dès -100 dBFS (sur le souffle du
+   convertisseur, -79 dBFS) et le JCM800 dès -68 : son brouillon et baveux signalé par l'utilisateur --- */
+test('amplis : début de saturation (3 % à 220 Hz, réglages par défaut) au niveau visé, volume de sortie conservé', async () => {
+  const { thresholds } = require('./emu/breakup');
+  const A = require('./lib/appcode').load();
+  const want = { usclean: -20, chime: -36, plexi: -40, brit: -46, rect: -56, lead51: -58 };
+  const p = new Pedal();
+  try {
+    await p.info();
+    const base = A.compactPreset(A.factoryPresets()[0], 0);
+    for (const [id, w] of Object.entries(want)) {
+      const s = await thresholds(p, base, id, A.MODEL[id].params.map(q => +(q.def ?? 0)));
+      assert.ok(s[0] != null && Math.abs(s[0] - w) <= 4, `${id} : saturation dès ${s[0]} dBFS (visé ${w})`);
+    }
+  } finally { await p.close(); }
+});
