@@ -95,7 +95,8 @@ test('réverbes par blocs : arrivée de l\'humide inchangée (pré-délai compen
 test('amplis : début de saturation (3 % à 220 Hz, réglages par défaut) au niveau visé, volume de sortie conservé', async () => {
   const { thresholds } = require('./emu/breakup');
   const A = require('./lib/appcode').load();
-  const want = { usclean: -20, chime: -36, plexi: -40, brit: -46, rect: -56, lead51: -58 };
+  /* fuzz / metal / bassamp : sortis du modèle générique en virgule fixe (zone morte : 90-100 % de distorsion à bas niveau) */
+  const want = { usclean: -20, chime: -36, plexi: -40, brit: -46, rect: -56, lead51: -58, fuzz: -46, metal: -56, bassamp: -20 };
   const p = new Pedal();
   try {
     await p.info();

@@ -486,7 +486,7 @@ static u32 preset_export(void)
 /* Banque d'usine : chaque preset d'usine écrit par le firmware porte une étiquette dans hdr[3]
    (« FB », version de la banque, numéro) ; une sauvegarde de l'utilisateur l'efface (hdr[3] = 0).
    Quand FACTORY_BANK augmente, les presets d'usine NON modifiés sont remplacés par leur nouvelle version au démarrage. */
-#define FACTORY_BANK 2u                                                 /* 2 = cabs à IR (fw6 0.8) */
+#define FACTORY_BANK 3u                                                 /* 2 = cabs à IR (fw6 0.8) ; 3 = presets revus d'après les sons originaux (fw6 0.18) */
 #define FB_TAG(k) (0x46420000u | (FACTORY_BANK << 8) | (u32)(k))
 static u32 store_tag;                                                   /* étiquette du prochain preset_store */
 /* écrit l'état réel dans l'emplacement i, sans toucher à la table meta (utilisé aussi au boot) */

@@ -22,7 +22,7 @@ function load() {
   vm.runInContext(read('js/data.js') + '\n' +
     line(/const clamp = .*/) + '\n' + grab('blocks') + '\n' + grab('islands') + '\n' +
     grab('expandPreset') + '\n' + grab('compactPreset').replace('const p = S.presets[i];', 'const p = P0;') +
-    '\nvar P0; this.__o = { MODELS, MODEL, COLS, SCENES, PRESETS, IR_SLOTS, NAM_SLOTS, factoryPresets, expandPreset,' +
+    '\nvar P0; this.__o = { MODELS, MODEL, COLS, SCENES, PRESETS, IR_SLOTS, NAM_SLOTS, FP, factoryPresets, expandPreset,' +
     ' compactPreset: (p, i = 0) => { P0 = p; return compactPreset(i); } };', ctx);
   /* objets du contexte vm -> objets ordinaires (sinon deepStrictEqual compare des prototypes différents) */
   const plain = f => (...a) => JSON.parse(JSON.stringify(f(...a)));

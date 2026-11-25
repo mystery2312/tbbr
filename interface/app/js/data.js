@@ -213,9 +213,9 @@ function renameScenes(p, names) { names.forEach((n, i) => { if (p.scenes[i]) p.s
 /* Stairway : un seul Plexi ; gain bas (intro, couplets) ou haut + boost (lead, solo) selon la scène. */
 function stairwayPreset() {
   const p = makePreset('Stairway to Heaven', '#f5d90a', [
-    ['boost', { gain: 4, tone: 6 }, false],
-    ['plexi', { gain: 2.5, bass: 5, mid: 5.5, treb: 6.5, pres: 5, mast: 5, jump: 2 }],
-    ['cab412', { mic: 1, pos: 4, dist: 2 }],
+    ['boost', { gain: 8, tone: 6.5 }, false],
+    ['plexi', { gain: 2.5, bass: 4.5, mid: 6, treb: 6.5, pres: 5, mast: 8, jump: 1 }],
+    ['cab412', { mic: 3, pos: 4, dist: 2 }],
     ['ddl', { time: 430, fb: 25, mix: 15 }],
     ['plate', { decay: 2.4, pre: 30, mix: 22, tone: 5, lc: 100 }],
   ], { tempo: 82 });
@@ -223,131 +223,184 @@ function stairwayPreset() {
   const clean = [0, 2, 4, 5, 6, 7];
   for (let i = 0; i < SCENES; i++) {
     const c = clean.includes(i);
-    setScene(p, i, px, true, { gain: c ? 2.5 : 6.5 });
-    setScene(p, i, bo, !c, { gain: 4 });
+    setScene(p, i, px, true, c ? { gain: FP.stairwayClean } : { gain: FP.stairwayLead, mast: FP.stairwayLeadMast });
+    setScene(p, i, bo, !c, { gain: 3 });
   }
   renameScenes(p, ['Intro', 'Lead', 'Clean', 'Solo', 'Verse', 'Chorus', 'Bridge', 'Outro']);
   return p;
 }
+/* bloc (le premier de ce modèle) actif seulement dans les scènes listées, avec réglages propres à ces scènes */
+function onlyIn(p, mid, scenes, over) {
+  const b = p.lanes.flat().find(x => x && x.model === mid);
+  if (!b) return p;
+  for (let i = 0; i < SCENES; i++) setScene(p, i, b.uid, scenes.includes(i), scenes.includes(i) ? over : null);
+  return p;
+}
+/* Gains et volumes des presets d'usine, réglés par mesure (tests\e2e\emu\preset_tune.js) : début de saturation de chaque
+   son proche de l'original (clair, bord de saturation, crunch, gain élevé, métal), volumes égalisés (saturés -6 dBFS RMS ;
+   clairs limités par leurs crêtes, ~8 dB plus bas comme sur un vrai ampli), scène Lead = Rhythm + 0..3 dB. */
+const FP = {
+  stairwayClean: 1, stairwayLead: 6.5, stairwayLeadMast: 3,
+  gain: [8, 0, 4.5, 1.5, 5, 3, 7.5, 1, 7, 4.5, 0, 4, 1.5, 4.5, 6, 7, 5.5, 6, 5.5, 8],
+  level: [-2.5, 3, -1, 2.5, 1.5, 5.5, 6, -1.5, -8.5, -2, 0, 3.5, 1, -2, 4, -1.5, -0.5, -1, -0.5, -1.5],
+  lead: { 2: ['grit', 'vol', 1.5], 3: ['muff', 'vol', 2], 9: ['green', 'lvl', 2.5], 13: ['green', 'lvl', 3.5] },
+};
 
 /* 20 sons stock inspirés de classiques, avec uniquement les modèles du firmware
  * (pas de NAM ni d'IR à charger : baffles d'usine intégrés ; le gate d'entrée global remplace les blocs Gate,
  * gardés seulement en métal). Budget DSP de chacun <= 100 %. */
 function factoryPresets() {
+  /* TS en boost (scène Lead) : drive bas, niveau haut, comme sur scène ; G = gain de l'ampli réglé par mesure (FP.gain) */
+  const TSB = { drv: 1, tone: 6, lvl: 8.5 }, G = i => FP.gain[i];
   const list = [
+    /* Slash : Les Paul -> JCM800 2203 modifié, 4x12 ; pas de pédale en rythmique */
     makePreset('Appetite for Destruction', '#ff4d4d', [
-      ['green', { drv: 3.5, tone: 5.5, lvl: 6 }, false],
-      ['brit', { gain: 7, bass: 5, mid: 6.5, treb: 6, pres: 5.5, mast: 6 }],
-      ['cab412', { mic: 0, pos: 3, dist: 2 }],
-      ['ddl', { time: 420, fb: 30, mix: 18 }], ['hall', { decay: 2.2, pre: 20, mix: 18, tone: 5, lc: 100 }],
+      ['green', TSB, false],
+      ['brit', { gain: G(0), bass: 4.5, mid: 7, treb: 6, pres: 5.5, mast: 6 }],
+      ['cab412', { mic: 0, pos: 3, dist: 2, lc: 90 }],
+      ['ddl', { time: 420, fb: 25, mix: 12 }], ['hall', { decay: 2, pre: 20, mix: 14, tone: 5, lc: 120 }],
     ], { tempo: 125 }),
     stairwayPreset(),
+    /* Prince : clair Fender + chorus et grosse réverbe ; solo très saturé (DS-1) */
     makePreset('Purple Rain', '#b06cff', [
-      ['usclean', { gain: 4, bass: 5, mid: 4, treb: 6.5, pres: 4.5, mast: 5, bright: true }],
+      ['grit', { dist: 7, filt: 3.5, vol: 6 }, false],
+      ['usclean', { gain: G(2), bass: 4.5, mid: 4.5, treb: 6.5, pres: 4.5, mast: 5, bright: true }],
       ['cab212', { mic: 0, pos: 4, dist: 2 }],
       ['chorus', { rate: 0.6, depth: 45, mix: 40, tone: 5 }],
       ['analog', { time: 360, fb: 38, mix: 28, mod: 25 }],
       ['plate', { decay: 2.8, pre: 30, mix: 30, tone: 5, lc: 100 }],
     ], { tempo: 70 }),
+    /* Gilmour : Big Muff -> Hiwatt (clair, énorme réserve), délai + réverbe ; couplets clairs */
     makePreset('Comfortably Numb', '#3aa0ff', [
-      ['muff', { sus: 5.5, tone: 5, vol: 5 }, false],
-      ['brit', { gain: 5, bass: 5, mid: 5.5, treb: 5.5, pres: 5, mast: 6 }],
-      ['cab412', { mic: 0, pos: 3, dist: 2 }],
-      ['ddl', { time: 480, fb: 42, mix: 26 }], ['hall', { decay: 3.2, pre: 30, mix: 25, tone: 4.5, lc: 100 }],
+      ['muff', { sus: 6.5, tone: 6, vol: 6 }, false],
+      ['plexi', { gain: G(3), bass: 5, mid: 6, treb: 6, pres: 5, mast: 8, jump: 1 }],
+      ['cab412', { mic: 3, pos: 3, dist: 2 }],
+      ['ddl', { time: 470, fb: 35, mix: 22 }], ['hall', { decay: 3, pre: 30, mix: 22, tone: 5, lc: 100 }],
     ], { tempo: 63 }),
+    /* Angus : SG -> Marshall Super Lead poussé, sans pédale : crunch brillant, médiums en avant */
     makePreset('Back in Black', '#9aa3ad', [
-      ['green', { drv: 2, tone: 5, lvl: 5.5 }, false],
-      ['plexi', { gain: 6.5, bass: 5, mid: 6, treb: 6.5, pres: 5, mast: 5.5, jump: 2 }],
-      ['cab412', { mic: 1, pos: 3, dist: 2 }], ['room', { decay: 0.7, pre: 10, mix: 12, tone: 5, lc: 120 }],
+      ['green', TSB, false],
+      ['plexi', { gain: G(4), bass: 4.5, mid: 6.5, treb: 7, pres: 5.5, mast: 6, jump: 2 }],
+      ['cab412', { mic: 1, pos: 3, dist: 2, lc: 90 }], ['room', { decay: 0.7, pre: 10, mix: 10, tone: 5, lc: 120 }],
     ], { tempo: 118 }),
-    makePreset('Smells Like Teen Spirit', '#3ddc84', [
-      ['muff', { sus: 6.5, tone: 4.5, vol: 6 }],
-      ['brit', { gain: 5.5, bass: 5, mid: 4, treb: 5.5, pres: 5, mast: 5.5 }],
-      ['cab412', { mic: 0, pos: 2, dist: 1.5 }], ['room', { decay: 0.8, pre: 10, mix: 14, tone: 4.5, lc: 120 }],
-    ], { tempo: 117 }),
+    /* Cobain : DS-1 (distorsion dure) -> préampli Mesa ; couplets clairs avec chorus (scène Clean) */
+    onlyIn(makePreset('Smells Like Teen Spirit', '#3ddc84', [
+      ['grit', { dist: 6.5, filt: 4, vol: 6 }],
+      ['rect', { gain: G(5), bass: 6, mid: 5, treb: 6, pres: 5, mast: 5, mode: 1, rect: 1 }],
+      ['cab412', { mic: 0, pos: 2, dist: 1.5, lc: 70 }],
+      ['chorus', { rate: 0.7, depth: 55, mix: 50, tone: 5 }],
+      ['room', { decay: 0.8, pre: 10, mix: 12, tone: 4.5, lc: 120 }],
+    ], { tempo: 117 }), 'chorus', [2]),
+    /* Hetfield : ampli Mesa à médiums creusés + TS en boost (serre les graves), gate, 4x12 */
     makePreset('Master of Puppets', '#ff9f1a', [
-      ['gate', { thr: -40, rel: 40 }], ['green', { drv: 1.5, tone: 5.5, lvl: 7 }],
-      ['rect', { gain: 8, bass: 6, mid: 3.5, treb: 6, pres: 6, mast: 5, mode: 2, rect: 1 }],
-      ['cab412', { mic: 2, pos: 2, dist: 1.5 }], ['ddl', { time: 380, fb: 20, mix: 12 }],
+      ['gate', { thr: -45, rel: 40 }], ['green', { drv: 0.5, tone: 6, lvl: 8.5 }],
+      ['rect', { gain: G(6), bass: 5, mid: 3, treb: 6.5, pres: 6, mast: 5, mode: 2, rect: 1 }],
+      ['cab412', { mic: 2, pos: 2, dist: 1.5, lc: 100 }], ['ddl', { time: 380, fb: 20, mix: 10 }],
     ], { tempo: 212 }),
+    /* Hendrix : Fuzz Face (germanium) -> Uni-Vibe -> Marshall 1959 */
     makePreset('Voodoo Child', '#ff5fb0', [
-      ['fuzz', { fuzz: 7, vol: 5, germ: true }],
-      ['plexi', { gain: 5, bass: 5, mid: 6, treb: 6, pres: 5, mast: 5.5, jump: 2 }],
-      ['cab412', { mic: 1, pos: 3, dist: 2 }], ['vibe', { speed: 4, int: 6, mode: 0 }],
-      ['spring', { dwell: 6, tone: 5.5, mix: 30, springs: 1 }],
+      ['fuzz', { fuzz: 7, vol: 6, germ: true }],
+      ['vibe', { speed: 4, int: 6, mode: 0 }],
+      ['plexi', { gain: G(7), bass: 4.5, mid: 6, treb: 6.5, pres: 5, mast: 6, jump: 2 }],
+      ['cab412', { mic: 1, pos: 3, dist: 2 }],
+      ['spring', { dwell: 6, tone: 5.5, mix: 22, springs: 1 }],
     ], { tempo: 90 }),
+    /* SRV : TS808 (drive bas, niveau haut) -> Fender poussé au bord de la saturation, 4x10 */
     makePreset('Pride and Joy', '#2fd6c5', [
-      ['green', { drv: 2.5, tone: 6, lvl: 6 }],
-      ['usclean', { gain: 4.5, bass: 5, mid: 4.5, treb: 6, pres: 4.5, mast: 5, bright: true }],
-      ['cab212', { mic: 5, pos: 4, dist: 2 }], ['spring', { dwell: 7, tone: 5, mix: 28, springs: 2 }],
+      ['green', { drv: 3.5, tone: 5.5, lvl: 7.5 }],
+      ['usclean', { gain: G(8), bass: 4.5, mid: 5, treb: 6, pres: 5, mast: 4, bright: true }],
+      ['cab212', { mic: 5, pos: 4, dist: 2 }], ['spring', { dwell: 6, tone: 5, mix: 20, springs: 2 }],
     ], { tempo: 110 }),
+    /* Eagles : rythmique claire ; solos Les Paul saturés (TS poussé) */
     makePreset('Hotel California', '#f5d90a', [
-      ['green', { drv: 2, tone: 5.5, lvl: 5.5 }, false],
-      ['usclean', { gain: 4, bass: 5, mid: 4.5, treb: 6, pres: 4.5, mast: 5, bright: true }],
+      ['green', { drv: 8, tone: 6, lvl: 7 }, false],
+      ['usclean', { gain: G(9), bass: 4.5, mid: 5, treb: 6, pres: 4.5, mast: 5.5, bright: true }],
       ['cab212', { mic: 2, pos: 4, dist: 2 }],
-      ['ddl', { time: 420, fb: 25, mix: 16 }], ['plate', { decay: 2.2, pre: 30, mix: 22, tone: 5, lc: 100 }],
+      ['ddl', { time: 420, fb: 25, mix: 16 }], ['plate', { decay: 2.2, pre: 30, mix: 20, tone: 5, lc: 100 }],
     ], { tempo: 75 }),
-    makePreset('Purple Haze', '#b06cff', [
-      ['fuzz', { fuzz: 7.5, vol: 5, germ: true }],
-      ['octave', { o1: 35, o2: 0, up: 0, dry: 100 }],
-      ['plexi', { gain: 5.5, bass: 5, mid: 6, treb: 6, pres: 5, mast: 5.5, jump: 2 }],
-      ['cab412', { mic: 1, pos: 3, dist: 2 }], ['vibe', { speed: 5, int: 7, mode: 0 }],
-      ['spring', { dwell: 6, tone: 5.5, mix: 30, springs: 1 }],
-    ], { tempo: 100 }),
-    makePreset('Bohemian Rhapsody', '#ff9f1a', [
-      ['boost', { gain: 5, tone: 6.5 }],
-      ['chime', { gain: 5.5, bass: 5, mid: 5.5, treb: 6.5, pres: 3, mast: 5, ch: 1 }],
-      ['cab212', { mic: 0, pos: 4, dist: 2 }],
-      ['ddl', { time: 400, fb: 30, mix: 20 }], ['plate', { decay: 2.5, pre: 30, mix: 24, tone: 5, lc: 100 }],
+    /* Hendrix : Fuzz Face -> Marshall ; Octavia (octave haute) sur le solo (scènes Lead / Solo) */
+    onlyIn(makePreset('Purple Haze', '#b06cff', [
+      ['fuzz', { fuzz: 7.5, vol: 6, germ: true }],
+      ['octave', { o1: 0, o2: 0, up: 60, dry: 100 }],
+      ['vibe', { speed: 5, int: 6, mode: 0 }],
+      ['plexi', { gain: G(10), bass: 4.5, mid: 6, treb: 6.5, pres: 5, mast: 6, jump: 2 }],
+      ['cab412', { mic: 1, pos: 3, dist: 2 }],
+      ['spring', { dwell: 6, tone: 5.5, mix: 22, springs: 1 }],
+    ], { tempo: 100 }), 'octave', [1, 3]),
+    /* Brian May : treble booster -> AC30 poussé ; harmonies (« orchestre de guitares ») sur le solo */
+    onlyIn(makePreset('Bohemian Rhapsody', '#ff9f1a', [
+      ['boost', { gain: 12, tone: 8 }],
+      ['chime', { gain: G(11), bass: 3, mid: 6.5, treb: 7, pres: 3, mast: 6, ch: 1 }],
+      ['cab212', { mic: 0, pos: 4, dist: 2, lc: 100 }],
+      ['ddl', { time: 400, fb: 30, mix: 18 }], ['plate', { decay: 2.5, pre: 30, mix: 22, tone: 5, lc: 100 }],
       ['harm', { key: 9, scale: 0, iv: 2, mix: 30 }],
-    ], { tempo: 72 }),
+    ], { tempo: 72 }), 'harm', [3]),
+    /* Hendrix : Strat -> Marshall à bas volume -> cabine Leslie */
     makePreset('Little Wing', '#3ddc84', [
-      ['usclean', { gain: 3.5, bass: 5, mid: 4.5, treb: 6, pres: 4, mast: 5, bright: true }],
-      ['cab412', { mic: 4, pos: 4, dist: 2 }],
-      ['vibe', { speed: 3, int: 5, mode: 0 }], ['chorus', { rate: 0.4, depth: 25, mix: 20, tone: 5 }],
-      ['spring', { dwell: 6, tone: 5, mix: 24, springs: 1 }],
+      ['plexi', { gain: G(12), bass: 4.5, mid: 5.5, treb: 6.5, pres: 5, mast: 8, jump: 1 }],
+      ['cab412', { mic: 3, pos: 4, dist: 2 }],
+      ['rotary', { speed: 0, drive: 2, mix: 70, horn: 5 }],
+      ['spring', { dwell: 6, tone: 5, mix: 22, springs: 1 }],
     ], { tempo: 70 }),
+    /* Gilmour : clair à 12 cordes ; solo légèrement saturé (TS doux en Lead) */
     makePreset('Wish You Were Here', '#2fd6c5', [
-      ['usclean', { gain: 3.5, bass: 5, mid: 4.5, treb: 6, pres: 4, mast: 5, bright: true }],
+      ['green', { drv: 5, tone: 6, lvl: 7 }, false],
+      ['usclean', { gain: G(13), bass: 4.5, mid: 5, treb: 6, pres: 4.5, mast: 5, bright: true }],
       ['cab212', { mic: 1, pos: 4, dist: 2 }],
-      ['chorus', { rate: 0.45, depth: 30, mix: 22, tone: 5 }],
-      ['ddl', { time: 460, fb: 30, mix: 18 }], ['plate', { decay: 2.4, pre: 30, mix: 24, tone: 5, lc: 100 }],
-      ['peq', { lf: 1, lmf: -1, lmq: 400, hmf: 1.5, hmq: 2500, hf: 1, lvl: 0 }],
+      ['chorus', { rate: 0.45, depth: 25, mix: 18, tone: 5 }],
+      ['ddl', { time: 460, fb: 30, mix: 16 }], ['plate', { decay: 2.4, pre: 30, mix: 22, tone: 5, lc: 100 }],
+      ['peq', { lf: 0, lmf: -1, lmq: 400, hmf: 1.5, hmq: 2500, hf: 1, lvl: 0 }],
     ], { tempo: 60 }),
+    /* Album noir : Mesa à fort gain, médiums moins creusés que sur Puppets, TS en boost, gate */
     makePreset('Enter Sandman', '#ff4d4d', [
-      ['gate', { thr: -40, rel: 40 }], ['green', { drv: 1.5, tone: 5.5, lvl: 7 }],
-      ['lead51', { gain: 8, bass: 6, mid: 4, treb: 6, pres: 6, mast: 5, res: 5.5 }],
-      ['cab412', { mic: 2, pos: 2, dist: 1.5 }], ['ddl', { time: 420, fb: 25, mix: 14 }],
+      ['gate', { thr: -45, rel: 40 }], ['green', { drv: 0.5, tone: 6, lvl: 8.5 }],
+      ['lead51', { gain: G(14), bass: 5, mid: 5, treb: 6, pres: 6, mast: 5, res: 5 }],
+      ['cab412', { mic: 2, pos: 2, dist: 1.5, lc: 100 }], ['ddl', { time: 420, fb: 25, mix: 12 }],
     ], { tempo: 123 }),
+    /* Slash : même JCM800, micro manche, moins de gain pour l'intro ; TS en boost pour le solo */
     makePreset("Sweet Child O' Mine", '#ff9f1a', [
-      ['green', { drv: 3, tone: 5.5, lvl: 6 }],
-      ['brit', { gain: 7, bass: 5, mid: 6.5, treb: 6, pres: 5.5, mast: 6 }],
-      ['cab412', { mic: 0, pos: 3, dist: 2 }], ['analog', { time: 420, fb: 35, mix: 22, mod: 20 }],
-      ['hall', { decay: 2.6, pre: 25, mix: 22, tone: 5, lc: 100 }],
+      ['green', TSB, false],
+      ['brit', { gain: G(15), bass: 4.5, mid: 7, treb: 6, pres: 5.5, mast: 6 }],
+      ['cab412', { mic: 0, pos: 3, dist: 2, lc: 90 }], ['analog', { time: 420, fb: 30, mix: 18, mod: 20 }],
+      ['hall', { decay: 2.4, pre: 25, mix: 18, tone: 5, lc: 120 }],
     ], { tempo: 126 }),
+    /* Page : Les Paul -> Marshall / Supro poussé ; fuzz sur le solo ; écho à bande (Echoplex) */
     makePreset('Whole Lotta Love', '#9aa3ad', [
-      ['fuzz', { fuzz: 6.5, vol: 5, germ: true }],
-      ['plexi', { gain: 5.5, bass: 5, mid: 6, treb: 6, pres: 5, mast: 5.5, jump: 2 }],
-      ['cab412', { mic: 1, pos: 3, dist: 2 }], ['room', { decay: 0.9, pre: 10, mix: 15, tone: 5, lc: 120 }],
+      ['fuzz', { fuzz: 6, vol: 6, germ: true }, false],
+      ['plexi', { gain: G(16), bass: 4.5, mid: 6.5, treb: 6.5, pres: 5, mast: 6, jump: 2 }],
+      ['cab412', { mic: 3, pos: 3, dist: 2 }], ['tape', { time: 380, fb: 30, mix: 14, wow: 25, age: 4 }],
+      ['room', { decay: 0.9, pre: 10, mix: 12, tone: 5, lc: 120 }],
     ], { tempo: 90 }),
+    /* Clapton : son « woman tone » : micro manche, tonalité guitare fermée -> Marshall 1959 à fond */
     makePreset('Sunshine of Your Love', '#3aa0ff', [
-      ['green', { drv: 2.5, tone: 5.5, lvl: 6 }],
-      ['plexi', { gain: 5, bass: 5, mid: 6, treb: 6, pres: 5, mast: 5.5, jump: 2 }],
-      ['cab412', { mic: 1, pos: 3, dist: 2 }], ['room', { decay: 0.8, pre: 10, mix: 14, tone: 5, lc: 120 }],
+      ['green', TSB, false],
+      ['plexi', { gain: G(17), bass: 5, mid: 7, treb: 3.5, pres: 4, mast: 6, jump: 2 }],
+      ['cab412', { mic: 3, pos: 3, dist: 2 }], ['room', { decay: 0.8, pre: 10, mix: 12, tone: 4.5, lc: 120 }],
     ], { tempo: 116 }),
+    /* Page : Marshall poussé, gros crunch en DADGAD ; TS en boost pour les lignes solo */
     makePreset('Kashmir', '#b06cff', [
-      ['muff', { sus: 5, tone: 5, vol: 5.5 }],
-      ['plexi', { gain: 5.5, bass: 5, mid: 6, treb: 5.5, pres: 5, mast: 5.5, jump: 2 }],
-      ['cab412', { mic: 1, pos: 3, dist: 2 }], ['ddl', { time: 450, fb: 25, mix: 15 }],
-      ['hall', { decay: 2.8, pre: 25, mix: 20, tone: 4.5, lc: 100 }],
+      ['green', TSB, false],
+      ['plexi', { gain: G(18), bass: 5, mid: 6, treb: 6, pres: 5, mast: 6, jump: 2 }],
+      ['cab412', { mic: 3, pos: 3, dist: 2 }], ['ddl', { time: 450, fb: 20, mix: 12 }],
+      ['hall', { decay: 2.8, pre: 25, mix: 18, tone: 4.5, lc: 100 }],
     ], { tempo: 80 }),
+    /* Solo EVH : Plexi à fort gain (« brown sound »), phaser avant l'ampli ; TS en boost */
     makePreset('Beat It', '#ff5fb0', [
-      ['green', { drv: 3, tone: 5.5, lvl: 6 }],
-      ['brit', { gain: 7, bass: 5, mid: 6, treb: 6, pres: 5.5, mast: 6 }],
-      ['cab412', { mic: 0, pos: 3, dist: 2 }], ['ddl', { time: 400, fb: 30, mix: 18 }],
-      ['hall', { decay: 2.4, pre: 25, mix: 20, tone: 5, lc: 100 }],
+      ['green', TSB, false],
+      ['phaser', { rate: 0.4, depth: 50, fb: 20, st: 0 }, false],
+      ['plexi', { gain: G(19), bass: 5, mid: 6.5, treb: 6.5, pres: 6, mast: 6, jump: 2 }],
+      ['cab412', { mic: 0, pos: 3, dist: 2, lc: 90 }], ['ddl', { time: 400, fb: 25, mix: 14 }],
+      ['hall', { decay: 2.2, pre: 25, mix: 16, tone: 5, lc: 120 }],
     ], { tempo: 139 }),
   ];
+  list.forEach((p, i) => { p.level = FP.level[i]; });
+  /* volume de la pédale du solo (presets clairs) : FP.lead[i] = [modèle, réglage, valeur] */
+  Object.entries(FP.lead || {}).forEach(([i, [mid, k, v]]) => {
+    const p = list[i], b = p && p.lanes.flat().find(x => x && x.model === mid);
+    if (b) p.scenes.forEach(s => { s.state[b.uid].p[k] = v; });
+  });
+  /* Beat It : phaser sur le solo (scène Solo) */
+  onlyIn(list[19], 'phaser', [3]);
   const out = [];
   for (let i = 0; i < PRESETS; i++) out.push(list[i] || initPreset());
   return out;

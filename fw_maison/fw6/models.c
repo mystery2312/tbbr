@@ -25,14 +25,20 @@ float sqrtf_(float v);
 #define PAD_BRIT 22
 #define PAD_RECT 58
 #define PAD_LEAD51 58
+#define PAD_FUZZ 8
+#define PAD_METAL 10
+#define PAD_BASSAMP -8
 #endif
 #ifndef MK_USCLEAN
-#define MK_USCLEAN 5
+#define MK_USCLEAN 11
 #define MK_CHIME 6
 #define MK_PLEXI 2
 #define MK_BRIT 4
 #define MK_RECT 0
 #define MK_LEAD51 0
+#define MK_FUZZ 15
+#define MK_METAL 14.5f
+#define MK_BASSAMP 10
 #endif
 #define FS1 48000.0f
 #define FS2 96000.0f
@@ -107,6 +113,7 @@ unsigned int cm_size(void) { return sizeof(struct cmst); }
 int cm_is(int m)
 {
     return m == M_GREEN || m == M_GOLD || m == M_GRIT || m == M_OD1 || m == M_SD1 || m == M_BD2 || m == M_MUFF ||
+           m == M_FUZZ || m == M_METAL || m == M_BASSAMP ||                 /* fw6 0.18 : sortis du modèle générique en virgule fixe */
            m == M_BRIT || m == M_USCLEAN || m == M_CHIME || m == M_RECT || m == M_LEAD51 || m == M_PLEXI;
 }
 static float k01(float v) { return v < 0 ? 0 : (v > 10 ? 1 : v / 10); }   /* potard 0..10 */
@@ -129,7 +136,9 @@ static void design_pedal(struct cmst *s, int m, const float *p)
         bqf_set(&s->f[1], F_LP1, 1 / (2 * PI_F * (51e3f + rd) * 51e-12f), 0, 0, FS2);
         setclip(s, 0.45f, 0.45f);
         bqf_set(&s->f[2], F_LP1, 723, 0, 0, FS1);
-        bqf_set(&s->f[3], F_HSH, 1000, 0.5f, -14 + 22 * k01(p[P_GREEN_TONE]), FS1);   /* Tone : de sombre à brillant */
+        /* Tone : de sombre à brillant. Avant fw6 0.18 : -14 + 22 t (au milieu, rien ne compensait le passe-bas 723 Hz :
+           -13 dB à 3 kHz, trop sombre) ; TS9 réel au milieu : ~-6 dB à 3 kHz */
+        bqf_set(&s->f[3], F_HSH, 1000, 0.5f, -8 + 20 * k01(p[P_GREEN_TONE]), FS1);
         bqf_set(&s->f[4], F_HP1, 20, 0, 0, FS1);
         s->lvl = 1.6f * pot_taper(k01(p[P_GREEN_LVL]), 1) * 4;
     } else if (m == M_SD1) {    /* SD-1 : même structure, Drive 1M, diodes asymétriques (1 contre 2 : +0,45 / -0,9) */
@@ -139,7 +148,7 @@ static void design_pedal(struct cmst *s, int m, const float *p)
         bqf_set(&s->f[1], F_LP1, 1 / (2 * PI_F * (36e3f + rd) * 51e-12f), 0, 0, FS2);
         setclip(s, 0.45f, 0.9f);
         bqf_set(&s->f[2], F_LP1, 1000, 0, 0, FS1);
-        bqf_set(&s->f[3], F_HSH, 1200, 0.5f, -14 + 24 * k01(p[P_SD1_TONE]), FS1);
+        bqf_set(&s->f[3], F_HSH, 1200, 0.5f, -8 + 20 * k01(p[P_SD1_TONE]), FS1);      /* même correction que le TS (fw6 0.18) */
         bqf_set(&s->f[4], F_HP1, 20, 0, 0, FS1);
         s->lvl = 1.4f * pot_taper(k01(p[P_SD1_LVL]), 1) * 4;
     } else if (m == M_OD1) {    /* OD-1 : sans tonalité ; gain élevé, diodes asymétriques, réponse fixe plus médium */
@@ -191,6 +200,42 @@ static void design_pedal(struct cmst *s, int m, const float *p)
         bqf_set(&s->f[4], F_LSH, 150, 0.6f, 4 - 6 * k01(p[P_BD2_TONE]), FS1);
         bqf_set(&s->f[5], F_LP1, 7500, 0, 0, FS1);
         s->lvl = 1.2f * pot_taper(k01(p[P_BD2_LVL]), 1) * 4;
+    } else if (m == M_FUZZ) {   /* Fuzz Face : 2 transistors en cascade (contre-réaction 100k), Fuzz = découplage de
+                                   l'émetteur de Q2 ; germanium (AC128 : seuil bas, écrêtage arrondi très asymétrique, plus
+                                   sombre) ou silicium (BC108 : plus de gain, plus brillant) ; entrée basse impédance. */
+        float fz = k01(p[P_FUZZ_FUZZ]);
+        int ge = p[P_FUZZ_GERM] > 0.5f;
+        s->g1 = ge ? 3 + 110 * fz * fz : 5 + 180 * fz * fz;
+        bqf_set(&s->f[0], F_HP1, 90, 0, 0, FS2);
+        bqf_set(&s->f[1], F_LP1, ge ? 7000 : 10000, 0, 0, FS2);
+        if (ge) setclip(s, 0.32f, 0.7f); else setclip(s, 0.45f, 0.6f);
+        bqf_set(&s->f[2], F_LP1, ge ? 4800 : 6500, 0, 0, FS1);
+        bqf_set(&s->f[3], F_HP1, 35, 0, 0, FS1);
+        s->lvl = pot_taper(k01(p[P_FUZZ_VOL]), 1) * 4;
+    } else if (m == M_METAL) {  /* distorsion moderne : 2 étages (écrêtage doux puis dur), EQ 3 bandes à médium réglable */
+        float d = k01(p[P_METAL_DIST]), fq = p[P_METAL_MFQ];
+        if (fq < 200) fq = 200; if (fq > 5000) fq = 5000;
+        s->g1 = 4 + 60 * d; s->g2 = 2 + 30 * d * d;
+        bqf_set(&s->f[0], F_HP1, 150, 0, 0, FS2);
+        bqf_set(&s->f[1], F_LP1, 6000, 0, 0, FS2);
+        setclip(s, 0.5f, 0.5f);
+        bqf_set(&s->f[2], F_LSH, 120, 0.7f, -12 + 24 * k01(p[P_METAL_LOW]), FS1);
+        bqf_set(&s->f[3], F_PEAK, fq, 0.9f, -12 + 24 * k01(p[P_METAL_MID]), FS1);
+        bqf_set(&s->f[4], F_HSH, 3000, 0.7f, -12 + 24 * k01(p[P_METAL_HIGH]), FS1);
+        bqf_set(&s->f[5], F_LP1, 7500, 0, 0, FS1);
+        s->lvl = pot_taper(k01(p[P_METAL_LVL]), 1) * 4;
+    } else if (m == M_BASSAMP) { /* ampli basse à lampes : préampli doux (triode asymétrique), EQ actif 4 bandes ;
+                                    Ultra Lo = graves profonds + aigus en plus, médiums creusés */
+        float g = k01(p[P_BASSAMP_GAIN]);
+        int ul = p[P_BASSAMP_ULTRA] > 0.5f;
+        s->g1 = 1 + 12 * g * g;
+        bqf_set(&s->f[0], F_HP1, 30, 0, 0, FS2);
+        bqf_set(&s->f[1], F_LP1, 9000, 0, 0, FS2);
+        bqf_set(&s->f[2], F_LSH, 80, 0.7f, -12 + 24 * k01(p[P_BASSAMP_BASS]) + (ul ? 4 : 0), FS1);
+        bqf_set(&s->f[3], F_PEAK, 300, 0.8f, -12 + 24 * k01(p[P_BASSAMP_LMID]) - (ul ? 3 : 0), FS1);
+        bqf_set(&s->f[4], F_PEAK, 1500, 0.8f, -12 + 24 * k01(p[P_BASSAMP_HMID]), FS1);
+        bqf_set(&s->f[5], F_HSH, 4000, 0.7f, -12 + 24 * k01(p[P_BASSAMP_TREB]) + (ul ? 3 : 0), FS1);
+        s->lvl = pot_taper(k01(p[P_BASSAMP_MAST]), 1) * 4;
     } else {                    /* Big Muff : 2 étages à transistor avec diodes en contre-réaction (doux), passe-bas entre
                                    les étages ; tone stack passif : passe-bas 400 Hz / passe-haut 1,2 kHz mélangés (creux
                                    des médiums vers 1 kHz) ; étage de récupération ; Sustain = attaque de l'étage 1 */
@@ -232,6 +277,20 @@ static inline float pedal_nl(struct cmst *s, float x)
         v = sat(s->g2 * op1(&s->f[2], v));
         return s->vp * hard(v * 1.2f * s->ivp);
     }
+    case M_FUZZ: {                                                     /* Q1 puis Q2 : écrêtage asymétrique répété (quasi carré) */
+        float v = op1(&s->f[1], s->g1 * op1(&s->f[0], x));
+        v = clipv(v, s->vp, s->vn, s->ivp, s->ivn);
+        return clipv(2.5f * v, s->vp, s->vn, s->ivp, s->ivn);
+    }
+    case M_METAL: {
+        float v = sat(s->g1 * op1(&s->f[0], x));
+        v = op1(&s->f[1], v);
+        return s->vp * hard(s->g2 * v * s->ivp);
+    }
+    case M_BASSAMP: {
+        float v = sat(s->g1 * op1(&s->f[0], x) + 0.1f) - 0.0997f;
+        return op1(&s->f[1], v);
+    }
     default: {                                                         /* Big Muff */
         float v = sat(s->g1 * op1(&s->f[0], x));
         v = op1(&s->f[1], v);
@@ -253,6 +312,9 @@ static float run_pedal(struct cmst *s, float x)
     case M_GOLD: y = op1(&s->f[3], bqf(&s->f[2], y)); break;
     case M_GRIT: y = op1(&s->f[4], op1(&s->f[3], y)); break;
     case M_BD2: y = op1(&s->f[5], bqf(&s->f[4], bqf(&s->f[3], y))); break;
+    case M_FUZZ: y = op1(&s->f[3], op1(&s->f[2], y)); break;
+    case M_METAL: y = op1(&s->f[5], bqf(&s->f[4], bqf(&s->f[3], bqf(&s->f[2], y)))); break;
+    case M_BASSAMP: y = bqf(&s->f[5], bqf(&s->f[4], bqf(&s->f[3], bqf(&s->f[2], y)))); break;
     default: { float lp = op1(&s->f[4], y), hp = op1(&s->f[5], y); y = op1(&s->f[6], ((1 - s->mix) * lp + s->mix * hp) * s->g2 * 0.25f); break; }
     }
     return y * s->lvl * 0.25f;
@@ -424,12 +486,15 @@ void cm_design(void *mem, int m, const float *p)
        makeup (dB, dans trim) garde le niveau de sortie d'avant pour une entrée de -20 dBFS (mesures : tests\e2e\emu\breakup.js). */
     {
         float pad = m == M_USCLEAN ? PAD_USCLEAN : m == M_CHIME ? PAD_CHIME : m == M_PLEXI ? PAD_PLEXI : m == M_BRIT ? PAD_BRIT :
-                    m == M_RECT ? PAD_RECT : m == M_LEAD51 ? PAD_LEAD51 : 0;
+                    m == M_RECT ? PAD_RECT : m == M_LEAD51 ? PAD_LEAD51 :
+                    m == M_FUZZ ? PAD_FUZZ : m == M_METAL ? PAD_METAL : m == M_BASSAMP ? PAD_BASSAMP : 0;
         float mk = m == M_USCLEAN ? MK_USCLEAN : m == M_CHIME ? MK_CHIME : m == M_PLEXI ? MK_PLEXI : m == M_BRIT ? MK_BRIT :
-                   m == M_RECT ? MK_RECT : m == M_LEAD51 ? MK_LEAD51 : 0;
+                   m == M_RECT ? MK_RECT : m == M_LEAD51 ? MK_LEAD51 :
+                   m == M_FUZZ ? MK_FUZZ : m == M_METAL ? MK_METAL : m == M_BASSAMP ? MK_BASSAMP : 0;
         s->pad = db2g(-pad); s->trim *= db2g(mk);
     }
-    if (m == M_GREEN || m == M_GOLD || m == M_GRIT || m == M_OD1 || m == M_SD1 || m == M_BD2 || m == M_MUFF) design_pedal(s, m, p);
+    if (m == M_GREEN || m == M_GOLD || m == M_GRIT || m == M_OD1 || m == M_SD1 || m == M_BD2 || m == M_MUFF ||
+        m == M_FUZZ || m == M_METAL || m == M_BASSAMP) design_pedal(s, m, p);
     else {
         design_amp(s, m, p);
         bqf_set(&s->st[NST - 1].lp, F_LP1, 1500, 0, 0, FS2);         /* filtre du « brillant » (étage 5 jamais utilisé en ampli à 4 étages max) */
