@@ -167,6 +167,13 @@ class SCSIDev:
         if not k32.DeviceIoControl(self.h, 0x4D014, ctypes.byref(s), s.len, ctypes.byref(s), s.len, ctypes.byref(x), None):
             raise OSError(ctypes.get_last_error(), "IOCTL_SCSI_PASS_THROUGH_DIRECT")
         return buf.raw[:s.data_len] if (buf is not None and data_out is None) else b""
+    def device_number(self):
+        """(type, numéro) du disque physique derrière ce chemin (IOCTL_STORAGE_GET_DEVICE_NUMBER), None si inconnu :
+        une lettre de lecteur (\\\\.\\D:) et \\\\.\\PhysicalDriveN peuvent désigner la même pédale."""
+        out = (wt.DWORD * 3)(); x = wt.DWORD()
+        if not k32.DeviceIoControl(self.h, 0x2D1080, None, 0, ctypes.byref(out), ctypes.sizeof(out), ctypes.byref(x), None):
+            return None
+        return (out[0], out[1])
     def inquiry(self):
         d = self.execute(b"\x12\x00\x00\x00\x24\x00", data_in_len=36)
         return d[8:16].decode("ascii", "replace").strip(), d[16:32].decode("ascii", "replace").strip(), d[32:36].decode("ascii", "replace").strip()
@@ -224,7 +231,9 @@ def candidate_paths():
     return paths
 
 def find_uboot(verbose=True):
-    found = []
+    """Disques UBOOT présents, un seul chemin par disque physique. Selon le PC, Windows donne aussi une lettre de lecteur
+    au disque UBOOT : la même pédale apparaît alors en \\\\.\\D: ET en \\\\.\\PhysicalDriveN (on garde PhysicalDriveN)."""
+    found, seen = [], {}
     for p in candidate_paths():
         try:
             d = SCSIDev(p)
@@ -235,11 +244,18 @@ def find_uboot(verbose=True):
             if verbose and (pr.startswith(("UBOOT", "UDISK", "DEVICE")) or v.startswith("WL8")):
                 print(f"  {p}: {v} {pr} {rev}")
             if pr.startswith("UBOOT") or v == "WL82":
+                key = d.device_number() or p
+                if key in seen:                                       # même disque déjà vu par un autre chemin
+                    if "PhysicalDrive" in p: found[seen[key]] = (p, v, pr, rev)
+                    continue
+                seen[key] = len(found)
                 found.append((p, v, pr, rev))
         except OSError:
             pass
         finally:
             d.close()
+    if any("PhysicalDrive" in f[0] for f in found):                  # numéro de disque refusé sur une lettre : chaque
+        found = [f for f in found if "PhysicalDrive" in f[0]]         # pédale a de toute façon son PhysicalDriveN
     return found
 
 def sha(path): return hashlib.sha256(open(path, "rb").read()).hexdigest()

@@ -10,6 +10,11 @@ const ROOT = path.join(__dirname, '..', '..');
 const R = (...p) => path.join(ROOT, ...p);
 const read = (...p) => fs.readFileSync(R(...p), 'utf8');
 
+test('installateur : une pédale UBOOT vue par une lettre de lecteur et par PhysicalDriveN compte une seule fois', () => {
+  const out = execFileSync('python', ['-I', path.join(__dirname, 'py', 'test_find_uboot.py')], { encoding: 'utf8' });
+  assert.match(out, /OK/);
+});
+
 test('syntaxe JavaScript de l\'app, de la simulation et d\'Electron', () => {
   const files = ['interface/app/js/app.js', 'interface/app/js/data.js', 'interface/app/js/transport.js', 'interface/app/js/i18n.js',
     'interface/app/js/ecran.js', 'electron/main.js', 'electron/preload.js', 'electron/updater.js', 'tools/release_manifest.js', 'android/web/android-midi.js'].filter(f => fs.existsSync(R(f)));
