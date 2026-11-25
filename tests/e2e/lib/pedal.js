@@ -132,7 +132,7 @@ class Pedal {
   async info() { const from = this.frames.length; this.send(CMD.HELLO, { app: 'e2e', proto: 1 }); const f = await this.waitFrame(f => f.cmd === CMD.INFO, 3000, from); return f && JSON.parse(f.payload.toString('utf8')); }
   async host(t, data) {                                                /* 'A' / 'C' / 'D' : réponse du même type ; sinon accusé 'K' ('M' = MIDI court) */
     this._send(t, data);
-    const typed = t === 'A' || t === 'C' || t === 'D';
+    const typed = t === 'A' || t === 'C' || t === 'D' || t === 'Y';
     const f = await this.waitFrame(f => typed ? f.host === t : f.host === 'K' && f.payload.toString() === t, 20000);
     if (!f) throw new Error('émulateur : pas de réponse à ' + t);
     return f.payload;
@@ -147,6 +147,11 @@ class Pedal {
     params.forEach(([i, v], k) => { b.writeUInt32LE(i, 12 + 8 * k); b.writeFloatLE(v, 16 + 8 * k); });
     const r = await this.host('D', b), all = new Int32Array(r.buffer.slice(r.byteOffset, r.byteOffset + r.length));
     return { x: all.subarray(0, n), y: all.subarray(n) };
+  }
+  /* signal libre (Int32Array Q23) dans la grille chargée -> sortie Int32Array (même longueur, ≤ 262 144) */
+  async play(x) {
+    const r = await this.host('Y', Buffer.from(x.buffer, x.byteOffset, x.length * 4));
+    return new Int32Array(r.buffer.slice(r.byteOffset, r.byteOffset + r.length));
   }
   async flashStats() { const r = await this.host('C', null); return { erases: r.readUInt32LE(0), writes: r.readUInt32LE(4), badWrites: r.readUInt32LE(8), refused: r.readUInt32LE(12) }; }
   async close() { try { this._send('Q'); this.proc.stdin.end(); } catch { /* déjà fermé */ } await Promise.race([this.exited, new Promise(r => setTimeout(r, 2000))]); if (this.code == null) this.proc.kill(); }

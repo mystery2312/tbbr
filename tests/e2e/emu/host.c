@@ -193,6 +193,13 @@ int main(int argc, char **argv)
             out_msg('D', o, cnt * 8);
             break;
         }
+        case 'Y': {   /* signal libre dans la grille chargée (PRESET_SET avant) : [n x s32 Q23] -> n sorties s32 (réponse en fréquence, accords) */
+            u32 cnt = n / 4, i;                                          /* tampon d'entrée de 1 Mo : 262 144 échantillons au plus */
+            static s32 yo[262144];
+            for (i = 0; i < cnt; i++) yo[i] = engine_process(((s32 *)buf)[i]);
+            out_msg('Y', yo, cnt * 4);
+            break;
+        }
         case 'T': {   /* chronométrage d'un bloc seul (même charge utile que 'D', modèle 0xFFFF = grille vide) :
                          meilleur de 7 passes de n échantillons -> double, nanosecondes par échantillon (processeur du PC) */
             u32 cnt = *(u32 *)buf, m = ((u32 *)buf)[1], k = ((u32 *)buf)[2], i, rep;
