@@ -46,6 +46,7 @@ typedef unsigned char u8;
 enum { RB_MAGIC = 0, RB_BOOTS, RB_STAGE, RB_HALVES, RB_EXIT, RB_OVERRUNS, RB_TIMEOUTS, RB_PEAKIN, RB_PEAKOUT, RB_VOLADC,
        RB_LADDER, RB_FXMASK, RB_DRAW, RB_SPINBASE, RB_LOADNOW, RB_LOADMAX };
 #define RB_OVERLOADS 20                         /* nombre de coupures pour surcharge (RB[17..19] déjà pris) */
+enum { RB_PEXIT = 26, RB_PUP, RB_PSTAGE, RB_PMARK, RB_PLOAD };   /* démarrage précédent : cause, durée (blocs), étape, marqueur, charge max */
 #define FW_MAGIC 0x46573452u                    /* "R4WF" */
 #define FW_VERSION "TBBR fw6 0.17"
 #define FW_MHZ 396                                      /* horloge processeur (clock.c) */
@@ -712,10 +713,10 @@ static void housekeeping(u32 pk)
     while (S->enc_pend < 0) { ui_para_turn(1); S->enc_pend++; }
     if (S->bstate[B_PARA]) { if (++S->hold_p == HOLD_PARA) ui_para_hold(); }
     else { if (S->hold_p && S->hold_p < HOLD_PARA) ui_para_press(); S->hold_p = 0; }
-    /* footswitchs : appui / maintien ; G + D = accordeur ; G + D tenus 3 s = mode mise à jour (installateur) */
+    /* footswitchs : appui / maintien ; G + D = accordeur. (Plus de « G + D tenus 3 s = mode mise à jour » : déclenché par
+       mégarde en jouant ; l'installateur passe par le SysEx 0x7E et HOME tenu à l'allumage reste le secours.) */
     if (S->bstate[B_FSL] && S->bstate[B_FSR]) {
         if (!S->both) { S->both = 1; ui_tuner(!ui_tuner_on()); }
-        if (++S->both_cnt > 1125) go_uboot(1);
         S->hold_l = S->hold_r = 0x8000;                              /* pas d'action simple au relâchement */
     } else {
         S->both_cnt = 0; if (!S->bstate[B_FSL] && !S->bstate[B_FSR]) S->both = 0;
@@ -1103,6 +1104,11 @@ int proto_battery_pct(void) { return S->batt_mv ? (int)S->batt_pct : -1; }
 int proto_battery_mv(void) { return (int)S->batt_mv; }
 int proto_usb(void) { return (int)S->usb; }
 int proto_bt_state(void) { return S->bt_paired ? 2 : (S->bt_on ? 1 : 0); }
+/* démarrage précédent : r[0] démarrages depuis l'allumage, r[1] cause (RB_PEXIT), r[2] durée en s, r[3] étape, r[4] marqueur, r[5] charge max */
+void proto_last_reset(u32 *r)
+{
+    r[0] = RB[RB_BOOTS]; r[1] = RB[RB_PEXIT]; r[2] = RB[RB_PUP] / 375u; r[3] = RB[RB_PSTAGE]; r[4] = RB[RB_PMARK]; r[5] = RB[RB_PLOAD];
+}
 
 void fw_main(void)
 {
@@ -1120,7 +1126,10 @@ void fw_main(void)
        Après le test HOME : même mal compris, il ne peut pas empêcher la sortie de secours. */
     p33_cmd(0x00, 0x80, 0x1C);
     wdt_clear();
+    /* cause du démarrage précédent (RAM conservée sauf coupure d'alimentation), lue par INFO « reset » :
+       RB_PEXIT = 0 coupure / allumage, 0xFF arrêt sans sortie propre (chien de garde, plantage), sinon code de go_uboot */
     if (RB[RB_MAGIC] != FW_MAGIC) { for (i = 0; i < 32; i++) RB[i] = 0; RB[RB_MAGIC] = FW_MAGIC; }
+    else { RB[RB_PEXIT] = RB[RB_EXIT] ? RB[RB_EXIT] : 0xFF; RB[RB_PUP] = RB[RB_HALVES]; RB[RB_PSTAGE] = RB[RB_STAGE]; RB[RB_PMARK] = RB[18]; RB[RB_PLOAD] = RB[RB_LOADMAX]; }
     RB[RB_BOOTS] += 1; RB[RB_EXIT] = 0; RB[RB_STAGE] = 1;
     RB[RB_HALVES] = 0; RB[RB_OVERRUNS] = 0; RB[RB_PEAKIN] = 0; RB[RB_LOADMAX] = 0;
     { u32 *s = (u32 *)S; for (i = 0; i < sizeof(struct st) / 4; i++) s[i] = 0; }
@@ -1187,7 +1196,7 @@ void fw_main(void)
                 idle = 0;
                 hc595_write((RB[RB_TIMEOUTS] & 1) ? 0x01 : 0x00);
                 wdt_clear();
-                if (!(PORT(PA)[R_IN] & (1u << 3))) go_uboot(1);
+                if (!(PORT(PA)[R_IN] & (1u << 3))) go_uboot(5);   /* audio arrêté + FS gauche : secours */
             }
         }
     }

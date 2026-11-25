@@ -90,6 +90,7 @@ int proto_battery_pct(void);
 int proto_battery_mv(void);
 int proto_usb(void);
 int proto_bt_state(void);
+void proto_last_reset(u32 *r);
 static void send_info(void)
 {
     int m, first = 1;
@@ -111,6 +112,15 @@ static void send_info(void)
     jkv_n("usb", proto_usb(), 1);
     jkv_s("bt", proto_bt_state() == 2 ? "paired" : (proto_bt_state() ? "on" : "off"), 1);
     jkv_n("proto", 1, 1);
+    {   /* démarrage précédent (diagnostic des redémarrages) */
+        static const char *const why[] = { "power", "fs", "?", "home", "update", "audio" };
+        u32 r[6];
+        proto_last_reset(r);
+        js("\"reset\":{"); jkv_n("boots", (s32)r[0], 1);
+        jkv_s("why", r[1] == 0xFF ? "watchdog" : (r[1] < 6 ? why[r[1]] : "?"), 1);
+        jkv_n("upS", (s32)r[2], 1); jkv_n("stage", (s32)r[3], 1); jkv_n("mark", (s32)r[4], 1); jkv_n("load", (s32)r[5], 0);
+        js("},");
+    }
     jkv_n("memFreeKB", (s32)(engine_mem_free() >> 10), 1);
     jkv_s("curPreset", preset_name, 1);
     jkv_n("curIndex", preset_index, 1);

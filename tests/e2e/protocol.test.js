@@ -47,6 +47,7 @@ test('INFO : version, catalogue et coûts DSP identiques à data.js', () => with
   assert.equal(info.fw, FW_VERSION);
   assert.equal(info.presets, A.PRESETS); assert.equal(info.irSlots, A.IR_SLOTS); assert.equal(info.namSlots, A.NAM_SLOTS);
   assert.ok(Array.isArray(info.models) && Array.isArray(info.dsp), 'INFO.models / INFO.dsp');
+  assert.ok(info.reset && typeof info.reset.why === 'string' && info.reset.boots >= 1, 'INFO.reset (cause du démarrage précédent)');
   const appIds = A.MODELS.map(m => m.id);
   for (const id of info.models) assert.ok(A.MODEL[id], 'modèle firmware inconnu de l\'app : ' + id);
   for (const id of appIds) assert.ok(info.models.includes(id), 'modèle de l\'app absent du firmware : ' + id);
