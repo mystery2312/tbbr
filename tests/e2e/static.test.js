@@ -15,6 +15,11 @@ test('installateur : une pédale UBOOT vue par une lettre de lecteur et par Phys
   assert.match(out, /OK/);
 });
 
+test('installateur : journal de diagnostic traduit en anglais, conseils de dépannage après une erreur', () => {
+  const out = execFileSync('python', ['-I', '-X', 'utf8', path.join(__dirname, 'py', 'test_installer_log.py')], { encoding: 'utf8', timeout: 120000 });
+  assert.match(out, /^OK\s*$/m);
+});
+
 test('installateur : écriture flash qui aboutit malgré 5 % d\'erreurs USB (Errno 31), image vérifiée, SPL intact', () => {
   const out = execFileSync('python', ['-I', '-X', 'utf8', path.join(__dirname, 'py', 'test_flash_retry.py')], { encoding: 'utf8', timeout: 300000 });
   assert.match(out, /^(OK|SKIP)/m);

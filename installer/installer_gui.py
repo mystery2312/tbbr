@@ -92,6 +92,136 @@ NEED_V19 = ("Ta pédale n'est pas en firmware M-VAVE V19. Installe d'abord la V1
             "Your pedal is not on M-VAVE firmware V19. First install the official V19 with M-UPGRADE "
             "(see the documentation: https://mystery2312.github.io/tbbr/doc.html#v19), then try again.")
 
+# ---------------------------------------------------------------- journal de diagnostic en anglais
+# Les messages de bb_tool.py / mkfw et des fonctions de ce fichier sont en français ; quand l'interface est en anglais,
+# chaque ligne du journal est traduite ici (la progression est analysée sur la ligne d'origine, avant traduction).
+import re as _re_log
+LOG_EN = [(_re_log.compile(a), b) for a, b in [
+    (r"^=== (\S+) avertissement accepté \(risques, firmware alpha, USB stable\) ===", r"=== \1 warning accepted (risks, alpha firmware, stable USB) ==="),
+    (r"^Pédale TBBR détectée : passage en mode mise à jour…", "TBBR pedal detected: switching to update mode…"),
+    (r"^Pédale M-VAVE détectée : passage en mode UBOOT…", "M-VAVE pedal detected: switching to update (UBOOT) mode…"),
+    (r"^identité :", "identity:"),
+    (r"^envoyé (.*) \| reçu ", r"sent \1 | received "),
+    (r"^Mode UBOOT détecté\.", "Update (UBOOT) mode detected."),
+    (r"^attente du mode mise à jour… \((\d+) s\)", r"waiting for update mode… (\1 s)"),
+    (r"La pédale ne répond pas comme une BlackBox \(", "The pedal does not answer like a BlackBox ("),
+    (r"Aucune pédale détectée\. Branche l'USB, allume la pédale, puis réessaie\.", "No pedal detected. Connect USB, switch the pedal on, then try again."),
+    (r"Le mode mise à jour \(UBOOT\) n'est pas apparu en (\d+) s\.", r"Update (UBOOT) mode did not appear within \1 s."),
+    (r"Sauvegarde de taille incorrecte\.", "Backup has the wrong size."),
+    (r"app\.bin embarqué absent\.", "Bundled app.bin is missing."),
+    (r"^Construction de l'image à partir de la sauvegarde…", "Building the image from the backup…"),
+    (r"^Cabs d'usine \(IR\) inclus\.", "Factory cabs (IRs) included."),
+    (r"^Application TBBR : (\d+) o, zone utile jusqu'à (\S+)\.", r"TBBR application: \1 bytes, used area up to \2."),
+    (r"^Image prête :", "Image ready:"),
+    (r"^Paquet chargé : (.*) \((.*), (\d+) o, ", r"Package loaded: \1 (\2, \3 bytes, "),
+    (r"port MIDI '(.*)' introuvable ou ambigu", r"MIDI port '\1' not found or ambiguous"),
+    (r"impossible d'ouvrir l'entrée MIDI \(M-UPGRADE ou un autre programme l'utilise \?\)", "cannot open the MIDI input (is M-UPGRADE or another program using it?)"),
+    (r"impossible d'ouvrir la sortie MIDI", "cannot open the MIDI output"),
+    (r"il faut exactement un disque UBOOT, trouvé :", "exactly one UBOOT disk is required, found:"),
+    (r"^lecteur (\w): \(même pédale\) mis au repos pendant l'opération", r"drive \1: (same pedal) set aside during the operation"),
+    (r"\(verrou (\w+), démontage (\w+)\)", r"(lock \1, dismount \2)"),
+    (r"^loader déjà actif", "loader already running"),
+    (r"^loader envoyé \((\d+) o\) à (\S+), saut avec arg (\d+)", r"loader sent (\1 bytes) to \2, jump with arg \3"),
+    (r"^produit (.*) : loader supposé déjà actif", r"product \1: loader assumed to be running"),
+    (r"chip key inattendue \((\S+)\) : arrêt, rien n'est lu", r"unexpected chip key (\1): stopped, nothing was read"),
+    (r"chip key inattendue( : arrêt)?", "unexpected chip key: stopped"),
+    (r"erreur USB passagère \((.*)\), nouvel essai", r"temporary USB error (\1), retrying"),
+    (r"^(\s*)erreur lecture (\S+) \((.*)\), nouvel essai", r"\1read error \2 (\3), retrying"),
+    (r"lecture impossible à (\S+)", r"cannot read at \1"),
+    (r"^(\s*)passe (\d) : (\d+) Ko", r"\1pass \2: \3 KB"),
+    (r"^passe (\d) terminée en (\S+) s, sha256", r"pass \1 finished in \2 s, sha256"),
+    (r"^les deux lectures diffèrent : troisième lecture", "the two reads differ: third read"),
+    (r"trois lectures différentes : copie non fiable, rien n'est sauvé", "three different reads: unreliable copy, nothing saved"),
+    (r"relecture du fichier sauvé incorrecte", "read-back of the saved file is wrong"),
+    (r"^SAUVEGARDE OK :", "BACKUP OK:"),
+    (r"^reboot\.bin en RAM vérifié, saut\.\.\.", "reboot.bin verified in RAM, jumping..."),
+    (r"^pas de réponse au saut \((.*)\) : normal, la puce redémarre", r"no answer to the jump (\1): normal, the chip is restarting"),
+    (r"relecture RAM inattendue : pas de saut\. Éteindre/rallumer la pédale\.", "unexpected RAM read-back: no jump. Switch the pedal off and on."),
+    (r"^image valide :", "valid image:"),
+    (r"REFUS : le SPL de l'image diffère de la sauvegarde de référence", "REFUSED: the image's SPL differs from the reference backup"),
+    (r"REFUS : le SPL de la pédale diffère de l'image \(autre pédale \?\)", "REFUSED: the pedal's SPL differs from the image (another pedal?)"),
+    (r"REFUS : sauvegarde d'une autre pédale", "REFUSED: backup of another pedal"),
+    (r"REFUS : écriture/effacement hors zone autorisée", "REFUSED: write/erase outside the allowed area"),
+    (r"images de 1 MiB attendues", "1 MiB images expected"),
+    (r"^zone de stockage \[(\S+), (\S+)\) conservée \(--tout pour l'écrire aussi\)", r"storage area [\1, \2) kept"),
+    (r" ; cabs d'usine mis à jour", "; factory cabs updated"),
+    (r"^restauration complète \[(\S+), (\S+)\) ; SPL \[0, (\S+)\) intact", r"full restore [\1, \2); SPL [0, \3) untouched"),
+    (r"^zone lue en (\S+) s ; secteurs à écrire :", r"area read in \1 s; sectors to write:"),
+    (r"^(\s*)secteur (\S+) : erreur USB \((.*)\), nouvel essai", r"\1sector \2: USB error (\3), retrying"),
+    (r"^(\s*)secteur (\S+) écrit et vérifié \(essai (\d+)\)", r"\1sector \2 written and verified (attempt \3)"),
+    (r"^(\s*)secteur (\S+) écrit et vérifié", r"\1sector \2 written and verified"),
+    (r"^(\s*)secteur (\S+) : relecture différente, nouvel essai", r"\1sector \2: read-back differs, retrying"),
+    (r"ÉCHEC au secteur (\S+) : NE PAS éteindre la pédale, relancer flashapp \(avec la sauvegarde pour restaurer\)",
+     r"FAILED at sector \1: do NOT power the pedal off; click Install (or Restore) again"),
+    (r"vérification finale des cabs : DIFFÉRENCE \(ne pas éteindre\)", "final check of the cabs: DIFFERENCE (do not power off)"),
+    (r"vérification finale : DIFFÉRENCE \(ne pas éteindre\)", "final check: DIFFERENCE (do not power off)"),
+    (r"^ÉCRITURE TERMINÉE ET VÉRIFIÉE \(zone complète = image", "WRITE FINISHED AND VERIFIED (full area = image"),
+    (r"^ÉCRITURE TERMINÉE ET VÉRIFIÉE \(zone application = image", "WRITE FINISHED AND VERIFIED (application area = image"),
+    (r"\blecture (0x[0-9a-f]+)", r"read \1"), (r"\beffacement (0x[0-9a-f]+)", r"erase \1"),   # « erreur USB passagère (lecture 0x…) »
+    (r"\bécriture (0x[0-9a-f]+)", r"write \1"), (r"\bRAM (0x[0-9a-f]+) :", r"RAM \1:"),
+    (r"^ERREUR : ", "ERROR: "), (r"^OK : ", "OK: "),
+    (r"^--- Que faire \?", "--- What to do?"),
+]]
+
+
+def log_to_en(text):
+    """Traduit un morceau du journal (une ou plusieurs lignes) ; les lignes inconnues restent telles quelles."""
+    out = []
+    for line in text.split("\n"):
+        for rx, rep in LOG_EN:
+            line = rx.sub(rep, line)
+        out.append(line)
+    return "\n".join(out)
+
+
+def log_hints(msg):
+    """Conseils de dépannage (fr, en) ajoutés au journal après une erreur, selon le message."""
+    m = msg or ""
+    tips = []
+    def add(fr, en): tips.append((fr, en))
+    if "IOCTL" in m or "erreur USB" in m or "lecture impossible" in m or "lectures différentes" in m:
+        add("Liaison USB instable entre le PC et la pédale (le problème vient du câble, du port ou du PC, pas de la pédale).",
+            "Unreliable USB connection between the PC and the pedal (the cable, port or PC is the cause, not the pedal).")
+        add("Si la pédale est encore détectée : ne l'éteins pas et clique à nouveau sur Installer (ou Restaurer).",
+            "If the pedal is still detected: do not switch it off, click Install (or Restore) again.")
+        add("Sinon : câble de DONNÉES court et de bonne qualité, branché directement sur un port du PC (à l'arrière d'un PC fixe), sans hub ni rallonge.",
+            "Otherwise: short, good-quality DATA cable, plugged directly into a port on the PC (rear port on a desktop PC), no hub or extension.")
+    if "UBOOT" in m and "pas apparu" in m:
+        add("La pédale n'est pas passée en mode mise à jour à temps. Attends une minute puis clique sur Détecter : si elle apparaît en mode mise à jour, clique sur Installer.",
+            "The pedal did not switch to update mode in time. Wait a minute, then click Detect: if it shows up in update mode, click Install.")
+        add("Sinon : éteins la pédale, puis rallume-la en maintenant HOME enfoncé une dizaine de secondes (entrée de secours du firmware TBBR), puis Détecter.",
+            "Otherwise: switch the pedal off, then switch it back on while holding HOME for about ten seconds (TBBR firmware emergency entry), then Detect.")
+        add("Ferme l'app TBBR et M-UPGRADE : ils occupent le port MIDI de la pédale.",
+            "Close the TBBR app and M-UPGRADE: they hold the pedal's MIDI port.")
+    if "Aucune pédale détectée" in m or "port MIDI" in m or "entrée MIDI" in m or "sortie MIDI" in m:
+        add("Ferme l'app TBBR, M-UPGRADE et tout logiciel MIDI ; vérifie que la pédale est allumée et branchée avec un câble de données, sans hub.",
+            "Close the TBBR app, M-UPGRADE and any MIDI software; check the pedal is on and connected with a data cable, without a hub.")
+        add("Écran noir après une installation interrompue : éteins-la, rallume-la en maintenant HOME enfoncé une dizaine de secondes, puis Détecter.",
+            "Blank screen after an interrupted install: switch it off, switch it back on while holding HOME for about ten seconds, then Detect.")
+    if "ÉCHEC au secteur" in m or "vérification finale" in m:
+        add("N'éteins PAS la pédale et ne débranche pas l'USB : clique à nouveau sur Installer, ou sur Restaurer pour remettre ta sauvegarde d'origine.",
+            "Do NOT switch the pedal off or unplug USB: click Install again, or Restore to put back your original backup.")
+    if "pas encore répondu" in m:
+        add("Le firmware est bien écrit et vérifié. Éteins la pédale, attends 5 secondes, rallume-la avec son interrupteur.",
+            "The firmware is written and verified. Switch the pedal off, wait 5 seconds, switch it back on with its switch.")
+        add("Puis ouvre l'app TBBR (ou clique sur Détecter). Écran noir : rallume-la en maintenant HOME enfoncé une dizaine de secondes, puis Installer.",
+            "Then open the TBBR app (or click Detect). Blank screen: switch it on while holding HOME for about ten seconds, then Install.")
+    if "exactement un disque UBOOT" in m:
+        add("Une seule pédale doit être branchée en mode mise à jour. Débranche les autres.",
+            "Only one pedal may be connected in update mode. Unplug the others.")
+    if "chip key" in m or "REFUS" in m:
+        add("Opération refusée par sécurité, rien n'a été écrit. Copie le journal et demande de l'aide (GitHub issues).",
+            "Operation refused for safety, nothing was written. Copy the log and ask for help (GitHub issues).")
+    if "V19" in m:
+        add("Installe d'abord le firmware officiel M-VAVE V19 avec M-UPGRADE, ferme M-UPGRADE, puis Détecter.",
+            "First install the official M-VAVE V19 firmware with M-UPGRADE, close M-UPGRADE, then Detect.")
+    if not tips:
+        add("Si une écriture était en cours : n'éteins pas la pédale, clique à nouveau sur Installer ou Restaurer.",
+            "If a write was in progress: do not switch the pedal off, click Install or Restore again.")
+    add("Toujours bloqué ? Copie ce journal (bouton Copier) et ouvre une issue : https://github.com/mystery2312/tbbr/issues",
+        "Still stuck? Copy this log (Copy button) and open an issue: https://github.com/mystery2312/tbbr/issues")
+    return tips
+
 
 def mvave_version(name):
     import re as _re
@@ -117,13 +247,22 @@ def enter_uboot():
         bb_tool.midi_exchange(bb_tool.SOFT_KEY, wait=0.7, port="USB-Midi")
     else:
         raise RuntimeError("Aucune pédale détectée. Branche l'USB, allume la pédale, puis réessaie.")
-    for _ in range(60):
+    # Windows peut mettre plus de 30 s à présenter le disque UBOOT (constaté chez un utilisateur : 30 s ne suffisaient pas)
+    t0 = time.time()
+    while time.time() - t0 < UBOOT_WAIT:
         time.sleep(0.5)
         if bb_tool.find_uboot(verbose=False):
             time.sleep(0.5)
             print("Mode UBOOT détecté.")
             return
-    raise RuntimeError("Le mode UBOOT n'est pas apparu. Débranche/rebranche l'USB, puis réessaie.")
+        el = int(time.time() - t0)
+        if el and el % 15 == 0 and el != getattr(enter_uboot, "_last", -1):
+            enter_uboot._last = el
+            print(f"attente du mode mise à jour… ({el} s)", flush=True)
+    raise RuntimeError(f"Le mode mise à jour (UBOOT) n'est pas apparu en {UBOOT_WAIT} s.")
+
+
+UBOOT_WAIT = 90
 
 
 def wait_custom(seconds=25):
@@ -847,21 +986,26 @@ def find_edge():
 
 
 class OutCapture:
-    """Remplace sys.stdout pendant une tâche : journal + progression (secteurs écrits, Ko lus)."""
+    """Remplace sys.stdout pendant une tâche : journal (par lignes entières, traduites si besoin) + progression
+    (secteurs écrits, Ko lus, analysés sur la ligne d'origine)."""
     def __init__(self, app):
         self.app, self.buf = app, ""
 
     def write(self, s):
         if not s:
             return
-        self.app.add_log(s)
         self.buf += s
         while "\n" in self.buf:
             line, self.buf = self.buf.split("\n", 1)
+            self.app.add_log(line + "\n")
             self.app.parse_line(line)
 
     def flush(self):
         pass
+
+    def finish(self):
+        if self.buf:
+            self.app.add_log(self.buf + "\n"); self.app.parse_line(self.buf); self.buf = ""
 
 
 class WebApp:
@@ -895,6 +1039,8 @@ class WebApp:
         return en if self.lang == "en" else fr
 
     def add_log(self, s):
+        if self.lang == "en":
+            s = log_to_en(s)
         with self.lock:
             self.logs.append(s)
         try:
@@ -910,7 +1056,7 @@ class WebApp:
             return
         line = line.strip()
         if line:
-            t["line"] = line
+            t["line"] = log_to_en(line) if self.lang == "en" else line
         if "secteurs à écrire" in line:
             self.sectors_total = line.count("'0x"); self.sectors_done = 0
             t["pct"] = 0 if self.sectors_total else 100
@@ -1073,10 +1219,16 @@ class WebApp:
             self.busy = True
             self.task = {"id": tid, "phases": self.PHASES[tid], "phase": self.PHASES[tid][0], "pct": None, "line": "", "ok": None, "msg": ""}
         self.add_log("\n=== " + time.strftime("%H:%M:%S") + " " + tid + " ===\n")
+        try:                                                          # contexte utile au diagnostic
+            import platform
+            self.add_log(f"TBBR Installer {APP_VERSION} · {self.target_fw() or '?'} · Windows {platform.version()} · "
+                         f"{self.tr('pédale', 'pedal')} : {self.device.get('kind')} {self.device.get('fw') or ''}\n")
+        except Exception:
+            pass
 
         def worker():
             old = sys.stdout
-            sys.stdout = OutCapture(self)
+            cap = sys.stdout = OutCapture(self)
             try:
                 with self.dev_lock:                                   # attend la fin d'une détection en cours
                     pass
@@ -1100,10 +1252,17 @@ class WebApp:
                                    "update mode; then Detect and Install.")
                 self.task.update(ok=False, msg=msg)
             finally:
+                cap.finish()
                 sys.stdout = old
                 with self.lock:
                     self.busy = False
-                self.add_log(("\nOK : " if self.task["ok"] else "\nERREUR : ") + self.task["msg"] + "\n")
+                raw = self.task["msg"]
+                if self.lang == "en":
+                    self.task["msg"] = log_to_en(raw)
+                self.add_log(("\nOK : " if self.task["ok"] else "\nERREUR : ") + raw + "\n")
+                if not self.task["ok"] or self.task.get("warn"):           # conseils de dépannage dans le journal
+                    self.add_log(self.tr("--- Que faire ?\n", "--- What to do?\n") +
+                                 "".join("  • " + self.tr(fr, en) + "\n" for fr, en in log_hints(raw if not self.task.get("warn") else self.task["warn"])))
                 self.detect()
         threading.Thread(target=worker, daemon=True).start()
         return {"ok": True}
@@ -1145,9 +1304,12 @@ class WebApp:
             self.phase("write", 0); bb_tool.flash_app(str(img), str(bk / BACKUP_FILE), keep_storage=True)
             self.phase("reboot"); bb_tool.reboot()
             self.phase("check")
-            if not wait_custom(30):
-                raise RuntimeError(self.tr("Firmware écrit et vérifié, mais la pédale n'a pas encore répondu : débranche/rebranche l'USB.",
-                                           "Firmware written and verified, but the pedal has not answered yet: unplug/replug USB."))
+            if not wait_custom(30):                                   # écriture vérifiée : pas un échec, il faut un arrêt-marche
+                self.task["warn"] = "pas encore répondu"
+                return self.tr("Firmware écrit et vérifié. La pédale n'a pas encore répondu après le redémarrage : éteins-la puis "
+                               "rallume-la avec son interrupteur, puis ouvre l'app TBBR.",
+                               "Firmware written and verified. The pedal has not answered yet after restarting: switch it off and "
+                               "on with its switch, then open the TBBR app.")
             info = pedal_info() or {}
             if self.sectors_total == 0:
                 return self.tr("Le firmware {} était déjà en place (aucun secteur différent) : rien à écrire.",
@@ -1168,8 +1330,11 @@ class WebApp:
             self.phase("check")
             name = wait_original(30) or (wait_custom(5) and "TBBR")
             if not name:
-                raise RuntimeError(self.tr("Flash restaurée et vérifiée, mais la pédale n'a pas encore répondu : débranche/rebranche l'USB.",
-                                           "Flash restored and verified, but the pedal has not answered yet: unplug/replug USB."))
+                self.task["warn"] = "pas encore répondu"
+                return self.tr("Flash restaurée et vérifiée. La pédale n'a pas encore répondu après le redémarrage : éteins-la puis "
+                               "rallume-la avec son interrupteur.",
+                               "Flash restored and verified. The pedal has not answered yet after restarting: switch it off and on "
+                               "with its switch.")
             return self.tr("Sauvegarde restaurée ({}). Éteins puis rallume la pédale.", "Backup restored ({}). Power the pedal off and on.").format(name)
         return self.run_task("restore", task)
 
