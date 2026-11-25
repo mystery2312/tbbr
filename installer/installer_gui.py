@@ -1054,14 +1054,14 @@ class WebApp:
                 self.add_log(traceback.format_exc())
                 msg = str(e) or e.__class__.__name__
                 if isinstance(e, OSError) and "IOCTL" in msg:              # liaison USB défaillante (ex. Errno 31)
-                    msg += self.tr("\n\nLiaison USB instable entre le PC et la pédale. N'éteins PAS la pédale : elle reste en mode "
-                                   "mise à jour tant qu'elle est allumée. Ne refais pas de sauvegarde. Change de câble USB (câble de "
-                                   "données court) et/ou branche-le directement sur un autre port du PC (sans hub ni rallonge), "
-                                   "attends que la pédale soit détectée, puis clique à nouveau sur Installer.",
-                                   "\n\nUnreliable USB connection between the PC and the pedal. Do NOT power the pedal off: it stays in "
-                                   "update mode as long as it is on. Do not make a new backup. Change the USB cable (short data cable) "
-                                   "and/or plug it directly into another port on the PC (no hub or extension), wait until the pedal is "
-                                   "detected, then click Install again.")
+                    msg += self.tr("\n\nLiaison USB instable entre le PC et la pédale. N'éteins PAS la pédale et ne refais pas de "
+                                   "sauvegarde : clique d'abord à nouveau sur Installer (les erreurs passagères sont réessayées). "
+                                   "Si l'erreur revient : branche un câble de données court directement sur un autre port du PC "
+                                   "(sans hub ni rallonge), éteins la pédale, attends 10 s, rallume-la, puis Détecter et Installer.",
+                                   "\n\nUnreliable USB connection between the PC and the pedal. Do NOT power the pedal off and do not "
+                                   "make a new backup: first click Install again (temporary errors are retried). If the error comes "
+                                   "back: plug a short data cable directly into another port on the PC (no hub or extension), switch "
+                                   "the pedal off, wait 10 s, switch it on, then Detect and Install.")
                 self.task.update(ok=False, msg=msg)
             finally:
                 sys.stdout = old

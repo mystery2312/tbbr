@@ -38,8 +38,9 @@ SI L'INSTALLATION S'ARRÊTE (erreur, « Errno 31 »…)
 - Ne refais pas de sauvegarde : ta sauvegarde d'origine reste sélectionnée.
 - Clique à nouveau sur « Installer » : seuls les secteurs qui diffèrent sont réécrits.
 - Des lignes « erreur USB passagère … nouvel essai » dans le journal sont normales.
-- Si les erreurs persistent, le problème vient de la liaison USB du PC : change de câble
-  et/ou de port USB (la pédale reste allumée sur sa batterie), puis « Installer » à nouveau.
+- Si les erreurs persistent, le problème vient de la liaison USB du PC : branche un autre
+  câble et/ou un autre port USB. Débrancher le câble interrompt le mode mise à jour : éteins
+  alors la pédale, attends 10 s, rallume-la, puis « Détecter » et « Installer ».
 - Si la pédale a été éteinte : rallume-la et ouvre l'installateur ; si elle est en mode
   mise à jour, clique sur « Installer ». Si rien ne la détecte, n'essaie rien d'autre et
   ouvre une issue sur GitHub avec le journal de l'installateur (bouton Copier).
@@ -66,7 +67,7 @@ During backup and install: NEVER power the pedal off, do not unplug USB, do not 
 If the install stops (error, "Errno 31"…): do NOT power the pedal off (it stays in update mode
 while it is on), do not make a new backup, click "Install" again. "erreur USB passagère … nouvel
 essai" lines in the log are normal (automatic retry). If errors persist, the problem is the PC's
-USB connection: change the cable and/or USB port (the pedal stays on, on its battery), then
-"Install" again. If the pedal was switched off: switch it on, open the installer; if it is in
+USB connection: use another cable and/or USB port. Unplugging the cable interrupts the update
+mode: then switch the pedal off, wait 10 s, switch it on, then "Detect" and "Install". If the pedal was switched off: switch it on, open the installer; if it is in
 update mode, click "Install". If nothing detects it, try nothing else and open a GitHub issue
 with the installer log (Copy button).
