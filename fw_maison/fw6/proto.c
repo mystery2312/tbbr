@@ -963,6 +963,14 @@ static int preset_goto_t(int i, int tell)
 static int preset_goto(int i) { return preset_goto_t(i, 1); }
 /* preset suivant / précédent (footswitchs) : les 80 presets se suivent, comme le firmware d'origine */
 int proto_preset_step(int d) { return preset_goto((preset_index + d + CAT_PRESETS) % CAT_PRESETS); }
+/* Program Change reçu en USB MIDI (pédalier externe, ex. M-VAVE Chocolate : banques de 4, programme = banque x 4 + bouton) :
+   programme p -> preset p + 1 (emplacement p), tous canaux. Le preset déjà actif n'est pas rechargé (réglages en cours gardés). */
+void proto_midi_program(int ch, int prog)
+{
+    (void)ch;
+    if (prog < 0 || prog >= CAT_PRESETS || prog == preset_index) return;
+    preset_goto(prog);
+}
 
 /* ---------------- footswitchs : les 3 modes de la maquette (ecran.js resolve / act) ----------------
  * Preset : G = preset -, maintien accordeur ; D = preset +, maintien tap.

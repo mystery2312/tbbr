@@ -25,6 +25,22 @@ const slot = (p, i) => p.json(CMD.PRESET_GET, [i], CMD.PRESET_GET, i);
 const f32 = v => { const b = Buffer.alloc(4); b.writeFloatLE(v); return b; };
 const param = (lane, col, idx, v) => Buffer.concat([Buffer.from([lane, col, idx]), f32(v)]);
 
+/* --- pédalier MIDI externe (ex. M-VAVE Chocolate, hôte USB : banques de 4, Program Change = banque x 4 + bouton) --- */
+test('Program Change USB (pédalier externe) : programme p -> preset p + 1, app prévenue, hors limites ignoré', () => withPedal(async p => {
+  for (const [st, prog] of [[0xC0, 4], [0xC3, 9], [0xC0, 0]]) {               /* banque 2 bouton 1, banque 3 bouton 2 (canal 4), preset 1 */
+    p.clear();
+    await p.host('M', Buffer.from([st, prog]));
+    const sel = await p.waitFrame(f => f.cmd === CMD.PRESET_SELECT, 2000);
+    assert.ok(sel && sel.payload[0] === prog, `PRESET_SELECT ${prog} non notifié à l'app`);
+    assert.equal((await cur(p)).i, prog, `programme ${prog} : preset actif`);
+  }
+  p.clear();
+  await p.host('M', Buffer.from([0xC0, 0]));                                   /* même preset : pas rechargé (réglages gardés) */
+  await p.host('M', Buffer.from([0xC0, 100]));                                 /* au-delà des 80 presets : ignoré */
+  assert.equal(await p.waitFrame(f => f.cmd === CMD.PRESET_SELECT, 500), null, 'preset rechargé ou programme hors limites accepté');
+  assert.equal((await cur(p)).i, 0);
+}));
+
 /* --- catalogue : l'app et le firmware parlent des mêmes modèles, avec les mêmes coûts --- */
 test('INFO : version, catalogue et coûts DSP identiques à data.js', () => withPedal(async p => {
   const info = await p.info();

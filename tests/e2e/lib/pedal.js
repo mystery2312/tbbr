@@ -130,7 +130,7 @@ class Pedal {
   }
   async json(cmd, payload, type, idx) { const d = await this.ask(cmd, payload, type, idx); return d ? JSON.parse(d.toString('utf8')) : null; }
   async info() { const from = this.frames.length; this.send(CMD.HELLO, { app: 'e2e', proto: 1 }); const f = await this.waitFrame(f => f.cmd === CMD.INFO, 3000, from); return f && JSON.parse(f.payload.toString('utf8')); }
-  async host(t, data) {                                                /* 'A' / 'C' : réponse du même type ; sinon accusé 'K' */
+  async host(t, data) {                                                /* 'A' / 'C' / 'D' : réponse du même type ; sinon accusé 'K' ('M' = MIDI court) */
     this._send(t, data);
     const typed = t === 'A' || t === 'C' || t === 'D';
     const f = await this.waitFrame(f => typed ? f.host === t : f.host === 'K' && f.payload.toString() === t, 20000);

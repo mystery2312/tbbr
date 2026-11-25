@@ -2,7 +2,8 @@
  * au-dessus du pilote bas niveau du SDK JieLi AC79 (usb.c / usb_setup.c / usb_phy.c, Apache-2.0).
  * Tout est scruté depuis la boucle principale (usb_midi_poll), sans interruption.
  *
- * Messages : SysEx uniquement, reçus dans un tampon, remis à proto_sysex() quand F7 arrive ; envoi par une file de paquets USB-MIDI.
+ * Messages : SysEx reçus dans un tampon, remis à proto_sysex() quand F7 arrive ; Program Change -> proto_midi_program() ;
+ * envoi par une file de paquets USB-MIDI.
  * Identifiants USB : 0x1209 / 0x0001 = « pid.codes test PID » (à remplacer par un PID attribué avant toute diffusion). */
 typedef unsigned int u32;
 typedef unsigned short u16;
@@ -38,6 +39,7 @@ void usb_sie_close(usb_dev id);
 
 extern volatile u32 jiffies;
 void proto_sysex(const u8 *msg, u32 len);           /* proto.c : message complet F0 ... F7 */
+void proto_midi_program(int ch, int prog);           /* proto.c : Program Change d'un pédalier externe -> preset */
 
 #define EP_MIDI 1
 #define MAXP    64
@@ -150,6 +152,7 @@ static void rx_packets(const u8 *p, u32 n)
         if (cin == 0x4 || cin == 0x7) { syx_byte(p[i + 1]); syx_byte(p[i + 2]); syx_byte(p[i + 3]); }
         else if (cin == 0x5) syx_byte(p[i + 1]);
         else if (cin == 0x6) { syx_byte(p[i + 1]); syx_byte(p[i + 2]); }
+        else if (cin == 0xC && (p[i + 1] & 0xF0) == 0xC0) proto_midi_program(p[i + 1] & 0x0F, p[i + 2] & 0x7F);   /* Program Change */
     }
 }
 

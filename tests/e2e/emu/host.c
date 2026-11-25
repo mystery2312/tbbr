@@ -215,6 +215,13 @@ int main(int argc, char **argv)
             out_msg('T', &best, 8);
             break;
         }
+        case 'M': {   /* message MIDI court reçu en USB (pédalier externe) : même aiguillage que usb_midi.c rx_packets */
+            void proto_midi_program(int ch, int prog);
+            if (n >= 2 && (buf[0] & 0xF0) == 0xC0) proto_midi_program(buf[0] & 0x0F, buf[1] & 0x7F);
+            proto_poll();
+            out_msg('K', "M", 1);
+            break;
+        }
         case 'C': {                                                  /* compteurs flash */
             u32 r[4]; r[0] = n_erase; r[1] = n_write; r[2] = bad_write; r[3] = st_err;
             out_msg('C', r, 16);
