@@ -123,6 +123,17 @@ function islands(p = P()) {
   return out;
 }
 const islandAt = (c, p = P()) => islands(p).find(x => c >= x.from && c < x.to) || null;
+/* Un bloc de B n'a de sens qu'en face d'un bloc de A (en parallèle de quelque chose, pas d'un fil). Même règle dans le firmware. */
+const parOk = (l, c, p = P()) => l !== 1 || !!p.lanes[0][c];
+const PAR_MSG = 'Parallèle seulement en face d’un bloc de la rangée A';
+const orphanIn = lanes => lanes[1].some((b, c) => b && !lanes[0][c]);
+/* bloc de B resté seul (bloc de A supprimé ou déplacé) : il remonte dans la chaîne, à la même colonne */
+function promoteOrphans(p = P()) {
+  let n = 0;
+  for (let c = 0; c < COLS; c++) if (p.lanes[1][c] && !p.lanes[0][c]) { p.lanes[0][c] = p.lanes[1][c]; p.lanes[1][c] = null; n++; }
+  return n;
+}
+function followSel(b) { const loc = b && findBlock(b.uid); if (loc) U.sel = { lane: loc.lane, col: loc.col }; }
 /* Budget DSP (mesuré sur la pédale, interface/tests/dsp_bench.py) : somme des blocs du 1er cœur ≤ 100 %.
    NAM : réparti sur les deux cœurs ; dsp = sa moitié arrière (1er cœur, comptée avec les effets), cpu2 = % du 2e cœur
    (INFO.namCpu) ; un seul NAM par preset. */
@@ -550,6 +561,7 @@ function selectSlot(l, c) {
 
 function addBlock(l, c, mid) {
   const p = P(), old = p.lanes[l][c];
+  if (!parOk(l, c, p)) { toast(PAR_MSG, 'err'); return false; }
   if (laneOn(l) && !fits(mid, old && old.model)) { toast(dspRefusal(mid), 'err'); return false; }
   pushHist();
   if (old) dropStates(old.uid);
@@ -585,6 +597,7 @@ function removeBlock(l, c) {
   pushHist();
   dropStates(b.uid);
   P().lanes[l][c] = null;
+  if (promoteOrphans()) toast('Le bloc parallèle remonte dans la chaîne');
   markDirty();
   if (!syncPreset()) send(CMD.BLOCK_CLEAR, [l, c]);
   renderGrid();
@@ -592,9 +605,14 @@ function removeBlock(l, c) {
 function moveBlock(l1, c1, l2, c2) {
   const p = P();
   if (!slotValid(l2, c2)) return;
+  const a = p.lanes.map(r => r.slice());
+  [a[l1][c1], a[l2][c2]] = [a[l2][c2], a[l1][c1]];
+  if ((l1 === 1 && a[1][c1] && !a[0][c1]) || (l2 === 1 && a[1][c2] && !a[0][c2])) { toast(PAR_MSG, 'err'); renderGrid(); return; }
   pushHist();
-  [p.lanes[l1][c1], p.lanes[l2][c2]] = [p.lanes[l2][c2], p.lanes[l1][c1]];
-  U.sel = { lane: l2, col: c2 };
+  const b = p.lanes[l1][c1];
+  p.lanes = a;
+  if (promoteOrphans(p)) toast('Le bloc parallèle remonte dans la chaîne');
+  U.sel = { lane: l2, col: c2 }; followSel(b);
   markDirty();
   syncPreset();                                                       /* le preset complet suffit (et remet la mémoire en ordre) */
   renderGrid();
@@ -849,6 +867,7 @@ function sanitizePreset(p) {
   out.lanes = [0, 1].map(l => Array.from({ length: COLS }, (_, c) => fix(src[l] && src[l][c])));
   /* anciennes rangées C/D (maquette précédente) : repliées sur B quand la case est libre */
   for (let l = 2; l < src.length; l++) (src[l] || []).forEach((b, c) => { const f = fix(b); if (f && !out.lanes[1][c]) out.lanes[1][c] = f; });
+  promoteOrphans(out);
   out.par = {};
   if (p.par && typeof p.par === 'object') for (const k of Object.keys(p.par)) {
     const v = +p.par[k];
@@ -1240,7 +1259,10 @@ function renderChain() {
     const b = p.lanes[l][c], isSel = U.sel && U.sel.lane === l && U.sel.col === c;
     const slot = h('div', { class: 'slot', 'data-lane': l, 'data-col': c, style: { gridRow: l + 1, gridColumn: c + 2 } });
     if (b) slot.append(blockEl(b, l, c, isSel));
-    else {
+    else if (!parOk(l, c, p)) {                                        /* rien en face dans A : pas de parallèle possible ici */
+      slot.classList.add('empty', 'off');
+      slot.title = PAR_MSG;
+    } else {
       slot.classList.add('empty');
       if (isSel) slot.classList.add('sel');
       slot.append(h('div', { class: 'plus' }, icon('plus')));
@@ -1339,7 +1361,7 @@ function hitTest(x, y, src) {
       if (x < r.left - gx / 2 || x >= r.right + gx / 2) continue;
       const isSrc = src && src.lane === l && src.col === c;
       if (isSrc) return null;
-      if (!P().lanes[l][c]) return { mode: 'place', lane: l, col: c };
+      if (!P().lanes[l][c]) return parOk(l, c) && !(l === 1 && src && src.lane === 0 && src.col === c) ? { mode: 'place', lane: l, col: c } : null;
       const f = (x - r.left) / r.width;
       if (f < 0.3) return { mode: 'insert', lane: l, at: c };
       if (f > 0.7) return { mode: 'insert', lane: l, at: c + 1 };
@@ -1399,10 +1421,14 @@ function commitDrop(hit, src, mid) {
   const plan = planInsert(hit.lane, hit.at, src);
   if (!plan) return toast('Rangée pleine : libère une case pour insérer', 'err');
   if (mid && !fits(mid, null)) return toast(dspRefusal(mid), 'err');
+  const a = p.lanes.map(r => r.slice()), moving = src ? p.lanes[src.lane][src.col] : null;
+  if (src && src.lane !== hit.lane) a[src.lane][src.col] = null;
+  a[hit.lane] = plan.row.slice(); a[hit.lane][plan.slot] = moving || {};
+  if (hit.lane === 1 && orphanIn(a)) { toast(PAR_MSG, 'err'); renderGrid(); return; }
   pushHist();
   let b;
   if (src) {
-    b = p.lanes[src.lane][src.col];
+    b = moving;
     if (src.lane !== hit.lane) p.lanes[src.lane][src.col] = null;
   } else {
     b = { uid: uid(), model: mid };
@@ -1411,7 +1437,8 @@ function commitDrop(hit, src, mid) {
   }
   plan.row[plan.slot] = b;
   p.lanes[hit.lane] = plan.row;
-  U.sel = { lane: hit.lane, col: plan.slot };
+  if (promoteOrphans(p)) toast('Le bloc parallèle remonte dans la chaîne');
+  U.sel = { lane: hit.lane, col: plan.slot }; followSel(b);
   markDirty();
   syncPreset();
   renderGrid();
@@ -3095,7 +3122,7 @@ if (window.ResizeObserver) new ResizeObserver(() => requestAnimationFrame(drawWi
 else window.addEventListener('resize', () => requestAnimationFrame(drawWires));
 window.addEventListener('beforeunload', () => { clearTimeout(saveTimer); try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch { /* */ } });
 
-S.presets = S.presets.map(p => { if (p.par && p.lanes.length === 2 && !p.paths && !p.split) return p; try { return sanitizePreset(p); } catch { return initPreset(); } });
+S.presets = S.presets.map(p => { if (p.par && p.lanes.length === 2 && !p.paths && !p.split) { promoteOrphans(p); return p; } try { return sanitizePreset(p); } catch { return initPreset(); } });
 if (BC) BC.onmessage = e => {
   const m = e.data || {};
   if (m.type === 'hello') BC.postMessage({ type: 'info', info: U.info || { battery: 86 } });

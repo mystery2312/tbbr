@@ -765,7 +765,8 @@ static void dispatch(u32 cmd, const u8 *pl, u32 n)
     case C_BLOCK_SET: {
         const char *s; int sn, m = -1, lane = json_int((const char *)pl, n, "lane", -1), col = json_int((const char *)pl, n, "col", -1);
         if (json_str((const char *)pl, n, "model", &s, &sn)) m = engine_model_by_name(s, sn);
-        if (m >= 0 && engine_block_set(lane, col, m) == 0) ack(cmd); else { nak(cmd); if (m >= 0) ui_msg_dsp(); }
+        { int r = m >= 0 ? engine_block_set(lane, col, m) : -1;
+          if (r == 0) ack(cmd); else { nak(cmd); if (r == -2) ui_msg_dsp(); } }      /* -3 : B sans bloc en face */
         break; }
     case C_BLOCK_CLEAR: if (n >= 2) { engine_block_clear(pl[0], pl[1]); ack(cmd); } else nak(cmd); break;
     case C_BLOCK_MOVE: ack(cmd); break;                               /* l'app renvoie le preset complet ensuite (PRESET_SET) */

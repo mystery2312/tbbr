@@ -1139,6 +1139,7 @@ int engine_model_ready(int m)
 }
 
 /* ---------------- grille ---------------- */
+static void promote_orphans(void);
 static void rebuild_sections(void)
 {
     int c, s = -1;
@@ -1176,6 +1177,8 @@ void engine_load_end(void)
         design(b);
     }
     dly_share = 0;
+    promote_orphans();                                                 /* anciens presets : bloc de B sans rien en face */
+    rebuild_sections();
     eng_ver++;
 }
 /* ---------------- budget DSP (comme la maquette) ----------------
@@ -1209,10 +1212,29 @@ int engine_dsp_check(int lane, int col, int m)
     /* 115 % : plafond de chargement deja accepte par le firmware ; au-dela, refus. */
     return engine_dsp_total(lane, col) + MODEL_DEFS[m].dsp <= 115 ? 0 : -2;
 }
-/* place un bloc (modèle m) aux réglages par défaut ; refusé (-2) si le budget DSP serait dépassé */
+/* Un bloc de B n'a de sens qu'en face d'un bloc de A (sinon il serait en parallèle d'un fil) : même règle que l'app. */
+static void swap_slots(int lane1, int col1, int lane2, int col2)
+{
+    struct block tb;
+    struct scene_blk ts;
+    int sc;
+    tb = grid[lane1][col1]; grid[lane1][col1] = grid[lane2][col2]; grid[lane2][col2] = tb;
+    for (sc = 0; sc < CAT_SCENES; sc++) {
+        ts = scenes[sc][lane1][col1]; scenes[sc][lane1][col1] = scenes[sc][lane2][col2]; scenes[sc][lane2][col2] = ts;
+    }
+}
+#define ORPHAN(c) (grid[1][c].used && !grid[0][c].used)
+/* bloc de B resté seul (bloc de A supprimé / déplacé, ancien preset) : il remonte dans A, même colonne */
+static void promote_orphans(void)
+{
+    int c;
+    for (c = 0; c < CAT_COLS; c++) if (ORPHAN(c)) swap_slots(1, c, 0, c);
+}
+/* place un bloc (modèle m) aux réglages par défaut ; refusé si le budget DSP serait dépassé (-2) ou en B sans bloc en face (-3) */
 int engine_block_set(int lane, int col, int m)
 {
     if (lane < 0 || lane > 1 || col < 0 || col >= CAT_COLS || m < 0 || m >= M_COUNT) return -1;
+    if (lane == 1 && !grid[0][col].used && !dly_defer) return -3;      /* chargement d'un preset : remonté à la fin (engine_load_end) */
     if (engine_dsp_check(lane, col, m) != 0) return -2;
     return engine_block_set_force(lane, col, m);
 }
@@ -1236,21 +1258,18 @@ void engine_block_clear(int lane, int col)
     if (lane < 0 || lane > 1 || col < 0 || col >= CAT_COLS) return;
     grid[lane][col].used = 0;
     /* les états de scènes du slot restent en place : un nouveau bloc les réinitialise (engine_block_set_force) */
+    if (lane == 0) promote_orphans();
     rebuild_sections();
     eng_ver++; eng_mods++;
 }
 /* échange deux slots (bloc + réglages + états des 8 scènes) : l'ordre du signal change sans perdre les réglages */
 int engine_block_move(int lane1, int col1, int lane2, int col2)
 {
-    struct block tb;
-    struct scene_blk ts;
-    int sc;
     if (lane1 < 0 || lane1 > 1 || lane2 < 0 || lane2 > 1 || col1 < 0 || col1 >= CAT_COLS || col2 < 0 || col2 >= CAT_COLS) return -1;
     if (lane1 == lane2 && col1 == col2) return 0;
-    tb = grid[lane1][col1]; grid[lane1][col1] = grid[lane2][col2]; grid[lane2][col2] = tb;
-    for (sc = 0; sc < CAT_SCENES; sc++) {
-        ts = scenes[sc][lane1][col1]; scenes[sc][lane1][col1] = scenes[sc][lane2][col2]; scenes[sc][lane2][col2] = ts;
-    }
+    swap_slots(lane1, col1, lane2, col2);
+    if ((lane1 == 1 && ORPHAN(col1)) || (lane2 == 1 && ORPHAN(col2))) { swap_slots(lane1, col1, lane2, col2); return -3; }   /* B sans rien en face */
+    promote_orphans();
     rebuild_sections();
     eng_ver++; eng_mods++;
     return 0;

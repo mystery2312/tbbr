@@ -136,11 +136,32 @@ test('budget DSP : BLOCK_SET au-delà de 115 % refusé, preset trop lourd refus�
   const info = await p.info(), cost = id => info.dsp[info.models.indexOf(id)];
   let total = (before.lanes.flat().filter(Boolean)).reduce((s, m) => s + cost(m), 0), refused = false;
   for (let col = 0; col < A.COLS && !refused; col++) {
-    if (before.lanes[1][col]) continue;
-    const ok = await p.cmd(CMD.BLOCK_SET, { lane: 1, col, model: 'rect' });
+    const lane = !before.lanes[0][col] ? 0 : !before.lanes[1][col] ? 1 : -1;   /* B seulement en face d'un bloc de A */
+    if (lane < 0) continue;
+    const ok = await p.cmd(CMD.BLOCK_SET, { lane, col, model: 'rect' });
     if (ok) { total += cost('rect'); assert.ok(total <= 115, 'total accepté ' + total + ' %'); } else refused = true;
   }
   assert.ok(refused, 'aucun refus alors que le budget est dépassé');
+}));
+
+/* --- section parallèle : seulement en face d'un bloc de A --- */
+test('parallèle : B refusé sans bloc en face ; bloc de A supprimé ou ancien preset → le bloc de B remonte dans A', () => withPedal(async p => {
+  const c = A.compactPreset(A.factoryPresets()[0], 0);
+  c.lanes = [['gate', 'brit', null, 'dly', null, null, null, null], [null, null, null, null, null, null, null, null]];
+  c.scenes = c.scenes.map(s => ({ n: s.n, b: [] }));
+  assert.equal(await p.cmd(CMD.PRESET_SET, c), true);
+  assert.equal(await p.cmd(CMD.BLOCK_SET, { lane: 1, col: 2, model: 'chorus' }), false, 'B accepté en face d\'une case vide');
+  assert.equal(await p.cmd(CMD.BLOCK_SET, { lane: 1, col: 1, model: 'chorus' }), true, 'B refusé en face d\'un bloc');
+  assert.equal(await p.cmd(CMD.BLOCK_CLEAR, [0, 1]), true);
+  let s = await cur(p);
+  assert.equal(s.lanes[0][1], 'chorus', 'le bloc de B n\'est pas remonté dans A');
+  assert.equal(s.lanes[1][1], null);
+  /* ancien preset avec un bloc de B seul : chargé, et remonté */
+  const old = JSON.parse(JSON.stringify(c));
+  old.lanes = [['gate', null, null, null, null, null, null, null], [null, 'chorus', null, null, null, null, null, null]];
+  assert.equal(await p.cmd(CMD.PRESET_SET, old), true);
+  s = await cur(p);
+  assert.equal(s.lanes[0][1], 'chorus'); assert.equal(s.lanes[1][1], null);
 }));
 
 /* --- IR : transfert comme l'app (240 échantillons par morceau), persistance, effacement de l'ancien contenu --- */

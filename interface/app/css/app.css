@@ -194,6 +194,7 @@ body.dragging-any .slot.empty:not(.off) .plus { color: var(--acc); border-color:
 .bal input { width: 90px; }
 .bal .mono { color: var(--tx2); font-weight: 600; }
 .slot.empty { display: grid; place-items: center; border-radius: var(--radius); border: 1.5px dashed transparent; cursor: pointer; transition: border-color .15s, background .15s; }
+.slot.empty.off { cursor: default; background: none !important; border-color: transparent !important; }
 .slot.empty .plus { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--bg); border: 1px solid var(--line2); color: var(--tx3); transition: all .15s; }
 .slot.empty .plus .ic { width: 14px; height: 14px; }
 .slot.empty:hover, .slot.empty.sel { border-color: var(--line2); background: rgba(255, 255, 255, .015); }

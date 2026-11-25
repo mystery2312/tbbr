@@ -99,6 +99,38 @@ test('modifier puis sauver depuis l\'app : la pédale garde le réglage après r
 });
 
 /* format tbbr-preset v2 (0.9.6-beta.3) : le preset emporte ses captures NAM et ses IR */
+test('grille : parallèle seulement en face d\'un bloc de A (pas de + ni de dépôt ailleurs), le bloc de B remonte si A est supprimé', async () => {
+  const pedal = new Pedal(), app = await openApp(browser, srv.url, pedal);
+  try {
+    await connectUsb(app);
+    const r = await app.run(() => {
+      setView('grid');
+      for (let l = 1; l >= 0; l--) for (let c = 0; c < COLS; c++) removeBlock(l, c);
+      addBlock(0, 0, 'gate'); addBlock(0, 1, 'brit');
+      const out = {};
+      out.orphanAdd = addBlock(1, 2, 'chorus');                          /* rien en face : refusé */
+      out.offSlot = document.querySelector('#chain .slot[data-lane="1"][data-col="2"]').className;
+      out.offPlus = !!document.querySelector('#chain .slot[data-lane="1"][data-col="2"] .plus');
+      out.okPlus = !!document.querySelector('#chain .slot[data-lane="1"][data-col="1"] .plus');
+      out.parAdd = addBlock(1, 1, 'chorus');
+      moveBlock(1, 1, 1, 3);                                              /* déplacer en face d'une case vide : refusé */
+      out.afterMove = P().lanes.map(row => row.map(b => b && b.model));
+      removeBlock(0, 1);                                                  /* le chorus n'a plus rien en face : il remonte */
+      out.afterRemove = P().lanes.map(row => row.map(b => b && b.model));
+      return out;
+    });
+    assert.equal(r.orphanAdd, false, 'bloc posé en B en face d\'une case vide');
+    assert.match(r.offSlot, /\boff\b/); assert.equal(r.offPlus, false, '+ affiché en B sans bloc en face'); assert.equal(r.okPlus, true);
+    assert.equal(r.parAdd, true);
+    assert.equal(r.afterMove[1][1], 'chorus', 'déplacement en B en face d\'une case vide accepté');
+    assert.equal(r.afterRemove[0][1], 'chorus'); assert.equal(r.afterRemove[1][1], null);
+    await app.page.waitForTimeout(600);
+    const s = await pedal.json(CMD.PRESET_GET, [0x7F], CMD.PRESET_GET, 0x7F);
+    assert.deepEqual(s.lanes, r.afterRemove, 'la pédale ne joue pas la même grille que l\'app');
+    noErrors(app);
+  } finally { await app.close(); await pedal.close(); }
+});
+
 async function makeAssetPreset(app) {
   return app.run(async () => {
     const w = Float32Array.from({ length: 1871 }, (_, i) => Math.sin(i * 0.37) * 0.1);

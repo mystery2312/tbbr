@@ -91,6 +91,8 @@
     "Rangée parallèle : chaque groupe de blocs ici est en parallèle de la rangée A":
       "Parallel row: each group of blocks here runs in parallel with row A",
     "Rangée pleine : libère une case pour insérer": "Row full: free a slot to insert",
+    "Parallèle seulement en face d’un bloc de la rangée A": "Parallel only opposite a block in row A",
+    "Le bloc parallèle remonte dans la chaîne": "The parallel block moves up into the chain",
     "Plus de case libre sur le chemin A : glisse le bloc sur une case":
       "No free slot on path A: drag the block onto a slot",
     "Rechercher un bloc": "Search blocks",
