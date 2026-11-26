@@ -549,6 +549,24 @@ def diag(path, steps):
                 except OSError as e:
                     print(f"--- autonome : {jr} ; loader injoignable ensuite ({e})")
                 continue
+            if st.startswith("ramdump"):
+                # ramdump:<adresse>:<longueur>:<fichier> : copie d'une zone de RAM (lecture seule, par blocs de 512 o)
+                _, a, n, out = st.split(":", 3); a, n = int(a, 0), int(n, 0)
+                data = b"".join(ram_read_plain(ldr, a + o, min(512, n - o)) for o in range(0, n, 512))
+                open(out, "wb").write(data)
+                print(f"--- RAM [{a:#x}, {a + n:#x}) -> {out}")
+                continue
+            if st.startswith("p33dump"):
+                # p33dump:<fichier> : relevé des 256 premiers registres P33 (lecture seule, commande 20 de diag.c)
+                out = st.split(":", 1)[1] if ":" in st else "p33dump.txt"
+                ram_load(ldr, MBOX, struct.pack("<IIII", MAGIC, 20, 0, 0))
+                ldr.mem_jump(DIAG_ADDR, 0)
+                st0 = struct.unpack("<I", ram_read_plain(ldr, RESA, 4))[0]
+                regs = struct.unpack("<256I", ram_read_plain(ldr, RESA + 8, 1024))
+                with open(out, "w", encoding="utf-8") as f:
+                    for k in range(256): f.write(f"{k:#04x} {regs[k] & 0xFF:#04x}\n")
+                print(f"--- P33 relevé ({st0:#010x}) -> {out} ; WDT_CON={regs[0x80] & 0xFF:#04x} VLVD={regs[0x11] & 0xFF:#04x} ANA5={regs[5] & 0xFF:#04x} ANA6={regs[6] & 0xFF:#04x} ANA9={regs[9] & 0xFF:#04x}")
+                continue
             if st.startswith("ladcscan"):
                 # ladcscan<secondes> : ouvre l'ADC intégré (AUX1 = PH07, AUX3 = PH04, 4 voies) et journalise l'amplitude de chaque voie
                 secs = float(st[8:] or 20)
