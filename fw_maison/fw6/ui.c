@@ -525,6 +525,15 @@ void ui_splash(void)
     gfx_text(&F_mono11, Q4(W / 2.0f), Q4(214), C_TX3, 255, "M-VAVE BLACKBOX", 1);
 }
 
+/* écran de diagnostic (panne au démarrage) : titre + lignes de texte, dessiné par main.c même sans audio */
+void ui_diag(const char *title, const char *const *lines, int n)
+{
+    int i;
+    gfx_begin(C_BG);
+    gfx_text_fit(&F_bold15, Q4(W / 2.0f), Q4(34), C_WARN, title, Q4(W - 20), 1);
+    for (i = 0; i < n; i++) gfx_text_fit(&F_mono12, Q4(12), Q4(70 + i * 22), i < n - 2 ? C_TX : C_TX3, lines[i], Q4(W - 24), 0);
+}
+
 static int splash_test;
 void ui_splash_test(void) { splash_test = 1; }                       /* (test : la prochaine image = le logo) */
 

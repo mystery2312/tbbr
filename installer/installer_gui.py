@@ -1159,6 +1159,10 @@ class WebApp:
                 info = pedal_info()
                 if info:
                     dev.update(fw=info.get("fw"), battery=info.get("battery"))
+                    # diagnostic (pédale figée sur le logo, redémarrages) : dans le journal que l'utilisateur copie
+                    ui, rs = info.get("ui"), info.get("reset")
+                    if ui or rs:
+                        self.add_log("diag: fw {} · ui {} · reset {}\n".format(info.get("fw"), ui, rs))
             else:
                 dev.update(fw=old.get("fw"), battery=old.get("battery"))
         elif "USB-Midi" in outs:

@@ -105,6 +105,7 @@ int proto_battery_mv(void) { return 3950; }
 int proto_usb(void) { return 1; }
 int proto_bt_state(void) { return 0; }
 void proto_last_reset(u32 *r) { r[0] = 1; r[1] = 0; r[2] = 0; r[3] = 0; r[4] = 0; r[5] = 0; }
+void proto_live(u32 *r) { r[0] = 1; r[1] = 0; r[2] = 0; r[3] = 0; r[4] = 396; r[5] = 1; }
 void ui_msg_dsp(void) {}
 const char *const FW_VERSION_STR = TBBR_FW_VERSION;
 

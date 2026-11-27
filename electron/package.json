@@ -1,6 +1,6 @@
 {
   "name": "blackbox-tbbr",
-  "version": "0.9.6-beta.5",
+  "version": "0.9.6",
   "description": "BlackBox TBBR — application de bureau",
   "main": "main.js",
   "author": "TBBR",

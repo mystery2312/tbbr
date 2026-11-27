@@ -48,7 +48,7 @@ enum { RB_MAGIC = 0, RB_BOOTS, RB_STAGE, RB_HALVES, RB_EXIT, RB_OVERRUNS, RB_TIM
 #define RB_OVERLOADS 20                         /* nombre de coupures pour surcharge (RB[17..19] déjà pris) */
 enum { RB_PEXIT = 26, RB_PUP, RB_PSTAGE, RB_PMARK, RB_PLOAD };   /* démarrage précédent : cause, durée (blocs), étape, marqueur, charge max */
 #define FW_MAGIC 0x46573452u                    /* "R4WF" */
-#define FW_VERSION "TBBR fw6 0.18"
+#define FW_VERSION "TBBR fw6 0.19"
 #define FW_MHZ 396                                      /* horloge processeur (clock.c) */
 #include "catalog.h"
 #include "engine.h"
@@ -277,14 +277,21 @@ static u16 rowbuf[240];
 static u32 d_engver;
 /* rendu sur le 2e cœur (core1.c) s'il tourne : le 1er cœur ne fait qu'envoyer les morceaux modifiés */
 int core1_alive(void); void core1_render_start(void); const u16 *core1_render_peek(u32 *hash); void core1_render_pop(void);
+void core1_render_abort(void);
 static u32 r_c1;                                                    /* image en cours rendue par le 2e cœur */
+/* Garde-fou (rapport utilisateur, fw6 0.13 : pédale figée sur le logo, audio / LED / USB normaux) : si le 2e cœur ne fournit
+   plus de morceau pendant ~1 s, le 1er cœur finit l'image et dessine seul ensuite. Sans cela, une image jamais terminée
+   laisse le logo affiché pour toujours. RB[31] = nombre d'abandons (INFO « ui.c1stall »). */
+#define RB_C1STALL 31
+static u32 c1_bad, c1_last;
 static void lcd_frame_start(void)
 {
     d_engver = engine_version();
     ui_build();
     S->pix = 0; S->drawing = 1; S->dirty = 0;                       /* pix = ligne en cours */
     RB[21] = RB[RB_HALVES];                                         /* début de l'image (mesure de durée) */
-    r_c1 = core1_alive();
+    r_c1 = core1_alive() && !c1_bad;
+    c1_last = RB[RB_HALVES];
     if (r_c1) core1_render_start();
 }
 /* un quart de ligne (60 pixels) par appel : rendu (gfx) puis envoi, CS relâché après chaque morceau (RAMWR 0x2C puis RAMWRC 0x3C).
@@ -297,11 +304,14 @@ static u32 span_ok;
 static void lcd_step(void)
 {
     u32 k, y = S->pix / 4, xa = (S->pix & 3) * SPAN, h = 0x811C9DC5u;
-    const u16 *px;
+    const u16 *px = 0;
     if (r_c1) {                                                     /* morceau rendu par le 2e cœur (sinon : revenir plus tard) */
         px = core1_render_peek(&h);
-        if (!px) return;
-    } else {
+        if (px) c1_last = RB[RB_HALVES];
+        else if (RB[RB_HALVES] - c1_last < 375) return;
+        else { core1_render_abort(); r_c1 = 0; c1_bad = 1; RB[RB_C1STALL] += 1; h = 0x811C9DC5u; }   /* 2e cœur muet ~1 s */
+    }
+    if (!r_c1) {
         gfx_render_span((int)y, (int)xa, (int)(xa + SPAN), rowbuf);
         for (k = xa; k < xa + SPAN; k++) h = (h ^ rowbuf[k]) * 16777619u;
         px = rowbuf + xa;
@@ -330,6 +340,31 @@ static void lcd_splash(void)
     r_c1 = 0; span_ok = 0; S->pix = 0; S->drawing = 1;
     while (S->drawing) { lcd_step(); if ((S->pix & 63) == 0) wdt_clear(); }
     lcd_cmd(0x29, 0, 0);
+}
+
+/* écran de diagnostic, dessiné tout de suite (l'audio peut être arrêté) : « AUDIO NOT STARTED », étape, démarrage précédent */
+static char *dg_num(char *p, u32 v) { char t[11]; int n = 0; do { t[n++] = (char)('0' + v % 10); v /= 10; } while (v); while (n) *p++ = t[--n]; *p = 0; return p; }
+static char *dg_str(char *p, const char *s) { while (*s) *p++ = *s++; *p = 0; return p; }
+static void lcd_diag_audio(void)
+{
+    void ui_diag(const char *title, const char *const *lines, int n), wdt_clear(void);
+    static const char *const why[] = { "power", "fs", "?", "home", "update", "audio" };
+    static char l0[32], l1[40], l2[40], l3[40];
+    const char *lines[6];
+    u32 pe = RB[RB_PEXIT];
+    char *p;
+    p = dg_str(l0, "stage "); p = dg_num(p, RB[RB_STAGE]); p = dg_str(p, "  timeouts "); dg_num(p, RB[RB_TIMEOUTS]);
+    p = dg_str(l1, "prev boot: "); p = dg_str(p, pe == 0xFF ? "watchdog" : (pe < 6 ? why[pe] : "?"));
+    p = dg_str(p, " "); p = dg_num(p, RB[RB_PUP] / 375u); dg_str(p, " s");
+    p = dg_str(l2, "boots "); p = dg_num(p, RB[RB_BOOTS]); p = dg_str(p, "  core2 "); dg_str(p, core1_alive() ? "ok" : "off");
+    p = dg_str(l3, FW_VERSION);
+    lines[0] = l0; lines[1] = l1; lines[2] = l2; lines[3] = l3;
+    lines[4] = "Photo this screen for support.";
+    lines[5] = "Update: power on holding HOME.";
+    ui_diag("AUDIO NOT STARTED", lines, 6);
+    r_c1 = 0; span_ok = 0; S->pix = 0; S->drawing = 1;
+    while (S->drawing) { lcd_step(); if ((S->pix & 63) == 0) wdt_clear(); }
+    S->dirty = 1;
 }
 
 /* ---------------- audio : ALINK0 ---------------- */
@@ -1105,6 +1140,12 @@ int proto_battery_mv(void) { return (int)S->batt_mv; }
 int proto_usb(void) { return (int)S->usb; }
 int proto_bt_state(void) { return S->bt_paired ? 2 : (S->bt_on ? 1 : 0); }
 /* démarrage précédent : r[0] démarrages depuis l'allumage, r[1] cause (RB_PEXIT), r[2] durée en s, r[3] étape, r[4] marqueur, r[5] charge max */
+/* état de l'affichage et de l'audio en direct (INFO « ui ») : images dessinées, abandons du 2e cœur, blocs audio, coupures, MHz */
+void proto_live(u32 *r)
+{
+    u32 clock_mhz(void);
+    r[0] = RB[23]; r[1] = RB[RB_C1STALL]; r[2] = RB[RB_HALVES]; r[3] = RB[RB_OVERLOADS]; r[4] = clock_mhz(); r[5] = (u32)core1_alive();
+}
 void proto_last_reset(u32 *r)
 {
     r[0] = RB[RB_BOOTS]; r[1] = RB[RB_PEXIT]; r[2] = RB[RB_PUP] / 375u; r[3] = RB[RB_PSTAGE]; r[4] = RB[RB_PMARK]; r[5] = RB[RB_PLOAD];
@@ -1194,6 +1235,7 @@ void fw_main(void)
             if (++idle > 3000000u) {                                /* horloge audio arrêtée */
                 RB[RB_TIMEOUTS] += 1;
                 idle = 0;
+                { static u32 dg_shown; if (!RB[RB_HALVES] && !dg_shown) { dg_shown = 1; lcd_diag_audio(); } }   /* l'audio n'a jamais démarré */
                 hc595_write((RB[RB_TIMEOUTS] & 1) ? 0x01 : 0x00);
                 wdt_clear();
                 if (!(PORT(PA)[R_IN] & (1u << 3))) go_uboot(5);   /* audio arrêté + FS gauche : secours */

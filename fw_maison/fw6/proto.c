@@ -121,6 +121,14 @@ static void send_info(void)
         jkv_n("upS", (s32)r[2], 1); jkv_n("stage", (s32)r[3], 1); jkv_n("mark", (s32)r[4], 1); jkv_n("load", (s32)r[5], 0);
         js("},");
     }
+    {   /* affichage / audio en direct (diagnostic « figé sur le logo ») */
+        void proto_live(u32 *r);
+        u32 r[6];
+        proto_live(r);
+        js("\"ui\":{"); jkv_n("frames", (s32)r[0], 1); jkv_n("c1stall", (s32)r[1], 1); jkv_n("blocks", (s32)r[2], 1);
+        jkv_n("overloads", (s32)r[3], 1); jkv_n("mhz", (s32)r[4], 1); jkv_n("core2", (s32)r[5], 0);
+        js("},");
+    }
     jkv_n("memFreeKB", (s32)(engine_mem_free() >> 10), 1);
     jkv_s("curPreset", preset_name, 1);
     jkv_n("curIndex", preset_index, 1);

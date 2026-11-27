@@ -136,3 +136,5 @@ const u16 *core1_render_peek(u32 *hash)
     return RJ->s[c % RJ_SLOTS].px;
 }
 void core1_render_pop(void) { csync(); RJ->cons = RJ->cons + 1; if (RJ->cons >= RJ_TOTAL) RJ->active = 0; csync(); }
+/* abandon du rendu en cours (le 1er cœur finit l'image lui-même) */
+void core1_render_abort(void) { csync(); RJ->active = 0; csync(); }
