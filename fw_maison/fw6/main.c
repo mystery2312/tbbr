@@ -48,7 +48,7 @@ enum { RB_MAGIC = 0, RB_BOOTS, RB_STAGE, RB_HALVES, RB_EXIT, RB_OVERRUNS, RB_TIM
 #define RB_OVERLOADS 20                         /* nombre de coupures pour surcharge (RB[17..19] déjà pris) */
 enum { RB_PEXIT = 26, RB_PUP, RB_PSTAGE, RB_PMARK, RB_PLOAD };   /* démarrage précédent : cause, durée (blocs), étape, marqueur, charge max */
 #define FW_MAGIC 0x46573452u                    /* "R4WF" */
-#define FW_VERSION "TBBR fw6 0.19"
+#define FW_VERSION "TBBR fw6 0.20"
 #define FW_MHZ 396                                      /* horloge processeur (clock.c) */
 #include "catalog.h"
 #include "engine.h"
@@ -92,6 +92,7 @@ struct st {
     /* USB / Bluetooth */
     u32 usb, sof_last, sof_stable, bt_on, bt_paired, hold_home;
     u32 hold_cat; s32 hold_cat_key;              /* maintien d'une touche FX..CAB = gestion des blocs */
+    u32 stuck, stuck0, stuck_init;               /* boutons lus « appuyés » dès le démarrage : ignorés jusqu'au 1er relâchement */
     /* écran */
     u32 dirty, drawing, pix, d_fx, d_bypass, d_bar, d_load;
 };
@@ -282,8 +283,11 @@ static u32 r_c1;                                                    /* image en 
 /* Garde-fou (rapport utilisateur, fw6 0.13 : pédale figée sur le logo, audio / LED / USB normaux) : si le 2e cœur ne fournit
    plus de morceau pendant ~1 s, le 1er cœur finit l'image et dessine seul ensuite. Sans cela, une image jamais terminée
    laisse le logo affiché pour toujours. RB[31] = nombre d'abandons (INFO « ui.c1stall »). */
-#define RB_C1STALL 31
+#define RB_C1STALL 31                                               /* bits 0..15 : abandons ; bits 16..23 : redémarrages anormaux de suite */
 static u32 c1_bad, c1_last;
+/* mode sans échec : 3 redémarrages anormaux de suite (chien de garde / plantage) -> ni effets, ni 2e cœur, ni changement
+   d'horloge, ni boutons ; écran « SAFE MODE » + cause ; l'USB reste actif pour l'installateur et l'app. */
+static u32 safe_mode;
 static void lcd_frame_start(void)
 {
     d_engver = engine_version();
@@ -345,23 +349,34 @@ static void lcd_splash(void)
 /* écran de diagnostic, dessiné tout de suite (l'audio peut être arrêté) : « AUDIO NOT STARTED », étape, démarrage précédent */
 static char *dg_num(char *p, u32 v) { char t[11]; int n = 0; do { t[n++] = (char)('0' + v % 10); v /= 10; } while (v); while (n) *p++ = t[--n]; *p = 0; return p; }
 static char *dg_str(char *p, const char *s) { while (*s) *p++ = *s++; *p = 0; return p; }
-static void lcd_diag_audio(void)
+static const char *dg_why(u32 pe)
+{
+    static const char *const why[] = { "power", "fs", "?", "home", "update", "audio" };
+    return pe == 0xFF ? "watchdog" : (pe < 6 ? why[pe] : "?");
+}
+/* « last restart: watchdog 2 s st6 m5 » : cause, durée, étape et marqueur du démarrage précédent */
+static void dg_prev(char *p)
+{
+    p = dg_str(p, "last restart: "); p = dg_str(p, dg_why(RB[RB_PEXIT])); p = dg_str(p, " ");
+    p = dg_num(p, RB[RB_PUP] / 375u); p = dg_str(p, "s st"); p = dg_num(p, RB[RB_PSTAGE]); p = dg_str(p, " m"); dg_num(p, RB[RB_PMARK]);
+}
+u32 raw_buttons_now(void);
+static void lcd_diag(const char *title)
 {
     void ui_diag(const char *title, const char *const *lines, int n), wdt_clear(void);
-    static const char *const why[] = { "power", "fs", "?", "home", "update", "audio" };
-    static char l0[32], l1[40], l2[40], l3[40];
+    static char l0[40], l1[48], l2[40], l3[40];
     const char *lines[6];
-    u32 pe = RB[RB_PEXIT];
     char *p;
-    p = dg_str(l0, "stage "); p = dg_num(p, RB[RB_STAGE]); p = dg_str(p, "  timeouts "); dg_num(p, RB[RB_TIMEOUTS]);
-    p = dg_str(l1, "prev boot: "); p = dg_str(p, pe == 0xFF ? "watchdog" : (pe < 6 ? why[pe] : "?"));
-    p = dg_str(p, " "); p = dg_num(p, RB[RB_PUP] / 375u); dg_str(p, " s");
-    p = dg_str(l2, "boots "); p = dg_num(p, RB[RB_BOOTS]); p = dg_str(p, "  core2 "); dg_str(p, core1_alive() ? "ok" : "off");
+    p = dg_str(l0, "stage "); p = dg_num(p, RB[RB_STAGE]); p = dg_str(p, "  timeouts "); p = dg_num(p, RB[RB_TIMEOUTS]);
+    p = dg_str(p, "  crashes "); dg_num(p, RB[RB_C1STALL] >> 16);
+    dg_prev(l1);
+    p = dg_str(l2, "boots "); p = dg_num(p, RB[RB_BOOTS]); p = dg_str(p, "  core2 "); p = dg_str(p, core1_alive() ? "ok" : "off");
+    p = dg_str(p, "  keys "); dg_num(p, raw_buttons_now());
     p = dg_str(l3, FW_VERSION);
     lines[0] = l0; lines[1] = l1; lines[2] = l2; lines[3] = l3;
     lines[4] = "Photo this screen for support.";
     lines[5] = "Update: power on holding HOME.";
-    ui_diag("AUDIO NOT STARTED", lines, 6);
+    ui_diag(title, lines, 6);
     r_c1 = 0; span_ok = 0; S->pix = 0; S->drawing = 1;
     while (S->drawing) { lcd_step(); if ((S->pix & 63) == 0) wdt_clear(); }
     S->dirty = 1;
@@ -646,6 +661,7 @@ static u32 raw_buttons(void)
     if (!(ph >> 6 & 1)) m |= 1u << B_PARA;                          /* appui de l'encodeur PARA (PH06) */
     return m;
 }
+u32 raw_buttons_now(void) { return raw_buttons(); }                 /* diagnostic : boutons lus appuyés en ce moment (masque B_*) */
 /* encodeur PARA : A/B = PC00/PC01 (quadrature), un cran = 4 transitions ; appelé souvent (boucle et blocs audio) */
 static const signed char ENC_T[16] = { 0, -1, 1, 0, 1, 0, 0, -1, -1, 0, 0, 1, 0, 1, -1, 0 };
 static void encoder_poll(void)
@@ -661,7 +677,12 @@ static void encoder_poll(void)
 }
 static u32 button_events(void)
 {
-    u32 raw = raw_buttons(), ev = 0, b;
+    u32 r0 = raw_buttons(), raw, ev = 0, b;
+    /* rapport utilisateur (2026-11-27) : accordeur affiché au démarrage = deux footswitchs lus appuyés sans appui.
+       Un bouton déjà « appuyé » au 1er passage est ignoré tant qu'il n'a pas été relâché (INFO ui.stuck). */
+    if (!S->stuck_init) { S->stuck_init = 1; S->stuck = S->stuck0 = r0; }
+    S->stuck &= r0;
+    raw = r0 & ~S->stuck;
     for (b = 0; b < B_NB; b++) {
         u32 now = raw >> b & 1;
         if (now == S->bstate[b]) { S->bcnt[b] = 0; continue; }
@@ -712,6 +733,7 @@ static void housekeeping(u32 pk)
     u32 ev, e;
     (void)pk;
     S->tick++;
+    if (S->tick == 7500) RB[RB_C1STALL] &= 0xFFFFu;                  /* 20 s sans incident : série de redémarrages anormaux remise à 0 */
     encoder_poll();
     if ((S->tick & 3) == 0) S->ladder = adc_read(9);
     if ((S->tick & 255) == 200) {                                   /* USB actif = les trames SOF de l'hôte avancent */
@@ -742,6 +764,7 @@ static void housekeeping(u32 pk)
         if (db != S->master_db) { if (S->master_init) ui_master(db); S->master_db = db; S->master_init = 1; }
     }
     RB[RB_LADDER] = S->ladder;
+    if (safe_mode) return;                                           /* mode sans échec : boutons et LED ignorés */
     ev = button_events();
     /* encodeur PARA : crans, appui (relâché avant 600 ms), maintien (bypass) */
     while (S->enc_pend > 0) { ui_para_turn(-1); S->enc_pend--; }     /* sens inversé : horaire = suivant (retour utilisateur) */
@@ -1144,7 +1167,8 @@ int proto_bt_state(void) { return S->bt_paired ? 2 : (S->bt_on ? 1 : 0); }
 void proto_live(u32 *r)
 {
     u32 clock_mhz(void);
-    r[0] = RB[23]; r[1] = RB[RB_C1STALL]; r[2] = RB[RB_HALVES]; r[3] = RB[RB_OVERLOADS]; r[4] = clock_mhz(); r[5] = (u32)core1_alive();
+    r[0] = RB[23]; r[1] = RB[RB_C1STALL] & 0xFFFFu; r[2] = RB[RB_HALVES]; r[3] = RB[RB_OVERLOADS]; r[4] = clock_mhz(); r[5] = (u32)core1_alive();
+    r[6] = RB[RB_C1STALL] >> 16; r[7] = safe_mode; r[8] = S->stuck0; r[9] = raw_buttons();
 }
 void proto_last_reset(u32 *r)
 {
@@ -1171,6 +1195,12 @@ void fw_main(void)
        RB_PEXIT = 0 coupure / allumage, 0xFF arrêt sans sortie propre (chien de garde, plantage), sinon code de go_uboot */
     if (RB[RB_MAGIC] != FW_MAGIC) { for (i = 0; i < 32; i++) RB[i] = 0; RB[RB_MAGIC] = FW_MAGIC; }
     else { RB[RB_PEXIT] = RB[RB_EXIT] ? RB[RB_EXIT] : 0xFF; RB[RB_PUP] = RB[RB_HALVES]; RB[RB_PSTAGE] = RB[RB_STAGE]; RB[RB_PMARK] = RB[18]; RB[RB_PLOAD] = RB[RB_LOADMAX]; }
+    {   /* série de redémarrages anormaux (0xFF = ni coupure ni sortie volontaire) -> mode sans échec à la 3e */
+        u32 n = RB[RB_C1STALL] >> 16;
+        n = RB[RB_PEXIT] == 0xFF ? (n < 255 ? n + 1 : 255) : 0;
+        RB[RB_C1STALL] = (RB[RB_C1STALL] & 0xFFFFu) | (n << 16);
+        safe_mode = n >= 3;
+    }
     RB[RB_BOOTS] += 1; RB[RB_EXIT] = 0; RB[RB_STAGE] = 1;
     RB[RB_HALVES] = 0; RB[RB_OVERRUNS] = 0; RB[RB_PEAKIN] = 0; RB[RB_LOADMAX] = 0;
     { u32 *s = (u32 *)S; for (i = 0; i < sizeof(struct st) / 4; i++) s[i] = 0; }
@@ -1189,6 +1219,12 @@ void fw_main(void)
     hc595_write(0x7F);
     RB[RB_STAGE] = 2;
     lcd_init();
+    {   /* sous le logo : cause du redémarrage précédent s'il n'était pas normal (photo = diagnostic) */
+        static char note[56];
+        void ui_splash_note(const char *s);
+        u32 pe = RB[RB_PEXIT];
+        if (pe && pe != 4) { dg_prev(note); ui_splash_note(note); }  /* 4 = mise à jour (normal) */
+    }
     lcd_splash();                                                    /* logo BIG BLACK RIG, puis affichage allumé */
     RB[RB_STAGE] = 3;
     audio_start();
@@ -1199,10 +1235,17 @@ void fw_main(void)
     /* 360 MHz (SPL) -> 396 MHz (clock.c). APRÈS l'init audio/USB : passé avant audio_start(), l'entrée
        guitare arrivait sur l'autre canal du mot stéréo (temporisations par boucles plus courtes) -> plus de son. */
     *(volatile u32 *)0x1C72000u = 0;                                 /* MB->alive (core1.c) : le 2e cœur n'est pas encore lancé */
-    { int clock_set_mhz(u32 mhz); clock_set_mhz(FW_MHZ); }
-    { int core1_start(void); RB[19] = (u32)core1_start(); }           /* 2e cœur (NAM) ; RB[19] = 0 s'il a démarré */
-    { void proto_boot(void); proto_boot(); }                         /* table + dernier preset sauvé (sinon « Init ») */
-    { int bt_load(void); int b = bt_load(); S->bt_on = b > 0; S->bt_paired = b == 2; ui_bt_set((int)S->bt_on, (int)S->bt_paired); }
+    if (safe_mode) {                                                 /* sans échec : son direct, réglages lus, rien d'autre */
+        void proto_boot_safe(void);
+        engine_clear();
+        proto_boot_safe();
+        lcd_diag("SAFE MODE (3 restarts)");
+    } else {
+        { int clock_set_mhz(u32 mhz); clock_set_mhz(FW_MHZ); }
+        { int core1_start(void); RB[19] = (u32)core1_start(); }       /* 2e cœur (NAM) ; RB[19] = 0 s'il a démarré */
+        { void proto_boot(void); proto_boot(); }                     /* table + dernier preset sauvé (sinon « Init ») */
+        { int bt_load(void); int b = bt_load(); S->bt_on = b > 0; S->bt_paired = b == 2; ui_bt_set((int)S->bt_on, (int)S->bt_paired); }
+    }
     RB[RB_STAGE] = 6;                                           /* stockage : initialisé à la première commande (storage.c) */
 
     for (;;) {
@@ -1225,7 +1268,7 @@ void fw_main(void)
             encoder_poll();
             S->drew = 1;
             if ((++idle & 0x3FF) == 0) wdt_clear();
-        } else if (S->dirty && !S->calib && RB[RB_HALVES] >= 700) {   /* logo de démarrage : >= 2 s (700 blocs = 1,87 s + l'init avant l'audio) */
+        } else if (S->dirty && !S->calib && !safe_mode && RB[RB_HALVES] >= 700) {   /* logo de démarrage : >= 2 s (700 blocs = 1,87 s + l'init avant l'audio) */
             lcd_frame_start();
             S->drew = 1;
         } else {
@@ -1235,7 +1278,7 @@ void fw_main(void)
             if (++idle > 3000000u) {                                /* horloge audio arrêtée */
                 RB[RB_TIMEOUTS] += 1;
                 idle = 0;
-                { static u32 dg_shown; if (!RB[RB_HALVES] && !dg_shown) { dg_shown = 1; lcd_diag_audio(); } }   /* l'audio n'a jamais démarré */
+                { static u32 dg_shown; if (!RB[RB_HALVES] && !dg_shown) { dg_shown = 1; lcd_diag("AUDIO NOT STARTED"); } }   /* l'audio n'a jamais démarré */
                 hc595_write((RB[RB_TIMEOUTS] & 1) ? 0x01 : 0x00);
                 wdt_clear();
                 if (!(PORT(PA)[R_IN] & (1u << 3))) go_uboot(5);   /* audio arrêté + FS gauche : secours */

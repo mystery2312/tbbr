@@ -507,6 +507,8 @@ static void save_do(void)
 }
 
 /* ---------------- écran de démarrage : logo de l'app (icône .brand-mark + BIG BLACK RIG, BLACK en gras) ---------------- */
+static const char *splash_note;                                      /* ligne de diagnostic sous le logo (redémarrage anormal) */
+void ui_splash_note(const char *s) { splash_note = s; }
 void ui_splash(void)
 {
     const float s = 3.0f, ox = W / 2.0f - 16 * s, oy = 70 - 16 * s;  /* icône 32 x 32 de l'app, x3, centrée */
@@ -523,6 +525,7 @@ void ui_splash(void)
     gfx_text(&F_logo, x + wa, Q4(160), C_TX, 255, "B", 0);
     gfx_text(&F_logo, x + wa + wb, Q4(160), C_TX2, 255, "C", 0);
     gfx_text(&F_mono11, Q4(W / 2.0f), Q4(214), C_TX3, 255, "M-VAVE BLACKBOX", 1);
+    if (splash_note) gfx_text_fit(&F_mono11, Q4(W / 2.0f), Q4(234), C_WARN, splash_note, Q4(W - 12), 1);
 }
 
 /* écran de diagnostic (panne au démarrage) : titre + lignes de texte, dessiné par main.c même sans audio */

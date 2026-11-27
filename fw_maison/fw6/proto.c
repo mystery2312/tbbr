@@ -123,10 +123,11 @@ static void send_info(void)
     }
     {   /* affichage / audio en direct (diagnostic « figé sur le logo ») */
         void proto_live(u32 *r);
-        u32 r[6];
+        u32 r[10];
         proto_live(r);
         js("\"ui\":{"); jkv_n("frames", (s32)r[0], 1); jkv_n("c1stall", (s32)r[1], 1); jkv_n("blocks", (s32)r[2], 1);
-        jkv_n("overloads", (s32)r[3], 1); jkv_n("mhz", (s32)r[4], 1); jkv_n("core2", (s32)r[5], 0);
+        jkv_n("overloads", (s32)r[3], 1); jkv_n("mhz", (s32)r[4], 1); jkv_n("core2", (s32)r[5], 1);
+        jkv_n("crashes", (s32)r[6], 1); jkv_n("safe", (s32)r[7], 1); jkv_n("stuck", (s32)r[8], 1); jkv_n("keys", (s32)r[9], 0);
         js("},");
     }
     jkv_n("memFreeKB", (s32)(engine_mem_free() >> 10), 1);
@@ -625,6 +626,8 @@ static int factory_wipe(void)
     return err ? -1 : 0;
 }
 static void ir_crc_update(int s);
+/* mode sans échec (main.c) : réglages globaux lus, aucun preset chargé, rien d'écrit */
+void proto_boot_safe(void) { meta_load(); preset_index = 0; }
 void proto_boot(void)
 {
     meta_load();
