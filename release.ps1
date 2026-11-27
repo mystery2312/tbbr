@@ -1,4 +1,4 @@
-# release.ps1 : publie une nouvelle version sur GitHub (code + release + site).
+﻿# release.ps1 : publie une nouvelle version sur GitHub (code + release + site).
 # Avant : changer FW_VERSION dans fw_maison\fw6\main.c ("TBBR fw6 x.y") et "version" dans electron\package.json ("x.y.0").
 # Usage : powershell -ExecutionPolicy Bypass -File blackbox\release.ps1 [-NoBuild] [-Notes "texte"]
 param([switch]$NoBuild, [string]$Notes = "")
@@ -34,7 +34,7 @@ try {
     Copy-Item $app (Join-Path $tmp 'BlackBox_TBBR_App.exe')                  # noms fixes : liens « latest/download » stables
     Copy-Item installer\dist\BlackBox_TBBR_Installer.exe, "installer\dist\$pkg", $apk $tmp
     $sums = Get-ChildItem $tmp | ForEach-Object { "{0}  {1}" -f (Get-FileHash $_.FullName).Hash.ToLower(), $_.Name }
-    $body = "## TBBR $ver`n`n$Notes`n`n- **BlackBox_TBBR_App.exe** : app de bureau (éditeur + installateur). Les utilisateurs de l'app sont prévenus automatiquement.`n- **$pkg** : paquet de mise à jour du firmware ($($fw[1].Value) $($fw[2].Value)).`n- **BlackBox_TBBR_Installer.exe** : installateur seul.`n- **TBBR_Android.apk** : app Android (éditeur USB OTG).`n`n### SHA-256`n``````n$($sums -join "`n")`n``````"
+    $body = "## TBBR $ver`n`n$Notes`n`n- **BlackBox_TBBR_App.exe** : app de bureau (éditeur + installateur). Les utilisateurs de l'app sont prévenus automatiquement.`n- **$pkg** : paquet de mise à jour du firmware ($($fw[1].Value) $($fw[2].Value)).`n- **BlackBox_TBBR_Installer.exe** : installateur seul.`n- **TBBR_Android.apk** : app Android (éditeur USB OTG).`n`n### SHA-256`n```````n$($sums -join "`n")`n``````"
     $nf = Join-Path $tmp 'notes.md'; [IO.File]::WriteAllText($nf, $body, (New-Object Text.UTF8Encoding($false)))
     node tools\release_manifest.js $tmp stable $nf; if ($LASTEXITCODE) { throw "manifeste de mise à jour" }   # TBBR_update.json : mises à jour auto (Windows, Android)
     gh release create $tag (Join-Path $tmp 'BlackBox_TBBR_App.exe') (Join-Path $tmp 'BlackBox_TBBR_Installer.exe') (Join-Path $tmp $pkg) (Join-Path $tmp 'TBBR_Android.apk') (Join-Path $tmp 'TBBR_update.json') --repo $repo --title "TBBR $ver" --notes-file $nf --target main --latest; if ($LASTEXITCODE) { throw "création de la release échouée" }

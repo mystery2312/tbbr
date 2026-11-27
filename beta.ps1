@@ -1,4 +1,4 @@
-# beta.ps1 : construit et publie une version beta sur le depot prive tbbr-beta.
+﻿# beta.ps1 : construit et publie une version beta sur le depot prive tbbr-beta.
 # Le depot public mystery2312/tbbr n'est jamais touche par ce script.
 # Usage : powershell -ExecutionPolicy Bypass -File blackbox\beta.ps1 [-NoBuild] [-NoPush] [-Notes "texte"]
 # Avant : mettre une version beta dans electron\package.json (ex. "0.9.5-beta.1")
