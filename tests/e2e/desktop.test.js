@@ -51,15 +51,15 @@ test('app de bureau + pédale émulée : connexion USB, modification sauvée dan
 
 test('mise à jour auto : détectée, téléchargée et vérifiée, « Redémarrer maintenant » remplace l\'exe et relance', async () => {
   const gh = await fakeGitHub(), exe = portableExe();
-  await publish(gh, '0.9.7', NEW_EXE);
+  await publish(gh, '99.0.0', NEW_EXE);
   const d = await launchDesktop({ api: gh.api, exePath: exe });
   try {
     await waitState(d, 'ready');
     const s = await state(d);
-    assert.equal(s.version, '0.9.7'); assert.equal(s.canInstall, true);
+    assert.equal(s.version, '99.0.0'); assert.equal(s.canInstall, true);
     const banner = d.page.locator('#appUpdBanner[data-state="ready"]');
     await banner.waitFor({ timeout: 5000 });
-    assert.match(await banner.innerText(), /0\.9\.7/);
+    assert.match(await banner.innerText(), /99\.0\.0/);
     assert.deepEqual(fs.readFileSync(exe), OLD_EXE, 'exe remplacé avant le clic');
     const closed = new Promise(r => d.app.once('close', r));
     await banner.locator('.upd-go').click();
@@ -72,7 +72,7 @@ test('mise à jour auto : détectée, téléchargée et vérifiée, « Redémarr
 
 test('mise à jour auto : prête mais pas installée -> installée à la fermeture de l\'app, puis plus proposée', async () => {
   const gh = await fakeGitHub(), exe = portableExe();
-  await publish(gh, '0.9.7', NEW_EXE);
+  await publish(gh, '99.0.0', NEW_EXE);
   const d = await launchDesktop({ api: gh.api, exePath: exe });
   try { await waitState(d, 'ready'); } finally { await d.close(); }
   assert.deepEqual(fs.readFileSync(exe), NEW_EXE, 'exe non remplacé à la fermeture');
@@ -86,7 +86,7 @@ test('mise à jour auto : prête mais pas installée -> installée à la fermetu
 
 test('mise à jour auto : fichier altéré sur le serveur -> refusé, rien d\'installé, pas de bannière', async () => {
   const gh = await fakeGitHub(), exe = portableExe();
-  await publish(gh, '0.9.7', NEW_EXE, Buffer.concat([NEW_EXE.subarray(0, NEW_EXE.length - 1), Buffer.from([NEW_EXE.at(-1) ^ 1])]));
+  await publish(gh, '99.0.0', NEW_EXE, Buffer.concat([NEW_EXE.subarray(0, NEW_EXE.length - 1), Buffer.from([NEW_EXE.at(-1) ^ 1])]));
   const d = await launchDesktop({ api: gh.api, exePath: exe });
   try {
     await waitState(d, 'error');
@@ -99,7 +99,7 @@ test('mise à jour auto : fichier altéré sur le serveur -> refusé, rien d\'in
 
 test('app lancée hors exe portable : la nouvelle version est annoncée avec un lien, sans téléchargement', async () => {
   const gh = await fakeGitHub();
-  await publish(gh, '0.9.7', NEW_EXE);
+  await publish(gh, '99.0.0', NEW_EXE);
   const d = await launchDesktop({ api: gh.api, exePath: null });
   try {
     await waitState(d, 'available');
